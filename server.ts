@@ -34,6 +34,60 @@ let stats = {
   activeAgents: ["Trend Scout Agent", "Writer Agent", "Evaluator Agent"],
 };
 
+// ──────────────────────────────────────────────────────────────────────────────
+// Agent Tool: HackerNews Live RSS Feed Fetcher
+// ──────────────────────────────────────────────────────────────────────────────
+async function fetchHackerNewsHeadlines(
+  maxItems: number = 20
+): Promise<{ title: string; link: string; description: string }[]> {
+  try {
+    const res = await fetch("https://news.ycombinator.com/rss", {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; NewsletterBot/1.0)" },
+    });
+    const xml = await res.text();
+    const items: { title: string; link: string; description: string }[] = [];
+    const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+    let match;
+
+    while ((match = itemRegex.exec(xml)) !== null) {
+      const block = match[1];
+      const titleMatch = /<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i.exec(block);
+      const linkMatch = /<link>(https?:\/\/[^\s<]+)<\/link>/.exec(block);
+      const descMatch = /<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i.exec(block);
+
+      if (titleMatch?.[1] && linkMatch?.[1]) {
+        const title = titleMatch[1]
+          .replace(/&amp;/g, "&")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'")
+          .trim();
+
+        if (title.toLowerCase() === "hacker news") continue;
+
+        items.push({
+          title,
+          link: linkMatch[1].trim(),
+          description: (descMatch?.[1] || "")
+            .replace(/<[^>]*>/g, "")
+            .replace(/&amp;/g, "&")
+            .substring(0, 250)
+            .trim(),
+        });
+      }
+
+      if (items.length >= maxItems) break;
+    }
+
+    console.log(`[HN Tool] Fetched ${items.length} live headlines from HackerNews RSS.`);
+    return items;
+  } catch (err) {
+    console.error("[HN Tool] RSS fetch failed:", err);
+    return [];
+  }
+}
+
 // API Route: Get Server Configuration & Stats
 app.get("/api/status", (req, res) => {
   res.json({
@@ -64,64 +118,137 @@ app.post("/api/generate", async (req, res) => {
   };
 
   try {
-    // ---- 1. AGENT A (TREND SCOUT) ACTIVATION ----
+    // ──────────────────────────────────────────────────────────────────────────
+    // 1. AGENT A (TREND SCOUT) — LIVE TOOL USE via Gemini Function Calling
+    // ──────────────────────────────────────────────────────────────────────────
     addLog("System", "Waking up active agents...");
     addLog("Trend Scout", `Trend Scout initialized. Target Niche: "${targetNiche}"`);
-    addLog("Trend Scout", "Querying HackerNews API simulator & looking up recent high-engagement threads...");
 
     let trendingTopics: { title: string; description: string; points: number }[] = [];
 
     if (ai) {
-      addLog("Trend Scout", "Consulting Gemini intelligence to simulate and fetch the latest hot HackerNews threads for niche...");
-      try {
-        const hnsResult = await ai.models.generateContent({
-          model: "gemini-3.5-flash",
-          contents: `You are Agent A (The Trend Scout). Retrieve 3 highly realistic, highly technical, and popular hypothetical or actual recent HackerNews trending topic headlines and details about "${targetNiche}". 
-Generate a JSON output matching this schema:
-{
-  "topics": [
-    {
-      "title": "A short, engaging HackerNews style title",
-      "description": "A 1-to-2 sentence detailed overview of why this technology matters, the technical breakthrough, or discussion highlights.",
-      "points": 142
-    }
-  ]
-}`,
-          config: {
-            responseMimeType: "application/json",
-            responseSchema: {
+      // ── Define the HackerNews RSS Tool for Gemini ──
+      const hnToolDeclaration = {
+        functionDeclarations: [
+          {
+            name: "fetch_hackernews_headlines",
+            description:
+              "Fetches the latest real-time trending developer headlines directly from the HackerNews RSS feed. Use this to discover live, up-to-date tech stories and discussions.",
+            parameters: {
               type: Type.OBJECT,
               properties: {
-                topics: {
-                  type: Type.ARRAY,
-                  items: {
-                    type: Type.OBJECT,
-                    properties: {
-                      title: { type: Type.STRING },
-                      description: { type: Type.STRING },
-                      points: { type: Type.INTEGER },
-                    },
-                    required: ["title", "description", "points"],
-                  },
+                max_items: {
+                  type: Type.INTEGER,
+                  description: "How many raw headlines to retrieve from the feed (default 20, max 30).",
                 },
               },
-              required: ["topics"],
+              required: [],
             },
           },
+        ],
+      };
+
+      const scoutMissionPrompt = `You are Agent A (The Trend Scout), an autonomous AI research agent equipped with a live HackerNews RSS tool.
+
+Your mission:
+1. Call the fetch_hackernews_headlines tool to retrieve the latest live HN headlines.
+2. Analyze all returned headlines and select exactly 5 that are most technically relevant to: "${targetNiche}"
+3. EXCLUDE: job postings ("Who's Hiring"), "Ask HN" general threads, and non-technical opinion pieces.
+4. INCLUDE: Technical breakthroughs, new open-source tools, engineering post-mortems, system design discussions.
+5. For each story, write a 1-2 sentence technical summary explaining why it matters to developers in "${targetNiche}".
+6. Assign an engagement score (50-600) based on technical depth and niche relevance.`;
+
+      addLog("Trend Scout", "🔧 Registering tool: fetch_hackernews_headlines → HackerNews RSS Live Feed");
+      addLog("Trend Scout", "Calling tool autonomously to fetch live developer stories...");
+
+      try {
+        // ── Turn 1: Agent A reasons about its mission and calls the tool ──
+        const turn1 = await ai.models.generateContent({
+          model: "gemini-3.5-flash",
+          contents: [{ role: "user", parts: [{ text: scoutMissionPrompt }] }],
+          config: { tools: [hnToolDeclaration] },
         });
 
-        const data = JSON.parse(hnsResult.text || "{}");
-        if (data.topics && Array.isArray(data.topics)) {
-          trendingTopics = data.topics;
+        const fnCalls = turn1.functionCalls;
+
+        if (fnCalls && fnCalls.length > 0) {
+          const fc = fnCalls[0];
+          const maxItems = typeof fc.args?.max_items === "number" ? (fc.args.max_items as number) : 20;
+
+          addLog("Trend Scout", `✅ Tool call approved: "${fc.name}" (max_items=${maxItems}). Connecting to HN RSS...`);
+
+          // ── Execute the real HackerNews RSS fetch ──
+          const rawHeadlines = await fetchHackerNewsHeadlines(maxItems);
+          addLog(
+            "Trend Scout",
+            `📡 Live feed returned ${rawHeadlines.length} raw stories. Agent A filtering for "${targetNiche}" relevance...`
+          );
+
+          // ── Turn 2: Feed tool results back → Agent A filters & returns structured JSON ──
+          const turn2 = await ai.models.generateContent({
+            model: "gemini-3.5-flash",
+            contents: [
+              { role: "user", parts: [{ text: scoutMissionPrompt }] },
+              { role: "model", parts: turn1.candidates![0].content.parts },
+              {
+                role: "user",
+                parts: [
+                  {
+                    functionResponse: {
+                      name: fc.name,
+                      response: { headlines: rawHeadlines },
+                    },
+                  },
+                ],
+              },
+            ],
+            config: {
+              responseMimeType: "application/json",
+              responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                  topics: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        title: { type: Type.STRING },
+                        description: { type: Type.STRING },
+                        points: { type: Type.INTEGER },
+                      },
+                      required: ["title", "description", "points"],
+                    },
+                  },
+                },
+                required: ["topics"],
+              },
+            },
+          });
+
+          const parsed = JSON.parse(turn2.text || "{}");
+          if (parsed.topics && Array.isArray(parsed.topics) && parsed.topics.length > 0) {
+            trendingTopics = parsed.topics;
+            addLog(
+              "Trend Scout",
+              `✅ Distilled ${trendingTopics.length} top-tier stories from live HN feed via autonomous tool use.`
+            );
+          }
+        } else {
+          // Model responded directly without calling the tool — try parsing JSON
+          try {
+            const directParsed = JSON.parse(turn1.text || "{}");
+            if (directParsed.topics) trendingTopics = directParsed.topics;
+          } catch (_) {}
         }
-      } catch (err: any) {
-        console.error("Gemini Scout Agent failed to generate topics, falling back to rule-based: ", err);
+      } catch (toolErr: any) {
+        console.error("[Agent A] Tool-calling error:", toolErr);
+        addLog("Trend Scout", `⚠️ Tool error: ${toolErr.message}. Switching to niche-matched simulation mode.`);
       }
     }
 
+    // ── Fallback: Niche-matched simulated topics (no key / tool failure) ──
     if (trendingTopics.length === 0) {
-      addLog("Trend Scout", "Offline mode active. Emulating HackerNews scrapers with customized niche templates...");
-      // Bulletproof fallbacks for standard niches
+      addLog("Trend Scout", "Offline mode active. Emulating HackerNews scrapers with niche-matched templates...");
       if (targetNiche.toLowerCase().includes("web3") || targetNiche.toLowerCase().includes("crypto")) {
         trendingTopics = [
           {
@@ -140,7 +267,11 @@ Generate a JSON output matching this schema:
             points: 189,
           },
         ];
-      } else if (targetNiche.toLowerCase().includes("ai") || targetNiche.toLowerCase().includes("agent") || targetNiche.toLowerCase().includes("learn")) {
+      } else if (
+        targetNiche.toLowerCase().includes("ai") ||
+        targetNiche.toLowerCase().includes("agent") ||
+        targetNiche.toLowerCase().includes("learn")
+      ) {
         trendingTopics = [
           {
             title: "Show HN: Model-Context Protocol (MCP) clients built entirely in Rust",
@@ -180,10 +311,13 @@ Generate a JSON output matching this schema:
     }
 
     trendingTopics.forEach((t, idx) => {
-      addLog("Trend Scout", `[Topic #${idx + 1}] Found popular thread: "${t.title}" (Score: ${t.points} points)`);
+      addLog("Trend Scout", `[Topic #${idx + 1}] Found: "${t.title}" (Score: ${t.points} points)`);
     });
 
-    addLog("Trend Scout", `Successfully compiled 3 primary trending source bullets for niche: "${targetNiche}". Passing data payload to Agent B (The Writer).`);
+    addLog(
+      "Trend Scout",
+      `Successfully compiled ${trendingTopics.length} primary trending stories for niche: "${targetNiche}". Passing data payload to Agent B (The Writer).`
+    );
 
     // ---- 2. AGENT B (THE WRITER) ACTIVATION ----
     addLog("Writer", "Writer Agent activated. Awaiting data transfer...");
