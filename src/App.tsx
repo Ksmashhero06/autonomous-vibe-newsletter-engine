@@ -414,8 +414,13 @@ export default function App() {
       <header className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 sticky top-0 z-40 px-4 sm:px-6 py-4 flex flex-col lg:flex-row justify-between items-center gap-4 shadow-xs transition-colors duration-200">
         <div className="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-start">
           <div className="flex items-center gap-3">
-            <div className="bg-[#1D63ED] p-2.5 rounded-xl text-white shadow-md shadow-blue-500/10">
-              <Layers className="h-5 w-5" />
+            <div className="h-10 w-10 rounded-xl overflow-hidden shadow-md shrink-0 border border-slate-100 dark:border-slate-800 bg-[#1D63ED]">
+              <img 
+                src="/src/assets/images/newsletter_logo_1781618675903.jpg" 
+                alt="Logo" 
+                className="w-full h-full object-cover shrink-0 select-none"
+                referrerPolicy="no-referrer"
+              />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
