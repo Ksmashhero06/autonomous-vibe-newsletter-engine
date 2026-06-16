@@ -1,6 +1,6 @@
 {
-  "name": "Vibe Newsletter Engine",
-  "description": "An autonomous multi-agent technical newsletter engine powered by Gemini.",
+  "name": "Autonomous Tech Newsletter Control Center",
+  "description": "A control center and autonomous multi-agent cockpit for compiling, writing, and evaluating tech newsletters on custom niches using Gemini, with a downloadable off-grid Streamlit Python script.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
