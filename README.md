@@ -6,6 +6,15 @@ Designed for robust self-hosted local execution, this system bypasses heavy clou
 
 ---
 
+## 📚 What’s being covered?
+- **Day 1: Introduction to Agents & Vibe Coding**: Level up from AI chatbots and text completion to autonomous agents. Master vibe coding workflows where natural language is the primary programming interface.
+- **Day 2: Agent Tools & Interoperability**: Explore unlimited capabilities by integrating external APIs, code execution, and agent to agent communication.
+- **Day 3: Agent Skills**: Build personalized agents with long-term memory and state. Master strategies for long context and optimal token use and building skills with agents to integrate into agentic frameworks.
+- **Day 4: Vibe Coding Agent Security and Evaluation**: Develop reliable agents by implementing rigorous testing, guardrails, and quality evaluations. Secure agents against new threat vectors.
+- **Day 5: Spec-Driven Production Grade Development in the Age of Vibe Coding**: Graduate your local agents into a governed, scalable, and observable production-ready fleet. Master cloud deployment, debugging, and observability.
+
+---
+
 ## 🌟 Visual & Aesthetic Identity
 
 Moving away from the overdone black-and-neon "hacker matrix" theme, this engine features a **Classic Trust-Centered Enterprise Palette**:

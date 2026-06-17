@@ -163,6 +163,302 @@ async function fetchHackerNewsHeadlines(
   }
 }
 
+async function fetchGoogleBlogHeadlines(
+  maxItems: number = 10
+): Promise<{ title: string; link: string; description: string }[]> {
+  try {
+    const res = await fetch("https://blog.google/rss/", {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; NewsletterBot/1.0)" },
+    });
+    const xml = await res.text();
+    const items: { title: string; link: string; description: string }[] = [];
+    const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+    let match;
+
+    while ((match = itemRegex.exec(xml)) !== null) {
+      const block = match[1];
+      const titleMatch = /<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i.exec(block);
+      const linkMatch = /<link>(https?:\/\/[^\s<]+)<\/link>/.exec(block);
+      const descMatch = /<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i.exec(block);
+
+      if (titleMatch?.[1] && linkMatch?.[1]) {
+        const title = titleMatch[1]
+          .replace(/&amp;/g, "&")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'")
+          .trim();
+
+        items.push({
+          title,
+          link: linkMatch[1].trim(),
+          description: (descMatch?.[1] || "")
+            .replace(/<[^>]*>/g, "")
+            .replace(/&amp;/g, "&")
+            .substring(0, 250)
+            .trim(),
+        });
+      }
+
+      if (items.length >= maxItems) break;
+    }
+
+    console.log(`[Google Blog Tool] Fetched ${items.length} live headlines from Google RSS.`);
+    return items;
+  } catch (err) {
+    console.error("[Google Blog Tool] RSS fetch failed:", err);
+    return [];
+  }
+}
+
+async function fetchOpenAIBlogHeadlines(
+  maxItems: number = 10
+): Promise<{ title: string; link: string; description: string }[]> {
+  try {
+    const res = await fetch("https://openai.com/news/rss.xml", {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; NewsletterBot/1.0)" },
+    });
+    const xml = await res.text();
+    const items: { title: string; link: string; description: string }[] = [];
+    const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+    let match;
+
+    while ((match = itemRegex.exec(xml)) !== null) {
+      const block = match[1];
+      const titleMatch = /<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i.exec(block);
+      const linkMatch = /<link>(https?:\/\/[^\s<]+)<\/link>/.exec(block);
+      const descMatch = /<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i.exec(block);
+
+      if (titleMatch?.[1] && linkMatch?.[1]) {
+        const title = titleMatch[1]
+          .replace(/&amp;/g, "&")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'")
+          .trim();
+
+        items.push({
+          title,
+          link: linkMatch[1].trim(),
+          description: (descMatch?.[1] || "")
+            .replace(/<[^>]*>/g, "")
+            .replace(/&amp;/g, "&")
+            .substring(0, 250)
+            .trim(),
+        });
+      }
+
+      if (items.length >= maxItems) break;
+    }
+
+    console.log(`[OpenAI News Tool] Fetched ${items.length} live headlines from OpenAI RSS.`);
+    return items;
+  } catch (err) {
+    console.error("[OpenAI News Tool] RSS fetch failed:", err);
+    return [];
+  }
+}
+
+async function fetchZohoBlogHeadlines(
+  maxItems: number = 10
+): Promise<{ title: string; link: string; description: string }[]> {
+  try {
+    const res = await fetch("https://www.zoho.com/blog/feed/", {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; NewsletterBot/1.0)" },
+    });
+    const xml = await res.text();
+    const items: { title: string; link: string; description: string }[] = [];
+    const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+    let match;
+
+    while ((match = itemRegex.exec(xml)) !== null) {
+      const block = match[1];
+      const titleMatch = /<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i.exec(block);
+      const linkMatch = /<link>(https?:\/\/[^\s<]+)<\/link>/.exec(block);
+      const descMatch = /<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i.exec(block);
+
+      if (titleMatch?.[1] && linkMatch?.[1]) {
+        const title = titleMatch[1]
+          .replace(/&amp;/g, "&")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'")
+          .trim();
+
+        items.push({
+          title,
+          link: linkMatch[1].trim(),
+          description: (descMatch?.[1] || "")
+            .replace(/<[^>]*>/g, "")
+            .replace(/&amp;/g, "&")
+            .substring(0, 250)
+            .trim(),
+        });
+      }
+
+      if (items.length >= maxItems) break;
+    }
+
+    console.log(`[Zoho Blog Tool] Fetched ${items.length} live headlines from Zoho RSS.`);
+    return items;
+  } catch (err) {
+    console.error("[Zoho Blog Tool] RSS fetch failed:", err);
+    return [];
+  }
+}
+
+async function fetchMetaBlogHeadlines(
+  maxItems: number = 10
+): Promise<{ title: string; link: string; description: string }[]> {
+  try {
+    const res = await fetch("https://research.facebook.com/feed/", {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; NewsletterBot/1.0)" },
+    });
+    const xml = await res.text();
+    const items: { title: string; link: string; description: string }[] = [];
+    const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+    let match;
+
+    while ((match = itemRegex.exec(xml)) !== null) {
+      const block = match[1];
+      const titleMatch = /<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i.exec(block);
+      const linkMatch = /<link>(https?:\/\/[^\s<]+)<\/link>/.exec(block);
+      const descMatch = /<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i.exec(block);
+
+      if (titleMatch?.[1] && linkMatch?.[1]) {
+        const title = titleMatch[1]
+          .replace(/&amp;/g, "&")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'")
+          .trim();
+
+        items.push({
+          title,
+          link: linkMatch[1].trim(),
+          description: (descMatch?.[1] || "")
+            .replace(/<[^>]*>/g, "")
+            .replace(/&amp;/g, "&")
+            .substring(0, 250)
+            .trim(),
+        });
+      }
+
+      if (items.length >= maxItems) break;
+    }
+
+    console.log(`[Meta Blog Tool] Fetched ${items.length} live headlines from Meta RSS.`);
+    return items;
+  } catch (err) {
+    console.error("[Meta Blog Tool] RSS fetch failed:", err);
+    return [];
+  }
+}
+
+async function fetchNetflixBlogHeadlines(
+  maxItems: number = 10
+): Promise<{ title: string; link: string; description: string }[]> {
+  try {
+    const res = await fetch("https://netflixtechblog.com/feed", {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; NewsletterBot/1.0)" },
+    });
+    const xml = await res.text();
+    const items: { title: string; link: string; description: string }[] = [];
+    const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+    let match;
+
+    while ((match = itemRegex.exec(xml)) !== null) {
+      const block = match[1];
+      const titleMatch = /<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i.exec(block);
+      const linkMatch = /<link>(https?:\/\/[^\s<]+)<\/link>/.exec(block);
+      const descMatch = /<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i.exec(block);
+
+      if (titleMatch?.[1] && linkMatch?.[1]) {
+        const title = titleMatch[1]
+          .replace(/&amp;/g, "&")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'")
+          .trim();
+
+        items.push({
+          title,
+          link: linkMatch[1].trim(),
+          description: (descMatch?.[1] || "")
+            .replace(/<[^>]*>/g, "")
+            .replace(/&amp;/g, "&")
+            .substring(0, 250)
+            .trim(),
+        });
+      }
+
+      if (items.length >= maxItems) break;
+    }
+
+    console.log(`[Netflix TechBlog Tool] Fetched ${items.length} live headlines from Netflix RSS.`);
+    return items;
+  } catch (err) {
+    console.error("[Netflix TechBlog Tool] RSS fetch failed:", err);
+    return [];
+  }
+}
+
+async function fetchAWSBlogHeadlines(
+  maxItems: number = 10
+): Promise<{ title: string; link: string; description: string }[]> {
+  try {
+    const res = await fetch("https://aws.amazon.com/blogs/aws/feed/", {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; NewsletterBot/1.0)" },
+    });
+    const xml = await res.text();
+    const items: { title: string; link: string; description: string }[] = [];
+    const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+    let match;
+
+    while ((match = itemRegex.exec(xml)) !== null) {
+      const block = match[1];
+      const titleMatch = /<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i.exec(block);
+      const linkMatch = /<link>(https?:\/\/[^\s<]+)<\/link>/.exec(block);
+      const descMatch = /<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i.exec(block);
+
+      if (titleMatch?.[1] && linkMatch?.[1]) {
+        const title = titleMatch[1]
+          .replace(/&amp;/g, "&")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'")
+          .trim();
+
+        items.push({
+          title,
+          link: linkMatch[1].trim(),
+          description: (descMatch?.[1] || "")
+            .replace(/<[^>]*>/g, "")
+            .replace(/&amp;/g, "&")
+            .substring(0, 250)
+            .trim(),
+        });
+      }
+
+      if (items.length >= maxItems) break;
+    }
+
+    console.log(`[AWS Blog Tool] Fetched ${items.length} live headlines from AWS RSS.`);
+    return items;
+  } catch (err) {
+    console.error("[AWS Blog Tool] RSS fetch failed:", err);
+    return [];
+  }
+}
+
+
+
 // API Route: Get Server Configuration & Stats
 app.get("/api/status", (req, res) => {
   res.json({
@@ -244,17 +540,143 @@ app.post("/api/generate", async (req, res) => {
         ],
       };
 
+      // ── Define the Google Blog Tool for Gemini ──
+      const googleToolDeclaration = {
+        functionDeclarations: [
+          {
+            name: "fetch_google_blog_headlines",
+            description:
+              "Fetches the latest official engineering, research, and developer announcements directly from the Google Blog RSS feed. Use this to find Google-specific tech releases.",
+            parameters: {
+              type: Type.OBJECT,
+              properties: {
+                max_items: {
+                  type: Type.INTEGER,
+                  description: "How many raw headlines to retrieve (default 10, max 20).",
+                },
+              },
+              required: [],
+            },
+          },
+        ],
+      };
+
+      // ── Define the OpenAI News Tool for Gemini ──
+      const openaiToolDeclaration = {
+        functionDeclarations: [
+          {
+            name: "fetch_openai_blog_headlines",
+            description:
+              "Fetches the latest research milestones, model releases, and company news directly from the OpenAI News RSS feed. Use this to discover AI developments from OpenAI.",
+            parameters: {
+              type: Type.OBJECT,
+              properties: {
+                max_items: {
+                  type: Type.INTEGER,
+                  description: "How many raw headlines to retrieve (default 10, max 20).",
+                },
+              },
+              required: [],
+            },
+          },
+        ],
+      };
+
+      // ── Define the Zoho Blog Tool for Gemini ──
+      const zohoToolDeclaration = {
+        functionDeclarations: [
+          {
+            name: "fetch_zoho_blog_headlines",
+            description:
+              "Fetches the latest business software and engineering updates directly from the Zoho Blog RSS feed. Use this for Zoho product and cloud updates.",
+            parameters: {
+              type: Type.OBJECT,
+              properties: {
+                max_items: {
+                  type: Type.INTEGER,
+                  description: "How many raw headlines to retrieve (default 10, max 20).",
+                },
+              },
+              required: [],
+            },
+          },
+        ],
+      };
+
+      // ── Define the Meta Research RSS Tool for Gemini ──
+      const metaToolDeclaration = {
+        functionDeclarations: [
+          {
+            name: "fetch_meta_blog_headlines",
+            description:
+              "Fetches the latest artificial intelligence research publications and technical breakthroughs from the Meta Research RSS feed. Use this to track Meta's AI research updates.",
+            parameters: {
+              type: Type.OBJECT,
+              properties: {
+                max_items: {
+                  type: Type.INTEGER,
+                  description: "How many raw headlines to retrieve (default 10, max 20).",
+                },
+              },
+              required: [],
+            },
+          },
+        ],
+      };
+
+      // ── Define the Netflix TechBlog RSS Tool for Gemini ──
+      const netflixToolDeclaration = {
+        functionDeclarations: [
+          {
+            name: "fetch_netflix_blog_headlines",
+            description:
+              "Fetches the latest engineering articles, backend developments, and cloud architecture posts from the Netflix TechBlog RSS feed. Use this for server-side scalability and microservice discussions.",
+            parameters: {
+              type: Type.OBJECT,
+              properties: {
+                max_items: {
+                  type: Type.INTEGER,
+                  description: "How many raw headlines to retrieve (default 10, max 20).",
+                },
+              },
+              required: [],
+            },
+          },
+        ],
+      };
+
+      // ── Define the AWS News RSS Tool for Gemini ──
+      const awsToolDeclaration = {
+        functionDeclarations: [
+          {
+            name: "fetch_aws_blog_headlines",
+            description:
+              "Fetches the latest cloud services announcements, AWS system design guides, and developer releases from the AWS News RSS feed. Use this for cloud compute, database, and infrastructure trends.",
+            parameters: {
+              type: Type.OBJECT,
+              properties: {
+                max_items: {
+                  type: Type.INTEGER,
+                  description: "How many raw headlines to retrieve (default 10, max 20).",
+                },
+              },
+              required: [],
+            },
+          },
+        ],
+      };
+
       const scoutMissionPrompt = `You are Agent A (The Trend Scout), an autonomous AI research agent equipped with live technology RSS feed tools.
 
 Your mission:
-1. Call the fetch_hackernews_headlines tool and/or the fetch_techcrunch_headlines tool to retrieve live technology news and developer trends.
+1. Call the appropriate tools (fetch_hackernews_headlines, fetch_techcrunch_headlines, fetch_google_blog_headlines, fetch_openai_blog_headlines, fetch_zoho_blog_headlines, fetch_meta_blog_headlines, fetch_netflix_blog_headlines, or fetch_aws_blog_headlines) to retrieve live technology news, developer trends, and product announcements.
 2. Analyze all returned headlines and select exactly 5 that are most technically relevant to: "${targetNiche}"
 3. EXCLUDE: job postings ("Who's Hiring"), generic marketing/business news, and non-technical opinion pieces.
 4. INCLUDE: Technical breakthroughs, startup engineering system design post-mortems, new open-source tools, system design discussions.
 5. For each story, write a 1-2 sentence technical summary explaining why it matters to developers in "${targetNiche}".
 6. Assign an engagement score (50-600) based on technical depth and niche relevance.`;
 
-      addLog("Trend Scout", "🔧 Registering tools: fetch_hackernews_headlines & fetch_techcrunch_headlines");
+      addLog("Trend Scout", "🔧 Registering tools: HackerNews, TechCrunch, Google, OpenAI, Zoho, Meta, Netflix, AWS");
       addLog("Trend Scout", "Calling tools autonomously to fetch live developer stories...");
 
       try {
@@ -262,7 +684,18 @@ Your mission:
         const turn1 = await ai.models.generateContent({
           model: "gemini-3.5-flash",
           contents: [{ role: "user", parts: [{ text: scoutMissionPrompt }] }],
-          config: { tools: [hnToolDeclaration, tcToolDeclaration] },
+          config: {
+            tools: [
+              hnToolDeclaration,
+              tcToolDeclaration,
+              googleToolDeclaration,
+              openaiToolDeclaration,
+              zohoToolDeclaration,
+              metaToolDeclaration,
+              netflixToolDeclaration,
+              awsToolDeclaration,
+            ],
+          },
         });
 
         const fnCalls = turn1.functionCalls;
@@ -278,6 +711,24 @@ Your mission:
           } else if (fc.name === "fetch_techcrunch_headlines") {
             addLog("Trend Scout", `✅ Tool call approved: "${fc.name}" (max_items=${maxItems}). Connecting to TechCrunch RSS...`);
             rawHeadlines = await fetchTechCrunchHeadlines(maxItems);
+          } else if (fc.name === "fetch_google_blog_headlines") {
+            addLog("Trend Scout", `✅ Tool call approved: "${fc.name}" (max_items=${maxItems}). Connecting to Google Blog RSS...`);
+            rawHeadlines = await fetchGoogleBlogHeadlines(maxItems);
+          } else if (fc.name === "fetch_openai_blog_headlines") {
+            addLog("Trend Scout", `✅ Tool call approved: "${fc.name}" (max_items=${maxItems}). Connecting to OpenAI News RSS...`);
+            rawHeadlines = await fetchOpenAIBlogHeadlines(maxItems);
+          } else if (fc.name === "fetch_zoho_blog_headlines") {
+            addLog("Trend Scout", `✅ Tool call approved: "${fc.name}" (max_items=${maxItems}). Connecting to Zoho Blog RSS...`);
+            rawHeadlines = await fetchZohoBlogHeadlines(maxItems);
+          } else if (fc.name === "fetch_meta_blog_headlines") {
+            addLog("Trend Scout", `✅ Tool call approved: "${fc.name}" (max_items=${maxItems}). Connecting to Meta Research RSS...`);
+            rawHeadlines = await fetchMetaBlogHeadlines(maxItems);
+          } else if (fc.name === "fetch_netflix_blog_headlines") {
+            addLog("Trend Scout", `✅ Tool call approved: "${fc.name}" (max_items=${maxItems}). Connecting to Netflix TechBlog RSS...`);
+            rawHeadlines = await fetchNetflixBlogHeadlines(maxItems);
+          } else if (fc.name === "fetch_aws_blog_headlines") {
+            addLog("Trend Scout", `✅ Tool call approved: "${fc.name}" (max_items=${maxItems}). Connecting to AWS Blog RSS...`);
+            rawHeadlines = await fetchAWSBlogHeadlines(maxItems);
           }
 
           addLog(
@@ -380,6 +831,21 @@ Your mission:
             points: 541,
           },
           {
+            title: "OpenAI launches GPT-5.5 with real-time semantic video streaming and sub-50ms latency",
+            description: "OpenAI news feed reports on major architectural shifts enabling multi-modal semantic streams to feed direct client sockets without intermediary transcription buffers.",
+            points: 612,
+          },
+          {
+            title: "Google introduces Gemini 2.5 Pro with native 10-million token context windows",
+            description: "Google Research details memory optimization via sparse attention mechanisms that permit native indexing of entire codebases in active memory.",
+            points: 588,
+          },
+          {
+            title: "Meta Research details LLaMA 4: 100T parameter model optimized for agentic tool use and complex reasoning",
+            description: "Meta Research blog details architectural updates including speculative decoding pipelines and low-rank adaptation techniques for edge devices.",
+            points: 575,
+          },
+          {
             title: "Is clean token-to-token streaming with low late-delivery possible over HTTP/3?",
             description: "Engineering team reviews benchmarks of QUIC protocol streams for feeding chunked real-time LLM reasoning traces to multiple client sockets.",
             points: 402,
@@ -392,6 +858,21 @@ Your mission:
         ];
       } else {
         trendingTopics = [
+          {
+            title: "Netflix TechBlog: Migrating a core streaming service from Java to Rust",
+            description: "Netflix engineers detail how migrating to Rust reduced CPU utilization by 40% and eliminated garbage collection latency spikes in high-throughput video metadata streams.",
+            points: 490,
+          },
+          {
+            title: "AWS News: Introducing Amazon ECS Serverless Containers with sub-second scaling",
+            description: "AWS details the new micro-VM technology enabling instant container startup and auto-scaling based on incoming socket pressure.",
+            points: 510,
+          },
+          {
+            title: "Zoho releases unified compiler for cloud orchestrations on serverless setups",
+            description: "Zoho Blog documents a custom Rust compiler that optimizes execution latency on Zoho cloud functions by tree-shaking dead runtime modules.",
+            points: 420,
+          },
           {
             title: `Advancements in ${targetNiche} Core Architectures`,
             description: "Developers debate if current paradigm shifts are sustainable for production workloads, pointing out bottlenecks in standard runtime environments.",
@@ -426,6 +907,7 @@ Your mission:
     addLog("Writer", "Formulating Markdown newsletter outline following the Tech Deep-Dive editorial format.");
 
     let draftContent = "";
+    let runSimulation = !ai;
 
     if (ai) {
       addLog("Writer", "Streaming memory verification request to Gemini model 'gemini-3.5-flash'...");
@@ -530,41 +1012,13 @@ Ensure the newsletter strictly adheres to this clean formatting:
         addLog("Writer", "Received 100% of text pipeline streams from Gemini. Preparing validation review.");
       } catch (err: any) {
         console.error("[Agent B] Error during Writer Agent workflow:", err);
-        addLog("Writer", `⚠️ Writer API Error: ${err.message}. Falling back to programmatic check...`);
-        
-        // Programmatic fallback
-        const pastIssues = getPastIssues();
-        const pastTitles = pastIssues.map(issue => issue.title.trim().toLowerCase());
-        const filteredTopics = trendingTopics.filter(t => !pastTitles.includes(t.title.trim().toLowerCase()));
-        
-        const selectedTopics = filteredTopics.slice(0, 3);
-        if (selectedTopics.length === 0) {
-          selectedTopics.push(...trendingTopics.slice(0, 3));
-        }
-
-        const fallbackPrompt = `You are Agent B (The Writer), an expert elite technical journalist. Write an incredibly detailed, comprehensive, high-quality, and deeply technical subscriber newsletter focusing on the target niche: "${targetNiche}".
-
-Base the newsletter on the following trend reports:
-${selectedTopics.map((t, idx) => `${idx + 1}. **${t.title}**: ${t.description}`).join("\n")}
-
-Ensure the newsletter strictly adheres to this clean formatting:
-- **Title**: A catchy, modern, elite email subject heading.
-- **Introduction**: A high-level view of current tech movements.
-- **Deep Dive sections**: Dedicate a rich, deeply technical section containing detailed write-ups (##).
-- **Conclusion**: A futuristic forward-looking wrap-up.`;
-
-        const turnFallback = await ai.models.generateContent({
-          model: "gemini-3.5-flash",
-          contents: fallbackPrompt,
-          config: {
-            systemInstruction: "You are an elite, highly esteemed engineering newsletter author and principal technical architect.",
-            temperature: 0.8,
-          }
-        });
-        draftContent = turnFallback.text || "";
+        addLog("Writer", `⚠️ Writer API Error: ${err.message}. Switching to offline Simulation Mode.`);
+        runSimulation = true;
       }
-    } else {
-      addLog("Writer", "⚠️ No actual Gemini Key was configured or provided. Working in Simulation Mode.");
+    }
+
+    if (runSimulation) {
+      addLog("Writer", "⚠️ Working in Simulation Mode.");
       addLog("Writer", "🔧 Tool call requested: 'check_past_issues' checking candidate titles...");
       
       const pastIssues = getPastIssues();

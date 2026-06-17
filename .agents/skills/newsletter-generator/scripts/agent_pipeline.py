@@ -43,21 +43,24 @@ from typing import Any
 # Bootstrap: Validate environment before importing the SDK
 # ──────────────────────────────────────────────────────────────────────────────
 
+simulate_mode = "--simulate" in sys.argv
+
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
-if not GEMINI_API_KEY:
+if not GEMINI_API_KEY and not simulate_mode:
     print("❌  GEMINI_API_KEY environment variable is not set.")
     print("    Set it with:  $env:GEMINI_API_KEY = 'your-key'  (PowerShell)")
     print("               or: export GEMINI_API_KEY='your-key'  (bash)")
+    print("    Alternatively, run in offline simulation mode: python agent_pipeline.py --simulate")
     sys.exit(1)
 
-try:
-    import google.generativeai as genai
-except ImportError:
-    print("❌  google-generativeai is not installed.")
-    print("    Run:  pip install google-generativeai")
-    sys.exit(1)
-
-genai.configure(api_key=GEMINI_API_KEY)
+if not simulate_mode:
+    try:
+        import google.generativeai as genai
+    except ImportError:
+        print("❌  google-generativeai is not installed.")
+        print("    Run:  pip install google-generativeai")
+        sys.exit(1)
+    genai.configure(api_key=GEMINI_API_KEY)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -188,6 +191,312 @@ def fetch_techcrunch_headlines(max_items: int = 15) -> dict[str, Any]:
     return {"headlines": headlines, "count": len(headlines)}
 
 
+def fetch_google_blog_headlines(max_items: int = 10) -> dict[str, Any]:
+    """
+    Agent A's tool. Fetches the latest headlines from the Google Blog RSS feed.
+    """
+    max_items = max(1, min(int(max_items), 20))
+    print(f"  [🔧 Tool] fetch_google_blog_headlines(max_items={max_items})")
+    print(f"  [🔧 Tool] → Connecting to https://blog.google/rss/ ...")
+
+    req = urllib.request.Request(
+        "https://blog.google/rss/",
+        headers={"User-Agent": "Mozilla/5.0 (compatible; NewsletterBot/1.0)"},
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=10) as response:
+            xml_content = response.read().decode("utf-8")
+    except Exception as exc:
+        print(f"  [🔧 Tool] ❌ Google Blog Fetch error: {exc}")
+        return {"headlines": [], "count": 0, "error": str(exc)}
+
+    try:
+        root = ET.fromstring(xml_content)
+    except ET.ParseError as exc:
+        return {"headlines": [], "count": 0, "error": f"XML parse error: {exc}"}
+
+    channel = root.find("channel")
+    if channel is None:
+        return {"headlines": [], "count": 0, "error": "No <channel> element in RSS"}
+
+    headlines = []
+    for item in channel.findall("item"):
+        title = (item.findtext("title") or "").strip()
+        link = (item.findtext("link") or "").strip()
+        description = (item.findtext("description") or "").strip()
+        
+        import re
+        description = re.sub(r'<[^>]*>', '', description)
+
+        headlines.append({
+            "title": title,
+            "link": link,
+            "description": description[:200] if description else "",
+        })
+
+        if len(headlines) >= max_items:
+            break
+
+    print(f"  [🔧 Tool] ✅ Retrieved {len(headlines)} raw headlines from Google Blog RSS.")
+    return {"headlines": headlines, "count": len(headlines)}
+
+
+def fetch_openai_blog_headlines(max_items: int = 10) -> dict[str, Any]:
+    """
+    Agent A's tool. Fetches the latest announcements from the OpenAI News RSS feed.
+    """
+    max_items = max(1, min(int(max_items), 20))
+    print(f"  [🔧 Tool] fetch_openai_blog_headlines(max_items={max_items})")
+    print(f"  [🔧 Tool] → Connecting to https://openai.com/news/rss.xml ...")
+
+    req = urllib.request.Request(
+        "https://openai.com/news/rss.xml",
+        headers={"User-Agent": "Mozilla/5.0 (compatible; NewsletterBot/1.0)"},
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=10) as response:
+            xml_content = response.read().decode("utf-8")
+    except Exception as exc:
+        print(f"  [🔧 Tool] ❌ OpenAI News Fetch error: {exc}")
+        return {"headlines": [], "count": 0, "error": str(exc)}
+
+    try:
+        root = ET.fromstring(xml_content)
+    except ET.ParseError as exc:
+        return {"headlines": [], "count": 0, "error": f"XML parse error: {exc}"}
+
+    channel = root.find("channel")
+    if channel is None:
+        return {"headlines": [], "count": 0, "error": "No <channel> element in RSS"}
+
+    headlines = []
+    for item in channel.findall("item"):
+        title = (item.findtext("title") or "").strip()
+        link = (item.findtext("link") or "").strip()
+        description = (item.findtext("description") or "").strip()
+        
+        import re
+        description = re.sub(r'<[^>]*>', '', description)
+
+        headlines.append({
+            "title": title,
+            "link": link,
+            "description": description[:200] if description else "",
+        })
+
+        if len(headlines) >= max_items:
+            break
+
+    print(f"  [🔧 Tool] ✅ Retrieved {len(headlines)} raw headlines from OpenAI News RSS.")
+    return {"headlines": headlines, "count": len(headlines)}
+
+
+def fetch_zoho_blog_headlines(max_items: int = 10) -> dict[str, Any]:
+    """
+    Agent A's tool. Fetches the latest posts from the Zoho Blog RSS feed.
+    """
+    max_items = max(1, min(int(max_items), 20))
+    print(f"  [🔧 Tool] fetch_zoho_blog_headlines(max_items={max_items})")
+    print(f"  [🔧 Tool] → Connecting to https://www.zoho.com/blog/feed/ ...")
+
+    req = urllib.request.Request(
+        "https://www.zoho.com/blog/feed/",
+        headers={"User-Agent": "Mozilla/5.0 (compatible; NewsletterBot/1.0)"},
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=10) as response:
+            xml_content = response.read().decode("utf-8")
+    except Exception as exc:
+        print(f"  [🔧 Tool] ❌ Zoho Blog Fetch error: {exc}")
+        return {"headlines": [], "count": 0, "error": str(exc)}
+
+    try:
+        root = ET.fromstring(xml_content)
+    except ET.ParseError as exc:
+        return {"headlines": [], "count": 0, "error": f"XML parse error: {exc}"}
+
+    channel = root.find("channel")
+    if channel is None:
+        return {"headlines": [], "count": 0, "error": "No <channel> element in RSS"}
+
+    headlines = []
+    for item in channel.findall("item"):
+        title = (item.findtext("title") or "").strip()
+        link = (item.findtext("link") or "").strip()
+        description = (item.findtext("description") or "").strip()
+        
+        import re
+        description = re.sub(r'<[^>]*>', '', description)
+
+        headlines.append({
+            "title": title,
+            "link": link,
+            "description": description[:200] if description else "",
+        })
+
+        if len(headlines) >= max_items:
+            break
+
+    print(f"  [🔧 Tool] ✅ Retrieved {len(headlines)} raw headlines from Zoho Blog RSS.")
+    return {"headlines": headlines, "count": len(headlines)}
+
+
+def fetch_meta_blog_headlines(max_items: int = 10) -> dict[str, Any]:
+    """
+    Agent A's tool. Fetches the latest research and engineering headlines from the Meta Research RSS feed.
+    """
+    max_items = max(1, min(int(max_items), 20))
+    print(f"  [🔧 Tool] fetch_meta_blog_headlines(max_items={max_items})")
+    print(f"  [🔧 Tool] → Connecting to https://research.facebook.com/feed/ ...")
+
+    req = urllib.request.Request(
+        "https://research.facebook.com/feed/",
+        headers={"User-Agent": "Mozilla/5.0 (compatible; NewsletterBot/1.0)"},
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=10) as response:
+            xml_content = response.read().decode("utf-8")
+    except Exception as exc:
+        print(f"  [🔧 Tool] ❌ Meta Blog Fetch error: {exc}")
+        return {"headlines": [], "count": 0, "error": str(exc)}
+
+    try:
+        root = ET.fromstring(xml_content)
+    except ET.ParseError as exc:
+        return {"headlines": [], "count": 0, "error": f"XML parse error: {exc}"}
+
+    channel = root.find("channel")
+    if channel is None:
+        return {"headlines": [], "count": 0, "error": "No <channel> element in RSS"}
+
+    headlines = []
+    for item in channel.findall("item"):
+        title = (item.findtext("title") or "").strip()
+        link = (item.findtext("link") or "").strip()
+        description = (item.findtext("description") or "").strip()
+        
+        import re
+        description = re.sub(r'<[^>]*>', '', description)
+
+        headlines.append({
+            "title": title,
+            "link": link,
+            "description": description[:200] if description else "",
+        })
+
+        if len(headlines) >= max_items:
+            break
+
+    print(f"  [🔧 Tool] ✅ Retrieved {len(headlines)} raw headlines from Meta Research RSS.")
+    return {"headlines": headlines, "count": len(headlines)}
+
+
+def fetch_netflix_blog_headlines(max_items: int = 10) -> dict[str, Any]:
+    """
+    Agent A's tool. Fetches the latest posts from the Netflix TechBlog RSS feed.
+    """
+    max_items = max(1, min(int(max_items), 20))
+    print(f"  [🔧 Tool] fetch_netflix_blog_headlines(max_items={max_items})")
+    print(f"  [🔧 Tool] → Connecting to https://netflixtechblog.com/feed ...")
+
+    req = urllib.request.Request(
+        "https://netflixtechblog.com/feed",
+        headers={"User-Agent": "Mozilla/5.0 (compatible; NewsletterBot/1.0)"},
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=10) as response:
+            xml_content = response.read().decode("utf-8")
+    except Exception as exc:
+        print(f"  [🔧 Tool] ❌ Netflix TechBlog Fetch error: {exc}")
+        return {"headlines": [], "count": 0, "error": str(exc)}
+
+    try:
+        root = ET.fromstring(xml_content)
+    except ET.ParseError as exc:
+        return {"headlines": [], "count": 0, "error": f"XML parse error: {exc}"}
+
+    channel = root.find("channel")
+    if channel is None:
+        return {"headlines": [], "count": 0, "error": "No <channel> element in RSS"}
+
+    headlines = []
+    for item in channel.findall("item"):
+        title = (item.findtext("title") or "").strip()
+        link = (item.findtext("link") or "").strip()
+        description = (item.findtext("description") or "").strip()
+        
+        import re
+        description = re.sub(r'<[^>]*>', '', description)
+
+        headlines.append({
+            "title": title,
+            "link": link,
+            "description": description[:200] if description else "",
+        })
+
+        if len(headlines) >= max_items:
+            break
+
+    print(f"  [🔧 Tool] ✅ Retrieved {len(headlines)} raw headlines from Netflix TechBlog RSS.")
+    return {"headlines": headlines, "count": len(headlines)}
+
+
+def fetch_aws_blog_headlines(max_items: int = 10) -> dict[str, Any]:
+    """
+    Agent A's tool. Fetches the latest announcements from the AWS News RSS feed.
+    """
+    max_items = max(1, min(int(max_items), 20))
+    print(f"  [🔧 Tool] fetch_aws_blog_headlines(max_items={max_items})")
+    print(f"  [🔧 Tool] → Connecting to https://aws.amazon.com/blogs/aws/feed/ ...")
+
+    req = urllib.request.Request(
+        "https://aws.amazon.com/blogs/aws/feed/",
+        headers={"User-Agent": "Mozilla/5.0 (compatible; NewsletterBot/1.0)"},
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=10) as response:
+            xml_content = response.read().decode("utf-8")
+    except Exception as exc:
+        print(f"  [🔧 Tool] ❌ AWS Blog Fetch error: {exc}")
+        return {"headlines": [], "count": 0, "error": str(exc)}
+
+    try:
+        root = ET.fromstring(xml_content)
+    except ET.ParseError as exc:
+        return {"headlines": [], "count": 0, "error": f"XML parse error: {exc}"}
+
+    channel = root.find("channel")
+    if channel is None:
+        return {"headlines": [], "count": 0, "error": "No <channel> element in RSS"}
+
+    headlines = []
+    for item in channel.findall("item"):
+        title = (item.findtext("title") or "").strip()
+        link = (item.findtext("link") or "").strip()
+        description = (item.findtext("description") or "").strip()
+        
+        import re
+        description = re.sub(r'<[^>]*>', '', description)
+
+        headlines.append({
+            "title": title,
+            "link": link,
+            "description": description[:200] if description else "",
+        })
+
+        if len(headlines) >= max_items:
+            break
+
+    print(f"  [🔧 Tool] ✅ Retrieved {len(headlines)} raw headlines from AWS Blog RSS.")
+    return {"headlines": headlines, "count": len(headlines)}
+
+
 def check_past_issues(titles: list[str]) -> dict[str, list[str]]:
     """
     Checks if any of the given article titles have already been covered in past issues of the newsletter.
@@ -229,6 +538,12 @@ def check_past_issues(titles: list[str]) -> dict[str, list[str]]:
 TOOL_REGISTRY: dict[str, callable] = {
     "fetch_hackernews_headlines": fetch_hackernews_headlines,
     "fetch_techcrunch_headlines": fetch_techcrunch_headlines,
+    "fetch_google_blog_headlines": fetch_google_blog_headlines,
+    "fetch_openai_blog_headlines": fetch_openai_blog_headlines,
+    "fetch_zoho_blog_headlines": fetch_zoho_blog_headlines,
+    "fetch_meta_blog_headlines": fetch_meta_blog_headlines,
+    "fetch_netflix_blog_headlines": fetch_netflix_blog_headlines,
+    "fetch_aws_blog_headlines": fetch_aws_blog_headlines,
     "check_past_issues": check_past_issues,
 }
 
@@ -278,6 +593,138 @@ TC_TOOL_DECLARATION = {
     ]
 }
 
+# Gemini function declaration (schema) for Agent A's Google blog tool
+GOOGLE_TOOL_DECLARATION = {
+    "function_declarations": [
+        {
+            "name": "fetch_google_blog_headlines",
+            "description": (
+                "Fetches the latest official engineering, research, and developer announcements directly "
+                "from the Google Blog RSS feed. Use this to find Google-specific tech releases."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "max_items": {
+                        "type": "integer",
+                        "description": "Number of headlines to retrieve (default: 10, max: 20).",
+                    }
+                },
+            },
+        }
+    ]
+}
+
+# Gemini function declaration (schema) for Agent A's OpenAI news tool
+OPENAI_TOOL_DECLARATION = {
+    "function_declarations": [
+        {
+            "name": "fetch_openai_blog_headlines",
+            "description": (
+                "Fetches the latest research milestones, model releases, and company news directly "
+                "from the OpenAI News RSS feed. Use this to discover AI developments from OpenAI."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "max_items": {
+                        "type": "integer",
+                        "description": "Number of headlines to retrieve (default: 10, max: 20).",
+                    }
+                },
+            },
+        }
+    ]
+}
+
+# Gemini function declaration (schema) for Agent A's Zoho blog tool
+ZOHO_TOOL_DECLARATION = {
+    "function_declarations": [
+        {
+            "name": "fetch_zoho_blog_headlines",
+            "description": (
+                "Fetches the latest business software and engineering updates directly "
+                "from the Zoho Blog RSS feed. Use this for Zoho product and cloud updates."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "max_items": {
+                        "type": "integer",
+                        "description": "Number of headlines to retrieve (default: 10, max: 20).",
+                    }
+                },
+            },
+        }
+    ]
+}
+
+# Gemini function declaration (schema) for Agent A's Meta Research blog tool
+META_TOOL_DECLARATION = {
+    "function_declarations": [
+        {
+            "name": "fetch_meta_blog_headlines",
+            "description": (
+                "Fetches the latest artificial intelligence research publications and technical breakthroughs "
+                "from the Meta Research RSS feed. Use this to track Meta's AI research updates."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "max_items": {
+                        "type": "integer",
+                        "description": "Number of headlines to retrieve (default: 10, max: 20).",
+                    }
+                },
+            },
+        }
+    ]
+}
+
+# Gemini function declaration (schema) for Agent A's Netflix TechBlog tool
+NETFLIX_TOOL_DECLARATION = {
+    "function_declarations": [
+        {
+            "name": "fetch_netflix_blog_headlines",
+            "description": (
+                "Fetches the latest engineering articles, backend developments, and cloud architecture posts "
+                "from the Netflix TechBlog RSS feed. Use this for server-side scalability and microservice discussions."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "max_items": {
+                        "type": "integer",
+                        "description": "Number of headlines to retrieve (default: 10, max: 20).",
+                    }
+                },
+            },
+        }
+    ]
+}
+
+# Gemini function declaration (schema) for Agent A's AWS blog tool
+AWS_TOOL_DECLARATION = {
+    "function_declarations": [
+        {
+            "name": "fetch_aws_blog_headlines",
+            "description": (
+                "Fetches the latest cloud services announcements, AWS system design guides, and developer releases "
+                "from the AWS News RSS feed. Use this for cloud compute, database, and infrastructure trends."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "max_items": {
+                        "type": "integer",
+                        "description": "Number of headlines to retrieve (default: 10, max: 20).",
+                    }
+                },
+            },
+        }
+    ]
+}
+
 # Gemini function declaration (schema) for Agent B's memory tool
 MEMORY_TOOL_DECLARATION = {
     "function_declarations": [
@@ -314,29 +761,65 @@ def dispatch_tool(name: str, args: dict) -> Any:
 # Agent A — Trend Scout (with Live Tool Use)
 # ──────────────────────────────────────────────────────────────────────────────
 
-def run_agent_a(niche: str, model_name: str) -> list[dict]:
+def run_agent_a(niche: str, model_name: str, simulate: bool = False) -> list[dict]:
     """
-    Agent A (Trend Scout): Autonomously fetches live HN headlines via its
-    registered tool, then filters and returns the top 5 most technically
+    Agent A (Trend Scout): Autonomously fetches live headlines via its
+    registered tools, then filters and returns the top 5 most technically
     relevant stories for the target niche.
-
-    Tool Use Flow:
-      Turn 1 → Agent A decides to call fetch_hackernews_headlines
-      Tool   → Python executes the real RSS fetch
-      Turn 2 → Agent A receives raw headlines and returns filtered top 5 as JSON
     """
     print("\n" + "─" * 64)
     print("🔍  AGENT A — TREND SCOUT: Activating...")
     print(f"    Niche: {niche}")
     print("─" * 64)
 
-    model = genai.GenerativeModel(model_name=model_name, tools=[HN_TOOL_DECLARATION, TC_TOOL_DECLARATION])
+    if simulate:
+        print("  [Agent A] Offline simulation mode active. Emulating scrapers with niche-matched templates...")
+        if "web3" in niche.lower() or "crypto" in niche.lower() or "contract" in niche.lower():
+            topics = [
+                {"title": "Solana State Compression: Reducing NFT minting costs by 100x via Merkle Trees", "description": "Deep dive into concurrent Merkle tree structures that store state off-chain while guaranteeing security through ledger signatures.", "points": 312},
+                {"title": "EVM Parallelization: Arbitrum and Monad Approaches", "description": "Analyzing architectural differences in executing non-conflicting Ethereum smart contracts simultaneously via speculative execution.", "points": 245},
+                {"title": "ZK-Rollups vs. Optimistic Rollups in 2026", "description": "A benchmark of cryptographic proof generation times and execution stability for real-time low-latency consumer applications.", "points": 189}
+            ]
+        elif "ai" in niche.lower() or "agent" in niche.lower() or "learn" in niche.lower():
+            topics = [
+                {"title": "Show HN: Model-Context Protocol (MCP) clients built entirely in Rust", "description": "A high-performance implementation of standard context management protocol for LLMs, eliminating TypeScript/Node overhead.", "points": 541},
+                {"title": "OpenAI launches GPT-5.5 with real-time semantic video streaming and sub-50ms latency", "description": "OpenAI news feed reports on major architectural shifts enabling multi-modal semantic streams to feed direct client sockets without intermediary transcription buffers.", "points": 612},
+                {"title": "Google introduces Gemini 2.5 Pro with native 10-million token context windows", "description": "Google Research details memory optimization via sparse attention mechanisms that permit native indexing of entire codebases in active memory.", "points": 588},
+                {"title": "Meta Research details LLaMA 4: 100T parameter model optimized for agentic tool use and complex reasoning", "description": "Meta Research blog details architectural updates including speculative decoding pipelines and low-rank adaptation techniques for edge devices.", "points": 575},
+                {"title": "Is clean token-to-token streaming with low late-delivery possible over HTTP/3?", "description": "Engineering team reviews benchmarks of QUIC protocol streams for feeding chunked real-time LLM reasoning traces to multiple client sockets.", "points": 402},
+                {"title": "Autonomous agents now manage $50k/day ad budgets with zero human overview", "description": "A critical review of standard feedback loop errors where autonomous models enter recursive spending traps due to misaligned reward targets.", "points": 288}
+            ]
+        else:
+            topics = [
+                {"title": "Netflix TechBlog: Migrating a core streaming service from Java to Rust", "description": "Netflix engineers detail how migrating to Rust reduced CPU utilization by 40% and eliminated garbage collection latency spikes in high-throughput video metadata streams.", "points": 490},
+                {"title": "AWS News: Introducing Amazon ECS Serverless Containers with sub-second scaling", "description": "AWS details the new micro-VM technology enabling instant container startup and auto-scaling based on incoming socket pressure.", "points": 510},
+                {"title": "Zoho releases unified compiler for cloud orchestrations on serverless setups", "description": "Zoho Blog documents a custom Rust compiler that optimizes execution latency on Zoho cloud functions by tree-shaking dead runtime modules.", "points": 420},
+                {"title": f"Advancements in {niche} Core Architectures", "description": "Developers debate if current paradigm shifts are sustainable for production workloads, pointing out bottlenecks in standard runtime environments.", "points": 154},
+                {"title": f"Show HN: Lightweight CLI for compiling {niche} assets", "description": "An open-source compiler written in Go that optimizes production bundles by omitting unused intermediate tree-shaking properties.", "points": 211},
+                {"title": f"Critical memory leaks found in default {niche} libraries", "description": "A detailed post-mortem documenting GC starvation issues when high volumes of asynchronous events are registered inside long-running loops.", "points": 388}
+            ]
+        print(f"\n  [Agent A] ✅ Successfully compiled {len(topics)} top stories.")
+        for i, t in enumerate(topics, 1):
+            print(f"    #{i}: {t.get('title')[:72]}...")
+            print(f"         Score: {t.get('points')} pts")
+        return topics
+
+    model = genai.GenerativeModel(model_name=model_name, tools=[
+        HN_TOOL_DECLARATION,
+        TC_TOOL_DECLARATION,
+        GOOGLE_TOOL_DECLARATION,
+        OPENAI_TOOL_DECLARATION,
+        ZOHO_TOOL_DECLARATION,
+        META_TOOL_DECLARATION,
+        NETFLIX_TOOL_DECLARATION,
+        AWS_TOOL_DECLARATION
+    ])
     chat = model.start_chat(enable_automatic_function_calling=False)
 
     scout_prompt = f"""You are Agent A (The Trend Scout), an autonomous AI research agent with access to live technology RSS feed tools.
 
 Your mission for this pipeline run:
-1. Call the fetch_hackernews_headlines tool and/or the fetch_techcrunch_headlines tool to retrieve the latest technology news and developer trends.
+1. Call the appropriate tools (fetch_hackernews_headlines, fetch_techcrunch_headlines, fetch_google_blog_headlines, fetch_openai_blog_headlines, fetch_zoho_blog_headlines, fetch_meta_blog_headlines, fetch_netflix_blog_headlines, or fetch_aws_blog_headlines) to retrieve the latest technology news, developer trends, company blog announcements, and product updates.
 2. Analyze ALL returned headlines and select exactly 5 that are most technically relevant to the niche: "{niche}"
 3. EXCLUDE: "Who's Hiring" job threads, generic marketing/business news, personal blogs with no technical depth.
 4. INCLUDE: Technical breakthroughs, new open-source tools/frameworks, startup engineering system design post-mortems, system architecture discussions, benchmark studies.
@@ -414,19 +897,107 @@ Respond with a JSON array of exactly 5 objects:
 # Agent B — Writer
 # ──────────────────────────────────────────────────────────────────────────────
 
-def run_agent_b(niche: str, topics: list[dict], model_name: str) -> str:
+def run_agent_b(niche: str, topics: list[dict], model_name: str, simulate: bool = False) -> str:
     """
     Agent B (The Writer): Receives Agent A's clean topic payload, calls its memory
     skill to filter out covered topics, and drafts a high-quality, deeply technical
     newsletter in Markdown format using uncovered stories.
-
-    Interoperability: Agent A → Agent B communication happens via structured
-    JSON (the 'topics' list), which serves as the inter-agent message contract.
     """
     print("\n" + "─" * 64)
     print("✍️   AGENT B — WRITER: Activating...")
     print(f"    Received {len(topics)} sourced stories from Agent A.")
     print("─" * 64)
+
+    if simulate:
+        print("  [Agent B] Offline simulation mode active. Calling memory check_past_issues...")
+        titles = [t.get("title", "") for t in topics]
+        result = check_past_issues(titles)
+        covered = result.get("covered_titles", [])
+        
+        if covered:
+            print(f"  [Agent B] Memory skill result: Covered topics found -> {covered}")
+            print(f"  [Agent B] Autonomously rejecting covered topic(s): {covered}")
+            print("  [Agent B] Autonomously selected alternative topics from Trend Scout list.")
+        else:
+            print("  [Agent B] Memory skill result: No covered topics found in current list.")
+            
+        uncovered_topics = [t for t in topics if t.get("title") not in covered]
+        if not uncovered_topics:
+            uncovered_topics = topics
+            
+        print("  [Agent B] Compiling high-fidelity pre-compiled template based on niche...")
+        simulated_sections = ""
+        for idx, t in enumerate(uncovered_topics[:3]):
+            if idx == 0:
+                simulated_sections += f"""
+## 1. 🔍 Deep Dive: {t['title']}
+
+### The Core Paradigm
+Developers have long struggled with scalability constraints. Modern approaches bypass standard synchronous locks by organizing execution threads speculatively.
+
+```rust
+// Simplified thread pool speculative partition schema
+struct SpeculativeScheduler {{
+    concurrency_limit: usize,
+    state_merkle_root: [u8; 32],
+}}
+
+impl SpeculativeScheduler {{
+    pub fn try_concurrent_exec(&self, txs: Vec<Transaction>) -> Result<Receipt, Error> {{
+        println!("Parsing spec-execution locks for {{}} transactions", txs.len());
+        Ok(Receipt::success())
+    }}
+}}
+```
+
+### Why it Matters
+- **100x Production Reductions**: Overcomes standard network transaction peaks.
+- **Off-chain Consistency**: Cryptographic state guarantees are fully preserved.
+"""
+            elif idx == 1:
+                simulated_sections += f"""
+## 2. ⚡ Deep Dive: {t['title']}
+
+{t['description']}
+
+### Benchmark Analytics
+
+| Indicator | Standard Model | Speculative Parallel |
+| :--- | :--- | :--- |
+| Latency (ms) | 125ms | **12ms** |
+| Throughput | 1,200 tps | **45,000 tps** |
+| Resource Load | 89% CPU | **34% CPU** |
+"""
+            else:
+                simulated_sections += f"""
+## {idx + 1}. 🔬 Deep Dive: {t['title']}
+
+{t['description']}
+
+### Architectural Impact
+This presents a major shift. By moving secondary orchestration details into lightweight compilers, we completely eliminate runtime performance hits.
+"""
+
+        draft = f"""# 🤖 The Autonomous {niche} Briefing
+
+Welcome to this week's technical briefing on **{niche}**, generated autonomously by our Multi-Agent Agentic Pipeline.
+
+---
+
+## ⚡ Current Market Momentum
+The tech landscape is shifting rapidly. Today we are exploring critical breakthroughs compiled from developers on the ground and leading HackerNews engineering threads. Here are our top focus areas for the week:
+
+---
+{simulated_sections}
+---
+
+## 🔮 Concluding Outlook & Analysis
+As we move deeper into this development cycle, separation of concerns is being enforced directly at the framework level. Moving business logic closer to specialized compilers is no longer a luxury—it is a strict production requirement.
+
+*This newsletter was compiled, drafted, and edited entirely by our Scout, Writer, and Evaluator Multi-Agent pipeline.*
+"""
+        print(f"  [Agent B] ✅ Draft complete ({len(draft):,} characters).")
+        return draft
 
     # Configure the model with system instruction and the check_past_issues tool
     model = genai.GenerativeModel(
@@ -517,7 +1088,7 @@ Tone: Expert Substack technical memo. No greetings. No filler. Start directly wi
 # Agent C — Compliance Evaluator
 # ──────────────────────────────────────────────────────────────────────────────
 
-def run_agent_c(niche: str, draft: str, model_name: str) -> dict:
+def run_agent_c(niche: str, draft: str, model_name: str, simulate: bool = False) -> dict:
     """
     Agent C (Compliance Critic): Audits the newsletter draft against a
     structured quality checklist and returns a stamped evaluation report.
@@ -525,6 +1096,27 @@ def run_agent_c(niche: str, draft: str, model_name: str) -> dict:
     print("\n" + "─" * 64)
     print("🔬  AGENT C — EVALUATOR: Activating...")
     print("─" * 64)
+
+    if simulate:
+        print("  [Agent C] Running simulated compliance and quality audit...")
+        print("  [Agent C] ✅ APPROVED")
+        print("  [Agent C] Score    : 95/100")
+        print("  [Agent C] Checks   : 7/7 passed")
+        print("  [Agent C] Notes    : Good technical depth and layout structure.")
+        return {
+            "passed": True,
+            "score": 95,
+            "checks": {
+                "title_present": True,
+                "introduction": True,
+                "deep_dives": True,
+                "code_or_table": True,
+                "conclusion": True,
+                "no_filler": True,
+                "expert_tone": True
+            },
+            "notes": "Good technical depth and layout structure."
+        }
 
     model = genai.GenerativeModel(model_name=model_name)
 
@@ -639,13 +1231,13 @@ def update_past_issues(niche: str, topics: list[dict], newsletter_content: str):
 # Pipeline Orchestrator
 # ──────────────────────────────────────────────────────────────────────────────
 
-def run_pipeline(niche: str = "AI & Agentic Frameworks", model_name: str = "gemini-1.5-flash") -> str:
+def run_pipeline(niche: str = "AI & Agentic Frameworks", model_name: str = "gemini-1.5-flash", simulate: bool = False) -> str:
     """
-    Orchestrates the full Day 2 multi-agent pipeline:
+    Orchestrates the full Day 3 multi-agent pipeline:
 
-        Agent A (Trend Scout + HN Tool)
+        Agent A (Trend Scout + HN/TC Tools)
             ↓  [clean topic payload — 5 structured stories]
-        Agent B (Writer)
+        Agent B (Writer + Memory check)
             ↓  [Markdown newsletter draft]
         Agent C (Evaluator)
             ↓  [stamped final newsletter]
@@ -657,26 +1249,28 @@ def run_pipeline(niche: str = "AI & Agentic Frameworks", model_name: str = "gemi
 
     print("\n" + "═" * 64)
     print("🤖  AUTONOMOUS NEWSLETTER ENGINE")
-    print("    Day 2: Agent Tools & Interoperability")
+    print("    Day 3: Agent Skills, Context & Memory")
     print(f"    Niche  : {niche}")
     print(f"    Model  : {model_name}")
+    if simulate:
+        print("    Mode   : OFFLINE SIMULATION MODE")
     print(f"    Started: {started_at.strftime('%Y-%m-%d %H:%M:%S')}")
     print("═" * 64)
 
     # ── Agent A: Scout with live HN tool ──
-    topics = run_agent_a(niche=niche, model_name=model_name)
+    topics = run_agent_a(niche=niche, model_name=model_name, simulate=simulate)
     if not topics:
         print("\n❌  Agent A returned no topics. Pipeline aborted.")
         return ""
 
     # ── Agent B: Writer — receives Agent A's payload ──
-    draft = run_agent_b(niche=niche, topics=topics, model_name=model_name)
+    draft = run_agent_b(niche=niche, topics=topics, model_name=model_name, simulate=simulate)
     if not draft:
         print("\n❌  Agent B produced no draft. Pipeline aborted.")
         return ""
 
     # ── Agent C: Evaluator ──
-    evaluation = run_agent_c(niche=niche, draft=draft, model_name=model_name)
+    evaluation = run_agent_c(niche=niche, draft=draft, model_name=model_name, simulate=simulate)
 
     # ── Update past issues memory ──
     update_past_issues(niche, topics, draft)
@@ -729,13 +1323,14 @@ Duration     : {elapsed}s
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Autonomous Newsletter Engine — Day 2 Multi-Agent Pipeline",
+        description="Autonomous Newsletter Engine — Day 3 Multi-Agent Pipeline",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   python agent_pipeline.py
   python agent_pipeline.py --niche "Rust Systems & WebAssembly"
   python agent_pipeline.py --niche "Edge AI & Distributed Compute" --model gemini-1.5-pro
+  python agent_pipeline.py --simulate
         """,
     )
     parser.add_argument(
@@ -748,9 +1343,14 @@ Examples:
         default="gemini-1.5-flash",
         help="Gemini model to use for all agents (default: gemini-1.5-flash)",
     )
+    parser.add_argument(
+        "--simulate",
+        action="store_true",
+        help="Run the pipeline in offline simulation mode without calling Gemini API",
+    )
     args = parser.parse_args()
 
-    result = run_pipeline(niche=args.niche, model_name=args.model)
+    result = run_pipeline(niche=args.niche, model_name=args.model, simulate=args.simulate)
 
     if result:
         # Print a short preview to the console
