@@ -129,6 +129,65 @@ def fetch_hackernews_headlines(max_items: int = 20) -> dict[str, Any]:
     return {"headlines": headlines, "count": len(headlines)}
 
 
+def fetch_techcrunch_headlines(max_items: int = 15) -> dict[str, Any]:
+    """
+    Agent A's tool. Fetches the latest headlines from the TechCrunch RSS feed.
+
+    Args:
+        max_items: Maximum number of headlines to retrieve (default 15, max 25).
+
+    Returns:
+        Dict with 'headlines' (list of {title, link, description}) and 'count'.
+    """
+    max_items = max(1, min(int(max_items), 25))
+    print(f"  [🔧 Tool] fetch_techcrunch_headlines(max_items={max_items})")
+    print(f"  [🔧 Tool] → Connecting to https://techcrunch.com/feed/ ...")
+
+    req = urllib.request.Request(
+        "https://techcrunch.com/feed/",
+        headers={"User-Agent": "Mozilla/5.0 (compatible; NewsletterBot/1.0)"},
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=10) as response:
+            xml_content = response.read().decode("utf-8")
+    except Exception as exc:
+        print(f"  [🔧 Tool] ❌ TechCrunch Fetch error: {exc}")
+        return {"headlines": [], "count": 0, "error": str(exc)}
+
+    # Parse RSS XML
+    try:
+        root = ET.fromstring(xml_content)
+    except ET.ParseError as exc:
+        return {"headlines": [], "count": 0, "error": f"XML parse error: {exc}"}
+
+    channel = root.find("channel")
+    if channel is None:
+        return {"headlines": [], "count": 0, "error": "No <channel> element in RSS"}
+
+    headlines = []
+    for item in channel.findall("item"):
+        title = (item.findtext("title") or "").strip()
+        link = (item.findtext("link") or "").strip()
+        description = (item.findtext("description") or "").strip()
+        
+        # Simple HTML tag removal
+        import re
+        description = re.sub(r'<[^>]*>', '', description)
+
+        headlines.append({
+            "title": title,
+            "link": link,
+            "description": description[:200] if description else "",
+        })
+
+        if len(headlines) >= max_items:
+            break
+
+    print(f"  [🔧 Tool] ✅ Retrieved {len(headlines)} raw headlines from TechCrunch RSS.")
+    return {"headlines": headlines, "count": len(headlines)}
+
+
 def check_past_issues(titles: list[str]) -> dict[str, list[str]]:
     """
     Checks if any of the given article titles have already been covered in past issues of the newsletter.
@@ -169,6 +228,7 @@ def check_past_issues(titles: list[str]) -> dict[str, list[str]]:
 
 TOOL_REGISTRY: dict[str, callable] = {
     "fetch_hackernews_headlines": fetch_hackernews_headlines,
+    "fetch_techcrunch_headlines": fetch_techcrunch_headlines,
     "check_past_issues": check_past_issues,
 }
 
@@ -191,6 +251,29 @@ HN_TOOL_DECLARATION = {
                     }
                 },
             },
+        }
+    ]
+}
+
+# Gemini function declaration (schema) for Agent A's TechCrunch tool
+TC_TOOL_DECLARATION = {
+    "function_declarations": [
+        {
+            "name": "fetch_techcrunch_headlines",
+            "description": (
+                "Fetches the latest technology news and startup headlines directly "
+                "from the TechCrunch RSS feed. Use this tool to discover startup movements, "
+                "tech news, funding rounds, and consumer tech reviews."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "max_items": {
+                        "type": "integer",
+                        "description": "Number of headlines to retrieve from the feed (default: 15, max: 25).",
+                    }
+                },
+              },
         }
     ]
 }
@@ -247,16 +330,16 @@ def run_agent_a(niche: str, model_name: str) -> list[dict]:
     print(f"    Niche: {niche}")
     print("─" * 64)
 
-    model = genai.GenerativeModel(model_name=model_name, tools=[HN_TOOL_DECLARATION])
+    model = genai.GenerativeModel(model_name=model_name, tools=[HN_TOOL_DECLARATION, TC_TOOL_DECLARATION])
     chat = model.start_chat(enable_automatic_function_calling=False)
 
-    scout_prompt = f"""You are Agent A (The Trend Scout), an autonomous AI research agent with access to a live HackerNews RSS feed tool.
+    scout_prompt = f"""You are Agent A (The Trend Scout), an autonomous AI research agent with access to live technology RSS feed tools.
 
 Your mission for this pipeline run:
-1. Call the fetch_hackernews_headlines tool to retrieve the latest live HN headlines.
+1. Call the fetch_hackernews_headlines tool and/or the fetch_techcrunch_headlines tool to retrieve the latest technology news and developer trends.
 2. Analyze ALL returned headlines and select exactly 5 that are most technically relevant to the niche: "{niche}"
-3. EXCLUDE: "Who's Hiring" job threads, "Ask HN" general discussions, personal blogs with no technical depth.
-4. INCLUDE: Technical breakthroughs, new open-source tools/frameworks, engineering post-mortems, system architecture discussions, benchmark studies.
+3. EXCLUDE: "Who's Hiring" job threads, generic marketing/business news, personal blogs with no technical depth.
+4. INCLUDE: Technical breakthroughs, new open-source tools/frameworks, startup engineering system design post-mortems, system architecture discussions, benchmark studies.
 5. For each selected story, write a 1–2 sentence technical summary explaining WHY it matters to developers in "{niche}".
 6. Assign an engagement score (50–600) based on technical depth and niche relevance.
 

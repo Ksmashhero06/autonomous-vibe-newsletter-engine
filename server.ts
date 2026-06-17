@@ -58,6 +58,58 @@ let stats = {
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
+// Agent Tool: TechCrunch Live RSS Feed Fetcher
+// ──────────────────────────────────────────────────────────────────────────────
+async function fetchTechCrunchHeadlines(
+  maxItems: number = 15
+): Promise<{ title: string; link: string; description: string }[]> {
+  try {
+    const res = await fetch("https://techcrunch.com/feed/", {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; NewsletterBot/1.0)" },
+    });
+    const xml = await res.text();
+    const items: { title: string; link: string; description: string }[] = [];
+    const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+    let match;
+
+    while ((match = itemRegex.exec(xml)) !== null) {
+      const block = match[1];
+      const titleMatch = /<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i.exec(block);
+      const linkMatch = /<link>(https?:\/\/[^\s<]+)<\/link>/.exec(block);
+      const descMatch = /<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i.exec(block);
+
+      if (titleMatch?.[1] && linkMatch?.[1]) {
+        const title = titleMatch[1]
+          .replace(/&amp;/g, "&")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'")
+          .trim();
+
+        items.push({
+          title,
+          link: linkMatch[1].trim(),
+          description: (descMatch?.[1] || "")
+            .replace(/<[^>]*>/g, "")
+            .replace(/&amp;/g, "&")
+            .substring(0, 250)
+            .trim(),
+        });
+      }
+
+      if (items.length >= maxItems) break;
+    }
+
+    console.log(`[TechCrunch Tool] Fetched ${items.length} live headlines from TechCrunch RSS.`);
+    return items;
+  } catch (err) {
+    console.error("[TechCrunch Tool] RSS fetch failed:", err);
+    return [];
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 // Agent Tool: HackerNews Live RSS Feed Fetcher
 // ──────────────────────────────────────────────────────────────────────────────
 async function fetchHackerNewsHeadlines(
@@ -171,25 +223,46 @@ app.post("/api/generate", async (req, res) => {
         ],
       };
 
-      const scoutMissionPrompt = `You are Agent A (The Trend Scout), an autonomous AI research agent equipped with a live HackerNews RSS tool.
+      // ── Define the TechCrunch RSS Tool for Gemini ──
+      const tcToolDeclaration = {
+        functionDeclarations: [
+          {
+            name: "fetch_techcrunch_headlines",
+            description:
+              "Fetches the latest technology news and startup headlines directly from the TechCrunch RSS feed. Use this to discover startup funding, tech news, and consumer tech reviews.",
+            parameters: {
+              type: Type.OBJECT,
+              properties: {
+                max_items: {
+                  type: Type.INTEGER,
+                  description: "How many raw headlines to retrieve from the feed (default 15, max 25).",
+                },
+              },
+              required: [],
+            },
+          },
+        ],
+      };
+
+      const scoutMissionPrompt = `You are Agent A (The Trend Scout), an autonomous AI research agent equipped with live technology RSS feed tools.
 
 Your mission:
-1. Call the fetch_hackernews_headlines tool to retrieve the latest live HN headlines.
+1. Call the fetch_hackernews_headlines tool and/or the fetch_techcrunch_headlines tool to retrieve live technology news and developer trends.
 2. Analyze all returned headlines and select exactly 5 that are most technically relevant to: "${targetNiche}"
-3. EXCLUDE: job postings ("Who's Hiring"), "Ask HN" general threads, and non-technical opinion pieces.
-4. INCLUDE: Technical breakthroughs, new open-source tools, engineering post-mortems, system design discussions.
+3. EXCLUDE: job postings ("Who's Hiring"), generic marketing/business news, and non-technical opinion pieces.
+4. INCLUDE: Technical breakthroughs, startup engineering system design post-mortems, new open-source tools, system design discussions.
 5. For each story, write a 1-2 sentence technical summary explaining why it matters to developers in "${targetNiche}".
 6. Assign an engagement score (50-600) based on technical depth and niche relevance.`;
 
-      addLog("Trend Scout", "🔧 Registering tool: fetch_hackernews_headlines → HackerNews RSS Live Feed");
-      addLog("Trend Scout", "Calling tool autonomously to fetch live developer stories...");
+      addLog("Trend Scout", "🔧 Registering tools: fetch_hackernews_headlines & fetch_techcrunch_headlines");
+      addLog("Trend Scout", "Calling tools autonomously to fetch live developer stories...");
 
       try {
         // ── Turn 1: Agent A reasons about its mission and calls the tool ──
         const turn1 = await ai.models.generateContent({
           model: "gemini-3.5-flash",
           contents: [{ role: "user", parts: [{ text: scoutMissionPrompt }] }],
-          config: { tools: [hnToolDeclaration] },
+          config: { tools: [hnToolDeclaration, tcToolDeclaration] },
         });
 
         const fnCalls = turn1.functionCalls;
@@ -198,10 +271,15 @@ Your mission:
           const fc = fnCalls[0];
           const maxItems = typeof fc.args?.max_items === "number" ? (fc.args.max_items as number) : 20;
 
-          addLog("Trend Scout", `✅ Tool call approved: "${fc.name}" (max_items=${maxItems}). Connecting to HN RSS...`);
+          let rawHeadlines = [];
+          if (fc.name === "fetch_hackernews_headlines") {
+            addLog("Trend Scout", `✅ Tool call approved: "${fc.name}" (max_items=${maxItems}). Connecting to HN RSS...`);
+            rawHeadlines = await fetchHackerNewsHeadlines(maxItems);
+          } else if (fc.name === "fetch_techcrunch_headlines") {
+            addLog("Trend Scout", `✅ Tool call approved: "${fc.name}" (max_items=${maxItems}). Connecting to TechCrunch RSS...`);
+            rawHeadlines = await fetchTechCrunchHeadlines(maxItems);
+          }
 
-          // ── Execute the real HackerNews RSS fetch ──
-          const rawHeadlines = await fetchHackerNewsHeadlines(maxItems);
           addLog(
             "Trend Scout",
             `📡 Live feed returned ${rawHeadlines.length} raw stories. Agent A filtering for "${targetNiche}" relevance...`
