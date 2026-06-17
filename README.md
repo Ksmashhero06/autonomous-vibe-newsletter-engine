@@ -23,8 +23,8 @@ This repository tracks my progressive journey from conceptualizing user intent t
   - Establish the core dashboard layouts, design systems, and developer tools. Set up API integrations.
 - [x] **Day 2: The Trend Scout Agent (Alpha)**
   - Equipped Agent A with a live HackerNews RSS tool using Gemini Function Calling. Implemented a 2-turn agentic loop where the model autonomously fetches, filters, and passes real developer trends to Agent B.
-- [ ] **Day 3: The Editorial Copydrafter Agent (Beta)**
-  - Prompt-engineer the primary drafting agent to convert unstructured trend points into production-graded Markdown prose.
+- [x] **Day 3: Agent Skills, Context & Memory**
+  - Equipped Agent B (Writer) with a memory skill using a local `past_issues.json` database. Agent B calls this tool, autonomously filters and rejects previously covered topics, and selects alternative developer trends from Agent A's list to manage context and tokens.
 - [ ] **Day 4: The Compliance Critic Agent (Gamma)**
   - Implement programmatic evaluation steps, stylistic constraints, and compliance checks (avoiding buzzwords, checking formatting).
 - [ ] **Day 5: Production Fleet Orchestration & Telemetry**
@@ -107,6 +107,18 @@ python agent_pipeline.py --niche "Edge AI & Distributed Compute" --model gemini-
                   ▼
         [ Stamped Markdown Output ]
 ```
+
+---
+
+## 🏆 Day 3 Milestone Deliverables: 100% Complete
+
+### 🧠 Agent Memory & Local JSON State
+- **Persistent Local Memory Database** (`past_issues.json`): A lightweight JSON store containing all topics that have been previously written about and published in the newsletter.
+- **Memory Check Skill** (`check_past_issues`): A tool registered for Agent B (`Writer`) that takes candidate story titles and checks them against the database.
+- **Autonomous Duplication Filtering**: 
+  - Before drafting a new edition, Agent B calls `check_past_issues` with all 5 trending stories sourced by Agent A.
+  - If a story has already been covered, Agent B autonomously rejects it, logs the rejection trace in the pipeline activity, and selects alternative uncovered stories to form the final 3 deep-dives.
+- **Post-Generation Persistence**: When the newsletter is approved, the pipeline automatically parses the selected stories and appends them to `past_issues.json` with a timestamp and niche tag.
 
 ---
 

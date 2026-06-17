@@ -2,7 +2,7 @@
 """
 Autonomous Newsletter Engine — Python Multi-Agent Pipeline
 ==========================================================
-Day 3: Agent Skills, Context & Memory
+Day 2: Agent Tools & Interoperability
 
 Architecture:
   Agent A (Trend Scout)  — Equipped with a live HackerNews RSS tool.
@@ -129,47 +129,12 @@ def fetch_hackernews_headlines(max_items: int = 20) -> dict[str, Any]:
     return {"headlines": headlines, "count": len(headlines)}
 
 
-def check_past_issues(titles: list[str]) -> dict[str, list[str]]:
-    """
-    Checks if any of the given article titles have already been covered in past issues of the newsletter.
-
-    Args:
-        titles: A list of article titles to check.
-
-    Returns:
-        A dict containing 'covered_titles', a list of titles that were already covered.
-    """
-    print(f"  [🔧 Tool] check_past_issues(titles={titles})")
-    past_issues_path = os.path.join(os.path.dirname(__file__), "past_issues.json")
-    if not os.path.exists(past_issues_path):
-        return {"covered_titles": []}
-    
-    try:
-        with open(past_issues_path, "r", encoding="utf-8") as f:
-            past_issues = json.load(f)
-    except Exception as exc:
-        print(f"  [🔧 Tool] ❌ Error reading past_issues.json: {exc}")
-        return {"covered_titles": []}
-    
-    covered_titles = []
-    past_titles = [issue.get("title", "").strip().lower() for issue in past_issues if isinstance(issue, dict)]
-    
-    for title in titles:
-        cleaned_title = title.strip().lower()
-        if cleaned_title in past_titles:
-            covered_titles.append(title)
-            
-    print(f"  [🔧 Tool] ✅ Found covered titles: {covered_titles}")
-    return {"covered_titles": covered_titles}
-
-
 # ──────────────────────────────────────────────────────────────────────────────
 # Tool Registry & Dispatcher
 # ──────────────────────────────────────────────────────────────────────────────
 
 TOOL_REGISTRY: dict[str, callable] = {
     "fetch_hackernews_headlines": fetch_hackernews_headlines,
-    "check_past_issues": check_past_issues,
 }
 
 # Gemini function declaration (schema) for Agent A's tool
@@ -190,30 +155,6 @@ HN_TOOL_DECLARATION = {
                         "description": "Number of headlines to retrieve from the feed (default: 20, max: 30).",
                     }
                 },
-            },
-        }
-    ]
-}
-
-# Gemini function declaration (schema) for Agent B's memory tool
-MEMORY_TOOL_DECLARATION = {
-    "function_declarations": [
-        {
-            "name": "check_past_issues",
-            "description": (
-                "Checks if any of the given article/topic titles have already been covered in past issues of the newsletter. "
-                "Use this tool before writing a new draft to ensure you do not repeat topics."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "titles": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "List of topic titles to verify against past newsletter memory.",
-                    }
-                },
-                "required": ["titles"],
             },
         }
     ]
@@ -333,9 +274,8 @@ Respond with a JSON array of exactly 5 objects:
 
 def run_agent_b(niche: str, topics: list[dict], model_name: str) -> str:
     """
-    Agent B (The Writer): Receives Agent A's clean topic payload, calls its memory
-    skill to filter out covered topics, and drafts a high-quality, deeply technical
-    newsletter in Markdown format using uncovered stories.
+    Agent B (The Writer): Receives Agent A's clean topic payload and drafts
+    a high-quality, deeply technical newsletter in Markdown format.
 
     Interoperability: Agent A → Agent B communication happens via structured
     JSON (the 'topics' list), which serves as the inter-agent message contract.
@@ -345,10 +285,8 @@ def run_agent_b(niche: str, topics: list[dict], model_name: str) -> str:
     print(f"    Received {len(topics)} sourced stories from Agent A.")
     print("─" * 64)
 
-    # Configure the model with system instruction and the check_past_issues tool
     model = genai.GenerativeModel(
         model_name=model_name,
-        tools=[MEMORY_TOOL_DECLARATION],
         system_instruction=(
             "You are an elite engineering newsletter author and principal technical architect. "
             "Write with authority, precision, technical depth, and engaging prose. "
@@ -366,19 +304,14 @@ def run_agent_b(niche: str, topics: list[dict], model_name: str) -> str:
 
     writer_prompt = f"""Write a comprehensive, high-quality technical newsletter for the niche: "{niche}".
 
-Agent A (Trend Scout) has autonomously sourced these {len(topics)} live trending stories from HackerNews:
+Agent A (Trend Scout) has autonomously sourced these 5 live trending stories from HackerNews:
 
 {topics_payload}
-
-CRITICAL REQUIREMENT:
-Before drafting, you MUST call the check_past_issues tool to check if any of these {len(topics)} topic titles have already been covered.
-If a story's title is returned in the covered list, you MUST autonomously REJECT it and choose a different, uncovered story from Agent A's list.
-Draft the newsletter using exactly 3 uncovered stories from Agent A's list. If there are fewer than 3 uncovered stories, use whatever uncovered stories remain.
 
 Newsletter structure requirements:
 - **Title**: A catchy, professional email subject line (avoid generic titles like "This Week in Tech")
 - **Introduction**: 3–4 sentences on the current state of "{niche}" — contextualizing today's stories
-- **Deep Dive Sections** (one `##` section per selected story):
+- **Deep Dive Sections** (one `##` section per story):
   - Technical context and background
   - Architecture details, code snippets (in fenced blocks), or ASCII diagrams where relevant
   - Benchmark tables for comparative topics (use Markdown table syntax)
@@ -387,44 +320,8 @@ Newsletter structure requirements:
 
 Tone: Expert Substack technical memo. No greetings. No filler. Start directly with the title."""
 
-    print(f"  [Agent B] Sending writing mission prompt and activating memory tool check...")
-
-    chat = model.start_chat(enable_automatic_function_calling=False)
-    response = chat.send_message(writer_prompt)
-
-    # Handle Agent B's tool calling loop
-    max_iterations = 5
-    for iteration in range(max_iterations):
-        # Collect all function calls from this response
-        tool_calls = [
-            part.function_call
-            for part in response.parts
-            if hasattr(part, "function_call") and part.function_call.name
-        ]
-
-        if not tool_calls:
-            print("  [Agent B] Tool use loop complete. Drafting newsletter...")
-            break
-
-        # Execute each tool call and collect responses
-        tool_response_parts = []
-        for fc in tool_calls:
-            print(f"  [Agent B] 🔧 Autonomously calling tool: {fc.name}({dict(fc.args)})")
-            tool_result = dispatch_tool(fc.name, dict(fc.args))
-
-            tool_response_parts.append(
-                genai.protos.Part(
-                    function_response=genai.protos.FunctionResponse(
-                        name=fc.name,
-                        response={"result": json.dumps(tool_result)},
-                    )
-                )
-            )
-
-        # Send tool results back to Agent B
-        print(f"  [Agent B] 📤 Returning tool results to Agent B...")
-        response = chat.send_message(tool_response_parts)
-
+    print(f"  [Agent B] Drafting newsletter from Agent A payload...")
+    response = model.generate_content(writer_prompt)
     draft = response.text or ""
     print(f"  [Agent B] ✅ Draft complete ({len(draft):,} characters, ~{len(draft.split()):,} words).")
     return draft
@@ -510,48 +407,6 @@ Draft to evaluate:
     }
 
 
-def update_past_issues(niche: str, topics: list[dict], newsletter_content: str):
-    """Parses selected topics from the final draft and appends them to past_issues.json."""
-    past_issues_path = os.path.join(os.path.dirname(__file__), "past_issues.json")
-    
-    # Load existing
-    past_issues = []
-    if os.path.exists(past_issues_path):
-        try:
-            with open(past_issues_path, "r", encoding="utf-8") as f:
-                past_issues = json.load(f)
-        except Exception as exc:
-            print(f"  [Memory] Error loading past_issues.json for update: {exc}")
-            
-    existing_titles = {issue.get("title", "").strip().lower() for issue in past_issues if isinstance(issue, dict)}
-    
-    updated = False
-    for topic in topics:
-        title = topic.get("title", "")
-        if not title:
-            continue
-        
-        # Check if the title is mentioned in the newsletter content
-        if title.lower() in newsletter_content.lower():
-            if title.strip().lower() not in existing_titles:
-                past_issues.append({
-                    "title": title,
-                    "niche": niche,
-                    "timestamp": datetime.now().isoformat() + "Z"
-                })
-                existing_titles.add(title.strip().lower())
-                updated = True
-                print(f"  [Memory] Recorded new covered topic: '{title}'")
-                
-    if updated:
-        try:
-            with open(past_issues_path, "w", encoding="utf-8") as f:
-                json.dump(past_issues, f, indent=2)
-            print("  [Memory] past_issues.json successfully updated.")
-        except Exception as exc:
-            print(f"  [Memory] Error writing to past_issues.json: {exc}")
-
-
 # ──────────────────────────────────────────────────────────────────────────────
 # Pipeline Orchestrator
 # ──────────────────────────────────────────────────────────────────────────────
@@ -595,9 +450,6 @@ def run_pipeline(niche: str = "AI & Agentic Frameworks", model_name: str = "gemi
     # ── Agent C: Evaluator ──
     evaluation = run_agent_c(niche=niche, draft=draft, model_name=model_name)
 
-    # ── Update past issues memory ──
-    update_past_issues(niche, topics, draft)
-
     # ── Stamp and assemble the final newsletter ──
     finished_at = datetime.now()
     elapsed = (finished_at - started_at).seconds
@@ -607,12 +459,12 @@ def run_pipeline(niche: str = "AI & Agentic Frameworks", model_name: str = "gemi
     checks_summary = " | ".join(f"{k}: {'✓' if v else '✗'}" for k, v in checks.items())
 
     final = f"""---
-Engine       : Autonomous Newsletter Engine v3.0.0 (Day 3 — Context & Memory)
+Engine       : Autonomous Newsletter Engine v2.5.0 (Day 2 — Live Tool Use)
 Niche        : {niche}
 Model        : {model_name}
 ---
 Agent A      : Trend Scout  →  fetch_hackernews_headlines (Live RSS Tool)
-Agent B      : Writer       →  Memory check (check_past_issues) → Markdown draft
+Agent B      : Writer       →  {len(topics)} sourced stories → Markdown draft
 Agent C      : Evaluator    →  {"APPROVED ✅" if passed else "REVIEW NEEDED ⚠️"} (Score: {score}/100)
 ---
 Checks       : {checks_summary}

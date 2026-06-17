@@ -3,6 +3,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
+import fs from "fs";
 
 dotenv.config();
 
@@ -10,6 +11,28 @@ const app = express();
 app.use(express.json());
 
 const PORT = 3000;
+
+// Memory Database Helpers
+function getPastIssues(): { title: string; niche: string; timestamp: string }[] {
+  try {
+    const filePath = path.join(process.cwd(), "past_issues.json");
+    if (fs.existsSync(filePath)) {
+      return JSON.parse(fs.readFileSync(filePath, "utf-8"));
+    }
+  } catch (err) {
+    console.error("Error reading past_issues.json:", err);
+  }
+  return [];
+}
+
+function savePastIssues(issues: { title: string; niche: string; timestamp: string }[]) {
+  try {
+    const filePath = path.join(process.cwd(), "past_issues.json");
+    fs.writeFileSync(filePath, JSON.stringify(issues, null, 2), "utf-8");
+  } catch (err) {
+    console.error("Error writing to past_issues.json:", err);
+  }
+}
 
 // Helper to initialize Gemini SDK
 function getGeminiClient(customApiKey?: string) {
@@ -327,50 +350,167 @@ Your mission:
     let draftContent = "";
 
     if (ai) {
-      addLog("Writer", "Streaming generation request to Gemini model 'gemini-3.5-flash'...");
+      addLog("Writer", "Streaming memory verification request to Gemini model 'gemini-3.5-flash'...");
+
+      const memoryToolDeclaration = {
+        functionDeclarations: [
+          {
+            name: "check_past_issues",
+            description: "Checks if any of the given article/topic titles have already been covered in past issues of the newsletter. Use this before writing a new draft to ensure you do not repeat topics.",
+            parameters: {
+              type: Type.OBJECT,
+              properties: {
+                titles: {
+                  type: Type.ARRAY,
+                  items: { type: Type.STRING },
+                  description: "List of topic titles to verify against past newsletter memory.",
+                },
+              },
+              required: ["titles"],
+            },
+          },
+        ],
+      };
 
       const writerPrompt = `You are Agent B (The Writer), an expert elite technical journalist. Write an incredibly detailed, comprehensive, high-quality, and deeply technical subscriber newsletter focusing on the target niche: "${targetNiche}".
 
-Base the newsletter on the following 3 trend reports collected by Agent A (The Trend Scout):
-1. **${trendingTopics[0]?.title}**: ${trendingTopics[0]?.description}
-2. **${trendingTopics[1]?.title}**: ${trendingTopics[1]?.description}
-3. **${trendingTopics[2]?.title}**: ${trendingTopics[2]?.description}
+Below is the list of candidate trending stories sourced by Agent A (The Trend Scout):
+${trendingTopics.map((t, idx) => `${idx + 1}. **${t.title}**: ${t.description}`).join("\n")}
+
+CRITICAL REQUIREMENT:
+Before drafting, you MUST call the check_past_issues tool to check which of these topic titles have already been covered in past issues.
+If a story's title is returned in the covered list, you MUST autonomously REJECT it and choose a different, uncovered story from Agent A's list.
+Draft the newsletter using exactly 3 uncovered stories from Agent A's list. If there are fewer than 3 uncovered stories, use whatever uncovered stories remain.
 
 Ensure the newsletter strictly adheres to this clean formatting:
 - **Title**: A catchy, modern, elite email subject heading (e.g., "The Hashed Ledger: Parallel EVM Debates, ZK-Snarks...").
 - **Introduction**: A high-level view of current tech movements in the niche.
-- **Deep Dive sections**: Dedicate a rich, deeply technical section containing detailed, developer-focused write-ups for each of the 3 topics. Use markdown headings (##). Include code snippets or mock logs/architectures in markdown blocks where appropriate.
+- **Deep Dive sections**: Dedicate a rich, deeply technical section containing detailed, developer-focused write-ups for each of the selected 3 topics. Use markdown headings (##). Include code snippets or mock logs/architectures in markdown blocks where appropriate.
 - **Conclusion**: A futuristic forward-looking wrap-up.
 - Use clean Markdown tables or formatted code snippets to represent system comparisons or configurations. Keep the tone sophisticated, engaging, and professional. Avoid fluffy intro/outro greetings like "Hey everyone, welcome back to my channel". Keep it like an expert, premium Substack technical memo.`;
 
-      const writerConfig = {
-        systemInstruction: "You are an elite, highly esteemed engineering newsletter author and principal technical architect.",
-        temperature: 0.8,
-      };
+      try {
+        const turn1 = await ai.models.generateContent({
+          model: "gemini-3.5-flash",
+          contents: [{ role: "user", parts: [{ text: writerPrompt }] }],
+          config: {
+            systemInstruction: "You are an elite, highly esteemed engineering newsletter author and principal technical architect.",
+            tools: [memoryToolDeclaration],
+            temperature: 0.8,
+          },
+        });
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
-        contents: writerPrompt,
-        config: writerConfig,
-      });
+        const fnCalls = turn1.functionCalls;
 
-      draftContent = response.text || "";
-      addLog("Writer", "Received 100% of text pipeline streams from Gemini. Preparing validation review.");
+        if (fnCalls && fnCalls.length > 0) {
+          const fc = fnCalls[0];
+          const titlesToCheck = Array.isArray(fc.args?.titles) ? (fc.args.titles as string[]) : [];
+          
+          addLog("Writer", `🔧 Memory skill tool call initiated checking ${titlesToCheck.length} titles...`);
+          
+          // Execute check
+          const pastIssues = getPastIssues();
+          const pastTitles = pastIssues.map(issue => issue.title.trim().toLowerCase());
+          const covered = titlesToCheck.filter(title => pastTitles.includes(title.trim().toLowerCase()));
+          
+          addLog("Writer", `Memory skill result: Covered topics found -> [${covered.join(", ") || "None"}].`);
+          
+          if (covered.length > 0) {
+            addLog("Writer", `Autonomously rejecting covered topic(s): [${covered.join(", ")}].`);
+          }
+
+          // Turn 2: Send tool output back to Writer to generate the newsletter draft
+          addLog("Writer", "Generating newsletter draft with remaining uncovered topics...");
+          const turn2 = await ai.models.generateContent({
+            model: "gemini-3.5-flash",
+            contents: [
+              { role: "user", parts: [{ text: writerPrompt }] },
+              { role: "model", parts: turn1.candidates![0].content.parts },
+              {
+                role: "user",
+                parts: [
+                  {
+                    functionResponse: {
+                      name: fc.name,
+                      response: { covered_titles: covered },
+                    },
+                  },
+                ],
+              },
+            ],
+            config: {
+              systemInstruction: "You are an elite, highly esteemed engineering newsletter author and principal technical architect.",
+              temperature: 0.8,
+            }
+          });
+
+          draftContent = turn2.text || "";
+        } else {
+          // Model didn't call the tool, just generated directly
+          draftContent = turn1.text || "";
+        }
+        addLog("Writer", "Received 100% of text pipeline streams from Gemini. Preparing validation review.");
+      } catch (err: any) {
+        console.error("[Agent B] Error during Writer Agent workflow:", err);
+        addLog("Writer", `⚠️ Writer API Error: ${err.message}. Falling back to programmatic check...`);
+        
+        // Programmatic fallback
+        const pastIssues = getPastIssues();
+        const pastTitles = pastIssues.map(issue => issue.title.trim().toLowerCase());
+        const filteredTopics = trendingTopics.filter(t => !pastTitles.includes(t.title.trim().toLowerCase()));
+        
+        const selectedTopics = filteredTopics.slice(0, 3);
+        if (selectedTopics.length === 0) {
+          selectedTopics.push(...trendingTopics.slice(0, 3));
+        }
+
+        const fallbackPrompt = `You are Agent B (The Writer), an expert elite technical journalist. Write an incredibly detailed, comprehensive, high-quality, and deeply technical subscriber newsletter focusing on the target niche: "${targetNiche}".
+
+Base the newsletter on the following trend reports:
+${selectedTopics.map((t, idx) => `${idx + 1}. **${t.title}**: ${t.description}`).join("\n")}
+
+Ensure the newsletter strictly adheres to this clean formatting:
+- **Title**: A catchy, modern, elite email subject heading.
+- **Introduction**: A high-level view of current tech movements.
+- **Deep Dive sections**: Dedicate a rich, deeply technical section containing detailed write-ups (##).
+- **Conclusion**: A futuristic forward-looking wrap-up.`;
+
+        const turnFallback = await ai.models.generateContent({
+          model: "gemini-3.5-flash",
+          contents: fallbackPrompt,
+          config: {
+            systemInstruction: "You are an elite, highly esteemed engineering newsletter author and principal technical architect.",
+            temperature: 0.8,
+          }
+        });
+        draftContent = turnFallback.text || "";
+      }
     } else {
       addLog("Writer", "⚠️ No actual Gemini Key was configured or provided. Working in Simulation Mode.");
+      addLog("Writer", "🔧 Tool call requested: 'check_past_issues' checking candidate titles...");
+      
+      const pastIssues = getPastIssues();
+      const pastTitles = pastIssues.map(issue => issue.title.trim().toLowerCase());
+      
+      // Filter out covered trendingTopics
+      const filteredTopics = trendingTopics.filter(t => !pastTitles.includes(t.title.trim().toLowerCase()));
+      const rejectedTopics = trendingTopics.filter(t => pastTitles.includes(t.title.trim().toLowerCase()));
+      
+      if (rejectedTopics.length > 0) {
+        addLog("Writer", `Memory skill result: Covered topics found -> [${rejectedTopics.map(t => t.title).join(", ")}].`);
+        addLog("Writer", `Autonomously rejecting covered topic(s): [${rejectedTopics.map(t => t.title).join(", ")}].`);
+        addLog("Writer", `Autonomously selected alternative topics from Trend Scout list.`);
+      } else {
+        addLog("Writer", "Memory skill result: No previously covered topics found in current list.");
+      }
+
       addLog("Writer", "Compiling high-fidelity pre-compiled template based on niche to keep the dashboard responsive...");
-      draftContent = `# 🤖 The Autonomous ${targetNiche} Briefing
-
-Welcome to this week's technical briefing on **${targetNiche}**, generated autonomously by our Multi-Agent Agentic Pipeline.
-
----
-
-## ⚡ Current Market Momentum
-The tech landscape is shifting rapidly. Today we are exploring critical breakthroughs compiled from developers on the ground and leading HackerNews engineering threads. Here are our top focus areas for the week:
-
----
-
-## 1. 🔍 Deep Dive: ${trendingTopics[0]?.title}
+      
+      let simulatedSections = "";
+      filteredTopics.slice(0, 3).forEach((t, idx) => {
+        if (idx === 0) {
+          simulatedSections += `
+## 1. 🔍 Deep Dive: ${t.title}
 
 ### The Core Paradigm
 Developers have long struggled with scalability constraints. Modern approaches bypass standard synchronous locks by organizing execution threads speculatively.
@@ -393,13 +533,13 @@ impl SpeculativeScheduler {
 
 ### Why it Matters
 - **100x Production Reductions**: Overcomes standard network transaction peaks.
-- **Off-chain Consistency**: Cryptographic cryptographic state guarantees are fully preserved.
+- **Off-chain Consistency**: Cryptographic state guarantees are fully preserved.
+`;
+        } else if (idx === 1) {
+          simulatedSections += `
+## 2. ⚡ Deep Dive: ${t.title}
 
----
-
-## 2. ⚡ Deep Dive: ${trendingTopics[1]?.title}
-
-${trendingTopics[1]?.description}
+${t.description}
 
 ### Benchmark Analytics
 
@@ -408,16 +548,30 @@ ${trendingTopics[1]?.description}
 | Latency (ms) | 125ms | **12ms** |
 | Throughput | 1,200 tps | **45,000 tps** |
 | Resource Load | 89% CPU | **34% CPU** |
+`;
+        } else {
+          simulatedSections += `
+## ${idx + 1}. 🔬 Deep Dive: ${t.title}
+
+${t.description}
+
+### Architectural Impact
+This presents a major shift. By moving secondary orchestration details into lightweight compilers, we completely eliminate runtime performance hits.
+`;
+        }
+      });
+
+      draftContent = `# 🤖 The Autonomous ${targetNiche} Briefing
+
+Welcome to this week's technical briefing on **${targetNiche}**, generated autonomously by our Multi-Agent Agentic Pipeline.
 
 ---
 
-## 3. 🔬 Deep Dive: ${trendingTopics[2]?.title}
+## ⚡ Current Market Momentum
+The tech landscape is shifting rapidly. Today we are exploring critical breakthroughs compiled from developers on the ground and leading HackerNews engineering threads. Here are our top focus areas for the week:
 
-${trendingTopics[2]?.description}
-
-### Architectural Impact
-This presents major shift. By moving secondary orchestration details into lightweight compilers, we completely eliminate runtime performance hits.
-
+---
+${simulatedSections}
 ---
 
 ## 🔮 Concluding Outlook & Analysis
@@ -446,6 +600,34 @@ ${draftContent}`;
     addLog("Evaluator", "Validation checks completed: Title parsed ✓, Sections verified ✓, Tone adjusted to professional ✓.");
     addLog("Evaluator", "Pre-flight approval complete. Newsletter draft validated as READY for publication.");
     addLog("System", "Autonomous Pipeline successfully finished.");
+
+    // Update past issues memory database
+    try {
+      const pastIssues = getPastIssues();
+      const existingTitles = new Set(pastIssues.map(issue => issue.title.trim().toLowerCase()));
+      let updated = false;
+
+      for (const t of trendingTopics) {
+        if (t.title && draftContent.toLowerCase().includes(t.title.toLowerCase())) {
+          if (!existingTitles.has(t.title.trim().toLowerCase())) {
+            pastIssues.push({
+              title: t.title,
+              niche: targetNiche,
+              timestamp: new Date().toISOString()
+            });
+            existingTitles.add(t.title.trim().toLowerCase());
+            updated = true;
+            addLog("System", `Recorded newly covered topic in memory: "${t.title}"`);
+          }
+        }
+      }
+
+      if (updated) {
+        savePastIssues(pastIssues);
+      }
+    } catch (memoryErr: any) {
+      console.error("Failed to update past issues memory:", memoryErr);
+    }
 
     // Save statistics in memory
     stats.totalIssuesGenerated += 1;
