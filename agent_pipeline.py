@@ -47,27 +47,33 @@ if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Bootstrap: Validate environment before importing the SDK
+# Bootstrap: Lazy-load Gemini SDK — safe for Streamlit Cloud imports
 # ──────────────────────────────────────────────────────────────────────────────
 
-simulate_mode = "--simulate" in sys.argv
+# NOTE: We do NOT call sys.exit() at import time — that would kill the
+# Streamlit server process. Instead we do a deferred check inside run_pipeline().
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
-if not GEMINI_API_KEY and not simulate_mode:
-    print("❌  GEMINI_API_KEY environment variable is not set.")
-    print("    Set it with:  $env:GEMINI_API_KEY = 'your-key'  (PowerShell)")
-    print("               or: export GEMINI_API_KEY='your-key'  (bash)")
-    print("    Alternatively, run in offline simulation mode: python agent_pipeline.py --simulate")
-    sys.exit(1)
+genai = None  # Lazily imported when a live run is requested
 
-if not simulate_mode:
+def _init_genai():
+    """Import and configure the Gemini SDK on first use. Raises on failure."""
+    global genai, GEMINI_API_KEY
+    GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
+    if not GEMINI_API_KEY:
+        raise EnvironmentError(
+            "GEMINI_API_KEY is not set. Add it to Streamlit Secrets or your environment, "
+            "or run in simulate mode."
+        )
     try:
-        import google.generativeai as genai
+        import google.generativeai as _genai
+        _genai.configure(api_key=GEMINI_API_KEY)
+        genai = _genai
     except ImportError:
-        print("❌  google-generativeai is not installed.")
-        print("    Run:  pip install google-generativeai")
-        sys.exit(1)
-    genai.configure(api_key=GEMINI_API_KEY)
+        raise ImportError(
+            "google-generativeai is not installed. Run: pip install google-generativeai"
+        )
+
 
 
 # Day 5: Global execution telemetry stats
@@ -1447,6 +1453,10 @@ def run_pipeline(niche: str = "AI & Agentic Frameworks", model_name: str = "gemi
     print(f"    Started: {started_at.strftime('%Y-%m-%d %H:%M:%S')}")
     print("═" * 64)
 
+    # Initialize Gemini SDK for live runs (deferred from import time)
+    if not simulate:
+        _init_genai()
+
     try:
         # ── Agent A: Scout with live HN tool ──
         topics = run_agent_a(niche=niche, model_name=model_name, simulate=simulate)
@@ -1554,14 +1564,13 @@ Duration     : {elapsed}s
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Autonomous Newsletter Engine — Day 3 Multi-Agent Pipeline",
+        description="Autonomous Newsletter Engine — Day 5 Multi-Agent Pipeline",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python agent_pipeline.py
+  python agent_pipeline.py --simulate
   python agent_pipeline.py --niche "Rust Systems & WebAssembly"
   python agent_pipeline.py --niche "Edge AI & Distributed Compute" --model gemini-1.5-pro
-  python agent_pipeline.py --simulate
         """,
     )
     parser.add_argument(
@@ -1581,12 +1590,20 @@ Examples:
     )
     args = parser.parse_args()
 
+    # Validate key early for CLI usage (gives a clean error message)
+    if not args.simulate and not os.environ.get("GEMINI_API_KEY", "").strip():
+        print("❌  GEMINI_API_KEY environment variable is not set.")
+        print("    Set it with:  $env:GEMINI_API_KEY = 'your-key'  (PowerShell)")
+        print("               or: export GEMINI_API_KEY='your-key'  (bash)")
+        print("    Alternatively, run in offline simulation mode: python agent_pipeline.py --simulate")
+        sys.exit(1)
+
     result = run_pipeline(niche=args.niche, model_name=args.model, simulate=args.simulate)
 
     if result:
-        # Print a short preview to the console
         lines = result.split("\n")
         preview_lines = [l for l in lines if not l.startswith("---") and l.strip()][:8]
         print("\n── Newsletter Preview ──")
         print("\n".join(preview_lines))
         print("...")
+

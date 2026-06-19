@@ -1,12 +1,30 @@
 import os
+import sys
 import json
 import glob
 from datetime import datetime
+
+# ── Streamlit Cloud: pull GEMINI_API_KEY from Secrets if present ──────────────
+try:
+    import streamlit as st
+    _secrets = getattr(st, "secrets", {})
+    if "GEMINI_API_KEY" in _secrets and not os.environ.get("GEMINI_API_KEY"):
+        os.environ["GEMINI_API_KEY"] = _secrets["GEMINI_API_KEY"]
+except Exception:
+    pass
+
+# Safe import — agent_pipeline no longer sys.exit() at module load
+try:
+    from agent_pipeline import run_pipeline
+    PIPELINE_AVAILABLE = True
+except Exception as _import_err:
+    PIPELINE_AVAILABLE = False
+    _import_err_msg = str(_import_err)
+
 import streamlit as st
-from agent_pipeline import run_pipeline
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Page Configuration & Rich CSS Theme styling
+# Page Config
 # ──────────────────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Autonomous Newsletter Fleet Dashboard",
@@ -15,306 +33,423 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Inject custom corporate slate theme with Royal Blue accents
+# ──────────────────────────────────────────────────────────────────────────────
+# Custom CSS Theme
+# ──────────────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-    /* Main layout improvements */
-    .main .block-container {
-        padding-top: 2rem;
-        padding-bottom: 2rem;
-    }
-    
-    /* Header and accent styling */
-    h1, h2, h3 {
-        color: #0f172a !important;
-        font-family: 'Outfit', 'Segoe UI', sans-serif;
-    }
-    
-    /* Custom button styling */
-    div.stButton > button {
-        background-color: #1d63ed !important;
-        color: white !important;
-        border-radius: 6px !important;
-        border: none !important;
-        padding: 0.5rem 1rem !important;
-        font-weight: 600 !important;
-        transition: all 0.2s ease-in-out;
-    }
-    
-    div.stButton > button:hover {
-        background-color: #154ec1 !important;
-        box-shadow: 0px 4px 10px rgba(29, 99, 237, 0.3) !important;
-        transform: translateY(-1px);
-    }
-    
-    /* Custom card styles */
-    .metric-card {
-        background-color: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        padding: 1.2rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        margin-bottom: 1rem;
-    }
-    .metric-card h4 {
-        margin: 0;
-        color: #64748b;
-        font-size: 0.85rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-    .metric-card p {
-        margin: 0.4rem 0 0 0;
-        font-size: 1.6rem;
-        font-weight: 700;
-        color: #0f172a;
-    }
-    
-    /* Activity item border decoration */
-    .log-item {
-        border-left: 3px solid #1d63ed;
-        background-color: #f8fafc;
-        padding: 0.8rem 1.2rem;
-        border-radius: 0 8px 8px 0;
-        margin-bottom: 0.8rem;
-    }
-    .log-item-fail {
-        border-left: 3px solid #ef4444;
-        background-color: #fef2f2;
-        padding: 0.8rem 1.2rem;
-        border-radius: 0 8px 8px 0;
-        margin-bottom: 0.8rem;
-    }
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap');
+
+html, body, [class*="css"] {
+    font-family: 'Outfit', 'Segoe UI', sans-serif;
+}
+
+.main .block-container {
+    padding-top: 1.5rem;
+    padding-bottom: 2rem;
+    max-width: 1200px;
+}
+
+/* Metric cards */
+.metric-card {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 1.3rem 1.5rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+}
+.metric-card h4 {
+    margin: 0 0 0.4rem 0;
+    color: #94a3b8;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 600;
+}
+.metric-card p {
+    margin: 0;
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #f1f5f9;
+    line-height: 1.1;
+}
+.metric-card .sub {
+    font-size: 0.7rem;
+    color: #64748b;
+    margin-top: 0.3rem;
+}
+
+/* Status badges */
+.badge-success { color: #22c55e; font-weight: 700; }
+.badge-fail    { color: #ef4444; font-weight: 700; }
+.badge-idle    { color: #94a3b8; font-weight: 700; }
+.badge-run     { color: #f59e0b; font-weight: 700; }
+
+/* Section header */
+.section-header {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #1d63ed;
+    border-bottom: 2px solid #1d63ed22;
+    padding-bottom: 0.5rem;
+    margin-bottom: 1.2rem;
+}
+
+/* Run button */
+div.stButton > button {
+    background: linear-gradient(135deg, #1d63ed, #0ea5e9) !important;
+    color: white !important;
+    border-radius: 8px !important;
+    border: none !important;
+    padding: 0.55rem 1.4rem !important;
+    font-weight: 700 !important;
+    font-size: 0.9rem !important;
+    transition: all 0.2s ease !important;
+    width: 100%;
+}
+div.stButton > button:hover {
+    transform: translateY(-1px) !important;
+    box-shadow: 0 6px 20px rgba(29,99,237,0.4) !important;
+}
+
+/* Log entry */
+.log-item {
+    background: #0f172a;
+    border: 1px solid #1e3a5f;
+    border-left: 4px solid #1d63ed;
+    border-radius: 0 8px 8px 0;
+    padding: 1rem 1.2rem;
+    margin-bottom: 0.8rem;
+}
+.log-item-fail {
+    background: #1a0a0a;
+    border: 1px solid #4a1010;
+    border-left: 4px solid #ef4444;
+    border-radius: 0 8px 8px 0;
+    padding: 1rem 1.2rem;
+    margin-bottom: 0.8rem;
+}
+
+/* Sidebar */
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #020617 0%, #0f172a 100%) !important;
+}
+section[data-testid="stSidebar"] * {
+    color: #cbd5e1 !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Data Loaders
+# Data loaders
 # ──────────────────────────────────────────────────────────────────────────────
+PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
+
 def load_history():
-    history_path = os.path.join(os.path.dirname(__file__), "run_history.json")
-    if os.path.exists(history_path):
+    path = os.path.join(PROJECT_DIR, "run_history.json")
+    if os.path.exists(path):
         try:
-            with open(history_path, "r", encoding="utf-8") as f:
+            with open(path, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception:
             return []
     return []
 
 def load_worker_status():
-    status_path = os.path.join(os.path.dirname(__file__), "background_worker_status.json")
-    if os.path.exists(status_path):
+    path = os.path.join(PROJECT_DIR, "background_worker_status.json")
+    if os.path.exists(path):
         try:
-            with open(status_path, "r", encoding="utf-8") as f:
+            with open(path, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception:
             return None
     return None
 
 def get_drafts():
-    files = glob.glob("newsletter_*.md")
-    # Sort by modification time, latest first
-    files.sort(key=os.path.getmtime, reverse=True)
-    return files
+    drafts = glob.glob(os.path.join(PROJECT_DIR, "newsletter_*.md"))
+    drafts.sort(key=os.path.getmtime, reverse=True)
+    return [os.path.basename(d) for d in drafts]
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Sidebar controls
+# Sidebar
 # ──────────────────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.image("assets/newsletter_logo.png" if os.path.exists("assets/newsletter_logo.png") else "https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=150", width=80)
-    st.markdown("### 🤖 Engine Settings")
-    
+    st.markdown("## 🤖 Fleet Control")
+    st.markdown("---")
+
     niche = st.selectbox(
-        "Niche focus",
-        ["AI & Agentic Frameworks", "Rust Systems & WebAssembly", "Web3 Development", "Cloud Architecture", "Developer Productivity"]
+        "📡 Niche Focus",
+        ["AI & Agentic Frameworks", "Rust Systems & WebAssembly",
+         "Web3 Development", "Cloud Architecture", "Developer Productivity"],
+        key="niche_select"
     )
-    
+
     model = st.selectbox(
-        "Generative model",
-        ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.5-flash"]
+        "🧠 Generative Model",
+        ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.5-flash"],
+        key="model_select"
     )
-    
-    simulate = st.checkbox("Offline Simulation Mode", value=True)
-    
+
+    simulate = st.checkbox("💤 Offline Simulation Mode", value=True, key="simulate_check")
+
+    # Allow pasting API key directly in the sidebar (for Streamlit Cloud)
+    if not os.environ.get("GEMINI_API_KEY"):
+        api_key_input = st.text_input(
+            "🔑 Gemini API Key (optional, for live runs)",
+            type="password",
+            help="Set GEMINI_API_KEY in Streamlit Secrets for persistent config",
+            key="api_key_input"
+        )
+        if api_key_input:
+            os.environ["GEMINI_API_KEY"] = api_key_input.strip()
+    else:
+        st.success("✅ GEMINI_API_KEY configured")
+
     st.markdown("---")
-    st.markdown("### ⚡ Actions")
-    
-    force_run = st.button("Force Manual Run")
-    
+    force_run = st.button("🚀 Force Manual Run", key="force_run_btn")
+
+    # Worker status
     st.markdown("---")
-    # Display background worker status in sidebar
+    st.markdown("**⚙️ Background Worker**")
     worker_status = load_worker_status()
     if worker_status:
         state = worker_status.get("status", "unknown").upper()
-        if state == "GENERATING":
-            st.markdown(f"**Worker Status**: 🔄 `{state}`")
-        elif state == "IDLE":
-            st.markdown(f"**Worker Status**: 💤 `{state}`")
-        else:
-            st.markdown(f"**Worker Status**: 🛑 `{state}`")
-            
-        st.markdown(f"**Interval**: `{worker_status.get('interval_seconds', 0)}s`")
+        color = {"GENERATING": "#f59e0b", "IDLE": "#22c55e", "STOPPED": "#ef4444"}.get(state, "#94a3b8")
+        st.markdown(f"Status: <span style='color:{color};font-weight:700'>{state}</span>", unsafe_allow_html=True)
+        st.markdown(f"Interval: `{worker_status.get('interval_seconds', 0)}s`")
         if worker_status.get("next_run"):
-            next_dt = datetime.fromisoformat(worker_status.get("next_run").replace("Z", ""))
-            st.markdown(f"**Next Wakeup**: `{next_dt.strftime('%H:%M:%S')}`")
+            next_dt = datetime.fromisoformat(worker_status["next_run"].replace("Z", ""))
+            st.markdown(f"Next run: `{next_dt.strftime('%H:%M:%S')}`")
     else:
-        st.markdown("**Worker Status**: 🛑 `INACTIVE`")
+        st.markdown("<span style='color:#ef4444;font-weight:700'>INACTIVE</span>", unsafe_allow_html=True)
+        st.caption("Run: `python background_worker.py --simulate`")
+
+    st.markdown("---")
+    st.caption("Autonomous Newsletter Engine v5.0.0\nDay 5: Production Observability")
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Main dashboard UI
+# Header
 # ──────────────────────────────────────────────────────────────────────────────
-st.markdown("# 🤖 The Autonomous Tech Newsletter Fleet")
-st.markdown("Day 5: Production-Grade Observability Dashboard. Monitoring local multi-agent publisher processes.")
+st.markdown("# 🤖 Autonomous Newsletter Fleet Dashboard")
+st.markdown(
+    "**Day 5 — Production-Grade Observability.** "
+    "Live feed of your autonomous multi-agent publishing engine."
+)
 
-# Execute a run if requested
+if not PIPELINE_AVAILABLE:
+    st.error(f"⚠️ Pipeline module could not be loaded: {_import_err_msg}")
+    st.info("The dashboard will still show historical data from `run_history.json`.")
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Manual run trigger
+# ──────────────────────────────────────────────────────────────────────────────
 if force_run:
-    with st.status("🚀 Running multi-agent generation pipeline..."):
-        try:
-            st.write("Waking up Trend Scout Agent A...")
-            st.write("Sourcing RSS feeds...")
-            # Set UTF-8 encoding environment variable
-            os.environ["PYTHONIOENCODING"] = "utf-8"
-            final_content = run_pipeline(niche=niche, model_name=model, simulate=simulate)
-            st.success("Pipeline execution complete! Newsletter draft saved.")
-            st.toast("Success! Stamped newsletter is ready.")
-        except Exception as e:
-            st.error(f"Execution failed: {e}")
+    if not PIPELINE_AVAILABLE:
+        st.error("Cannot run pipeline — module failed to load.")
+    else:
+        with st.status("🚀 Executing multi-agent pipeline...", expanded=True) as status_box:
+            try:
+                st.write("⚡ Waking up Agent A (Trend Scout)...")
+                st.write(f"📡 Sourcing RSS feeds for: **{niche}**")
+                final_content = run_pipeline(niche=niche, model_name=model, simulate=simulate)
+                status_box.update(label="✅ Pipeline complete!", state="complete")
+                st.success("Newsletter draft saved to project directory.")
+                st.toast("Newsletter published!", icon="📰")
+                st.rerun()
+            except EnvironmentError as e:
+                status_box.update(label="❌ Configuration error", state="error")
+                st.error(f"**Missing API key:** {e}")
+                st.info("Enable 'Offline Simulation Mode' in the sidebar, or enter your Gemini API key.")
+            except Exception as e:
+                status_box.update(label="❌ Pipeline failed", state="error")
+                st.error(f"**Error:** {e}")
 
-# Load active metrics
+# ──────────────────────────────────────────────────────────────────────────────
+# Top-Level Metric Cards
+# ──────────────────────────────────────────────────────────────────────────────
 history = load_history()
 drafts = get_drafts()
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Top Level Metrics Cards
-# ──────────────────────────────────────────────────────────────────────────────
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-    last_wake_str = "Never"
     if history:
-        # Find latest success/run timestamp
-        last_dt = datetime.fromisoformat(history[-1].get("timestamp").replace("Z", ""))
-        last_wake_str = last_dt.strftime("%b %d, %H:%M:%S")
+        last_dt = datetime.fromisoformat(history[-1]["timestamp"].replace("Z", ""))
+        wake_str = last_dt.strftime("%b %d, %H:%M")
+        sub = f"{(datetime.now() - last_dt).seconds // 60}m ago"
+    else:
+        wake_str = "Never"
+        sub = "No runs yet"
     st.markdown(f"""
     <div class="metric-card">
-        <h4>Last Agent A Wakeup</h4>
-        <p>{last_wake_str}</p>
-    </div>
-    """, unsafe_allow_html=True)
+      <h4>Agent A Last Wake</h4>
+      <p>{wake_str}</p>
+      <div class="sub">{sub}</div>
+    </div>""", unsafe_allow_html=True)
 
 with col2:
     total_runs = len(history)
+    success_runs = sum(1 for r in history if r.get("status") == "success")
     st.markdown(f"""
     <div class="metric-card">
-        <h4>Total Fleet Cycles</h4>
-        <p>{total_runs}</p>
-    </div>
-    """, unsafe_allow_html=True)
+      <h4>Total Fleet Cycles</h4>
+      <p>{total_runs}</p>
+      <div class="sub">{success_runs} successful</div>
+    </div>""", unsafe_allow_html=True)
 
 with col3:
-    total_tokens = sum(run.get("agent_b", {}).get("total_tokens", 0) for run in history)
+    total_tokens = sum(r.get("agent_b", {}).get("total_tokens", 0) for r in history)
     st.markdown(f"""
     <div class="metric-card">
-        <h4>Accumulative Tokens</h4>
-        <p>{total_tokens:,}</p>
-    </div>
-    """, unsafe_allow_html=True)
+      <h4>Total Tokens Used</h4>
+      <p>{total_tokens:,}</p>
+      <div class="sub">across all runs</div>
+    </div>""", unsafe_allow_html=True)
 
 with col4:
-    success_runs = sum(1 for run in history if run.get("status") == "success")
-    success_rate = int((success_runs / total_runs * 100)) if total_runs > 0 else 100
+    rate = int(success_runs / total_runs * 100) if total_runs > 0 else 100
+    avg_score = int(sum(r.get("agent_c", {}).get("score", 0) for r in history) / total_runs) if total_runs > 0 else 0
     st.markdown(f"""
     <div class="metric-card">
-        <h4>Compliance Rate</h4>
-        <p>{success_rate}%</p>
-    </div>
-    """, unsafe_allow_html=True)
+      <h4>Avg Quality Score</h4>
+      <p>{avg_score}/100</p>
+      <div class="sub">{rate}% compliance rate</div>
+    </div>""", unsafe_allow_html=True)
+
+st.markdown("")
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Tabs for Logs & Drafts
+# Tabs
 # ──────────────────────────────────────────────────────────────────────────────
-tab_logs, tab_drafts, tab_charts = st.tabs(["📋 Fleet Transaction Logs", "📰 Newsletter Archive", "📈 Token & Quality Metrics"])
+tab_logs, tab_drafts, tab_charts = st.tabs([
+    "📋 Fleet Transaction Logs",
+    "📰 Newsletter Archive",
+    "📈 Metrics & Analytics"
+])
 
+# ── Tab 1: Transaction Logs ──
 with tab_logs:
-    st.subheader("Live Feed of Agent Transaction History")
+    st.markdown('<div class="section-header">Live Agent Execution History</div>', unsafe_allow_html=True)
+
     if not history:
-        st.info("No logs present in the execution database yet. Trigger a manual run or start the background worker.")
+        st.info("No runs recorded yet. Use **Force Manual Run** in the sidebar to start the pipeline.")
     else:
         for idx, run in enumerate(reversed(history)):
-            run_time = datetime.fromisoformat(run.get("timestamp").replace("Z", "")).strftime("%Y-%m-%d %H:%M:%S")
+            run_time = datetime.fromisoformat(run["timestamp"].replace("Z", "")).strftime("%Y-%m-%d %H:%M:%S")
             is_success = run.get("status") == "success"
-            
-            status_color = "green" if is_success else "red"
-            status_text = "APPROVED" if is_success else "FAILED"
-            
-            with st.expander(f"🕒 [{run_time}] {run.get('niche')} — Model: {run.get('model')} — Status: {status_text}", expanded=(idx==0)):
-                if is_success:
-                    st.markdown(f"**Compliance Score**: `{run.get('agent_c', {}).get('score', 0)}/100` | **Attempts**: `{run.get('agent_b', {}).get('attempts', 0)}`")
-                else:
-                    st.error(f"Error Message: {run.get('error')}")
-                    
-                col_a, col_b = st.columns(2)
-                
-                with col_a:
-                    st.markdown("#### 🔍 Agent A (Scout) Headlines Pulled")
-                    st.markdown(f"**Source**: `{run.get('agent_a', {}).get('source')}`")
-                    for headline in run.get("agent_a", {}).get("headlines_pulled", []):
-                        st.markdown(f"- {headline}")
-                        
-                with col_b:
-                    st.markdown("#### ✍️ Agent B (Writer) & C (Evaluator) Telemetry")
-                    st.markdown(f"**Prompt Tokens**: `{run.get('agent_b', {}).get('prompt_tokens', 0):,}`")
-                    st.markdown(f"**Output/Candidate Tokens**: `{run.get('agent_b', {}).get('output_tokens', 0):,}`")
-                    st.markdown(f"**Total Tokens**: `{run.get('agent_b', {}).get('total_tokens', 0):,}`")
-                    
-                    violations = run.get("agent_b", {}).get("violations", [])
-                    if violations:
-                        st.markdown("**🛡️ Guardrail Violations Remediation**:")
-                        for violation in violations:
-                            st.warning(violation)
+            status_label = "✅ SUCCESS" if is_success else "❌ FAILED"
+            niche_label = run.get("niche", "Unknown")
+            score = run.get("agent_c", {}).get("score", 0)
+
+            with st.expander(
+                f"{'🟢' if is_success else '🔴'}  [{run_time}]  {niche_label}  —  Score: {score}/100",
+                expanded=(idx == 0)
+            ):
+                c1, c2 = st.columns(2)
+
+                with c1:
+                    st.markdown("#### 🔍 Agent A — Trend Scout")
+                    st.markdown(f"**Source:** `{run.get('agent_a', {}).get('source', 'N/A')}`")
+                    headlines = run.get("agent_a", {}).get("headlines_pulled", [])
+                    if headlines:
+                        for h in headlines:
+                            st.markdown(f"- {h}")
                     else:
-                        st.success("No guardrail violations recorded.")
-                        
-                st.markdown("---")
-                st.markdown(f"**Evaluator Comments**: *{run.get('agent_c', {}).get('notes', 'No evaluator notes available.')}*")
+                        st.caption("No headlines recorded.")
 
+                with c2:
+                    st.markdown("#### ✍️ Agent B — Writer Telemetry")
+                    b = run.get("agent_b", {})
+                    st.markdown(f"**Attempts:** `{b.get('attempts', 0)}`")
+                    st.markdown(f"**Prompt Tokens:** `{b.get('prompt_tokens', 0):,}`")
+                    st.markdown(f"**Output Tokens:** `{b.get('output_tokens', 0):,}`")
+                    st.markdown(f"**Total Tokens:** `{b.get('total_tokens', 0):,}`")
+                    violations = b.get("violations", [])
+                    if violations:
+                        st.markdown("**🛡️ Guardrail Violations Fixed:**")
+                        for v in violations:
+                            st.warning(v, icon="⚠️")
+                    else:
+                        st.success("No guardrail violations.", icon="✅")
+
+                st.markdown("---")
+                c = run.get("agent_c", {})
+                verdict = "✅ APPROVED" if c.get("passed") else "⚠️ REVIEW NEEDED"
+                st.markdown(f"**🔬 Agent C Verdict:** {verdict} &nbsp;|&nbsp; Score: `{c.get('score', 0)}/100`")
+                if c.get("notes"):
+                    st.markdown(f"*{c.get('notes')}*")
+
+                if not is_success and run.get("error"):
+                    st.error(f"Error: {run.get('error')}")
+
+# ── Tab 2: Newsletter Archive ──
 with tab_drafts:
-    st.subheader("Compiled Newsletter Drafts Archive")
-    if not drafts:
-        st.info("No generated newsletters found in the local repository.")
-    else:
-        selected_file = st.selectbox("Select newsletter draft to read", drafts)
-        if selected_file:
-            try:
-                with open(selected_file, "r", encoding="utf-8") as f:
-                    content = f.read()
-                
-                # Split off header for display if desired
-                st.markdown("---")
-                st.markdown(content)
-            except Exception as e:
-                st.error(f"Error loading newsletter: {e}")
+    st.markdown('<div class="section-header">Generated Newsletter Drafts</div>', unsafe_allow_html=True)
 
-with tab_charts:
-    st.subheader("Fleet Analytics & Token Trends")
-    if not history:
-        st.info("Insufficient data to display metrics charts.")
+    if not drafts:
+        st.info("No newsletter drafts found yet. Run the pipeline to generate your first issue.")
     else:
-        # Create line charts for token metrics and score metrics
-        import pandas as pd
-        
-        data_points = []
-        for run in history:
-            data_points.append({
-                "Timestamp": datetime.fromisoformat(run.get("timestamp").replace("Z", "")).strftime("%m-%d %H:%M"),
-                "Total Tokens": run.get("agent_b", {}).get("total_tokens", 0),
-                "Evaluator Score": run.get("agent_c", {}).get("score", 0),
-                "Attempts": run.get("agent_b", {}).get("attempts", 0)
-            })
-        df = pd.DataFrame(data_points)
-        
-        st.markdown("#### Cumulative Token Consumption per Cycle")
-        st.line_chart(df.set_index("Timestamp")["Total Tokens"])
-        
-        st.markdown("#### Grader Evaluation Score Trend")
-        st.line_chart(df.set_index("Timestamp")["Evaluator Score"])
+        st.markdown(f"**{len(drafts)} draft(s)** found in project directory.")
+        selected = st.selectbox("Select a draft to read:", drafts, key="draft_select")
+
+        if selected:
+            draft_path = os.path.join(PROJECT_DIR, selected)
+            try:
+                with open(draft_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+
+                # Split off the metadata header block for clean rendering
+                parts = content.split("---\n\n", maxsplit=1)
+                if len(parts) == 2:
+                    meta_block = parts[0]
+                    body = parts[1]
+                    with st.expander("📋 Engine Metadata", expanded=False):
+                        st.code(meta_block.replace("---\n", "").strip(), language="yaml")
+                    st.markdown(body)
+                else:
+                    st.markdown(content)
+            except Exception as e:
+                st.error(f"Failed to read draft: {e}")
+
+# ── Tab 3: Analytics Charts ──
+with tab_charts:
+    st.markdown('<div class="section-header">Token Usage & Quality Trends</div>', unsafe_allow_html=True)
+
+    if len(history) < 1:
+        st.info("Run the pipeline at least once to see analytics data here.")
+    else:
+        try:
+            import pandas as pd
+
+            data = []
+            for run in history:
+                data.append({
+                    "Run": datetime.fromisoformat(run["timestamp"].replace("Z", "")).strftime("%m-%d %H:%M"),
+                    "Total Tokens": run.get("agent_b", {}).get("total_tokens", 0),
+                    "Prompt Tokens": run.get("agent_b", {}).get("prompt_tokens", 0),
+                    "Output Tokens": run.get("agent_b", {}).get("output_tokens", 0),
+                    "Quality Score": run.get("agent_c", {}).get("score", 0),
+                    "Attempts": run.get("agent_b", {}).get("attempts", 1),
+                })
+            df = pd.DataFrame(data)
+            df = df.set_index("Run")
+
+            col_a, col_b = st.columns(2)
+            with col_a:
+                st.markdown("##### 📊 Token Consumption per Run")
+                st.bar_chart(df[["Prompt Tokens", "Output Tokens"]])
+
+            with col_b:
+                st.markdown("##### 🏆 Agent C Quality Score Trend")
+                st.line_chart(df["Quality Score"])
+
+            st.markdown("##### 📈 Rewrite Attempts per Run")
+            st.bar_chart(df["Attempts"])
+
+            st.markdown("---")
+            st.markdown("**Summary Statistics**")
+            st.dataframe(df.describe().round(1), use_container_width=True)
+
+        except Exception as e:
+            st.error(f"Failed to render charts: {e}")
