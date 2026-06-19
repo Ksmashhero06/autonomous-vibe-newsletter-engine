@@ -2,7 +2,7 @@
 
 ## 1. Overview
 
-The `always-verify-gcp` skill is a comprehensive workflow designed to ensure all Google Cloud Platform (GCP) resource management tasks performed by the Gemini CLI agent are safe, accurate, and based on the most current information. 
+The `always-verify-gcp` skill is a comprehensive workflow designed to ensure all Google Cloud Platform (GCP) resource management tasks performed by the Gemini CLI agent are safe, accurate, and based on the most current information.
 
 Its core principle is **"Trust but Verify."** Instead of acting immediately on a user's request, the skill instructs the agent to follow a rigorous, multi-step process that involves selecting the correct command-line tool, verifying the command against official documentation, previewing the impact of the command (if possible), and intelligently diagnosing common errors.
 

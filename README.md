@@ -45,7 +45,7 @@ This repository tracks my progressive journey from conceptualizing user intent t
 
 ### 🔒 Ambient Expense-Approval Agent & Security Checkpoint
 * **FastAPI Webhook Server** (`app/fast_api_app.py`): Serves on port 8080. Normalizes fully-qualified Pub/Sub subscription paths to clean session IDs and runs the agent workflow asynchronously in the background.
-* **PII Redaction & Prompt Injection Guardrails** (`expense_agent/`): 
+* **PII Redaction & Prompt Injection Guardrails** (`expense_agent/`):
   * Automatically detects and scrubs sensitive personal data (SSNs and credit card numbers) before payloads reach logs or models.
   * Safeguards the graph against adversarial instructions. Prompt injections are caught and immediately routed to a human review queue.
 * **Under-$100 Auto-Approvals**: Clean and safe expense reports under $100 bypass LLM processing and auto-approve instantly.
@@ -141,7 +141,7 @@ python agent_pipeline.py --niche "Edge AI & Distributed Compute" --model gemini-
 ### 🧠 Agent Memory & Local JSON State
 - **Persistent Local Memory Database** (`past_issues.json`): A lightweight JSON store containing all topics that have been previously written about and published in the newsletter.
 - **Memory Check Skill** (`check_past_issues`): A tool registered for Agent B (`Writer`) that takes candidate story titles and checks them against the database.
-- **Autonomous Duplication Filtering**: 
+- **Autonomous Duplication Filtering**:
   - Before drafting a new edition, Agent B calls `check_past_issues` with all 5 trending stories sourced by Agent A.
   - If a story has already been covered, Agent B autonomously rejects it, logs the rejection trace in the pipeline activity, and selects alternative uncovered stories to form the final 3 deep-dives.
 - **Post-Generation Persistence**: When the newsletter is approved, the pipeline automatically parses the selected stories and appends them to `past_issues.json` with a timestamp and niche tag.
@@ -151,7 +151,7 @@ python agent_pipeline.py --niche "Edge AI & Distributed Compute" --model gemini-
 ## 🏗️ Multi-Agent Architecture
 
 ```
-[ Developer Input / Niche Select ] 
+[ Developer Input / Niche Select ]
                 │
                 ▼
    ┌─────────────────────────┐

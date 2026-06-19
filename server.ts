@@ -965,16 +965,16 @@ Ensure the newsletter strictly adheres to this clean formatting:
         if (fnCalls && fnCalls.length > 0) {
           const fc = fnCalls[0];
           const titlesToCheck = Array.isArray(fc.args?.titles) ? (fc.args.titles as string[]) : [];
-          
+
           addLog("Writer", `🔧 Memory skill tool call initiated checking ${titlesToCheck.length} titles...`);
-          
+
           // Execute check
           const pastIssues = getPastIssues();
           const pastTitles = pastIssues.map(issue => issue.title.trim().toLowerCase());
           const covered = titlesToCheck.filter(title => pastTitles.includes(title.trim().toLowerCase()));
-          
+
           addLog("Writer", `Memory skill result: Covered topics found -> [${covered.join(", ") || "None"}].`);
-          
+
           if (covered.length > 0) {
             addLog("Writer", `Autonomously rejecting covered topic(s): [${covered.join(", ")}].`);
           }
@@ -1020,14 +1020,14 @@ Ensure the newsletter strictly adheres to this clean formatting:
     if (runSimulation) {
       addLog("Writer", "⚠️ Working in Simulation Mode.");
       addLog("Writer", "🔧 Tool call requested: 'check_past_issues' checking candidate titles...");
-      
+
       const pastIssues = getPastIssues();
       const pastTitles = pastIssues.map(issue => issue.title.trim().toLowerCase());
-      
+
       // Filter out covered trendingTopics
       const filteredTopics = trendingTopics.filter(t => !pastTitles.includes(t.title.trim().toLowerCase()));
       const rejectedTopics = trendingTopics.filter(t => pastTitles.includes(t.title.trim().toLowerCase()));
-      
+
       if (rejectedTopics.length > 0) {
         addLog("Writer", `Memory skill result: Covered topics found -> [${rejectedTopics.map(t => t.title).join(", ")}].`);
         addLog("Writer", `Autonomously rejecting covered topic(s): [${rejectedTopics.map(t => t.title).join(", ")}].`);
@@ -1037,7 +1037,7 @@ Ensure the newsletter strictly adheres to this clean formatting:
       }
 
       addLog("Writer", "Compiling high-fidelity pre-compiled template based on niche to keep the dashboard responsive...");
-      
+
       let simulatedSections = "";
       filteredTopics.slice(0, 3).forEach((t, idx) => {
         if (idx === 0) {
@@ -1118,7 +1118,7 @@ As we move deeper into this development cycle, separation of concerns is being e
     // ---- 3. AGENT C (THE EVALUATOR) ACTIVATION ----
     addLog("Evaluator", "Evaluator Agent activated.");
     addLog("Evaluator", "Inspecting newsletter draft structure for quality gates, markdown validation, and elite readability standard.");
-    
+
     // Simulate some edits or polishing (like prepending metadata)
     const polishedNewsletter = `---
 Issue: Autonomous Newsletter Hub -- Niche: ${targetNiche}

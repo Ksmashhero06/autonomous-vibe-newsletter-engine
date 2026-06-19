@@ -75,10 +75,10 @@ export default function App() {
 
   useEffect(() => {
     const root = window.document.documentElement;
-    
+
     const applyTheme = (currentTheme: Theme) => {
       root.classList.remove("light", "dark");
-      
+
       if (currentTheme === "system") {
         const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
         root.classList.add(systemTheme);
@@ -93,7 +93,7 @@ export default function App() {
     if (theme === "system") {
       const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
       const handleChange = () => applyTheme("system");
-      
+
       mediaQuery.addEventListener("change", handleChange);
       return () => {
         mediaQuery.removeEventListener("change", handleChange);
@@ -104,7 +104,7 @@ export default function App() {
   // Input Config state
   const [apiKey, setApiKey] = useState("");
   const [niche, setNiche] = useState("AI & Agentic Frameworks");
-  
+
   // Dashboard state
   const [stats, setStats] = useState<BackendStats>({
     totalIssuesGenerated: 0,
@@ -131,7 +131,7 @@ export default function App() {
   // Copy success animation states
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedMd, setCopiedMd] = useState(false);
-  
+
   // Track open log modal for precise agent operations
   const [activeLogModal, setActiveLogModal] = useState<"scout" | "writer" | "editor" | null>(null);
 
@@ -245,7 +245,7 @@ export default function App() {
     setSelectedHistoryId(item.id);
     setNiche(item.niche);
     setNewsletter(item.content);
-    
+
     // Pour history logs back into terminal stream instantly
     if (item.logs && item.logs.length > 0) {
       setLogs(item.logs);
@@ -409,15 +409,15 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans selection:bg-blue-500/10 dark:selection:bg-blue-600/20 selection:text-blue-700 dark:selection:text-blue-400 transition-colors duration-200">
-      
+
       {/* 2. Professional Header (Navigation Bar Simulation) */}
       <header className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 sticky top-0 z-40 px-4 sm:px-6 py-4 flex flex-col lg:flex-row justify-between items-center gap-4 shadow-xs transition-colors duration-200">
         <div className="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-start">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl overflow-hidden shadow-md shrink-0 border border-slate-100 dark:border-slate-800 bg-[#1D63ED]">
-              <img 
-                src="/src/assets/images/newsletter_logo_1781618675903.jpg" 
-                alt="Logo" 
+              <img
+                src="/src/assets/images/newsletter_logo_1781618675903.jpg"
+                alt="Logo"
                 className="w-full h-full object-cover shrink-0 select-none"
                 referrerPolicy="no-referrer"
               />
@@ -434,19 +434,19 @@ export default function App() {
               <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium tracking-wide uppercase">ORGANIZATIONAL DISPATCH NETWORK</p>
             </div>
           </div>
-          
+
           <div className="flex lg:hidden items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-[10px] px-2.5 py-1 rounded-full border border-emerald-200 dark:border-emerald-900/40 font-semibold">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
           </div>
         </div>
-        
+
         {/* Navigation / Language Status Indicators / Theme selector */}
         <div className="flex flex-wrap items-center justify-center lg:justify-end gap-3 w-full lg:w-auto">
           <div className="hidden md:flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-xs px-3 py-1 rounded-full border border-emerald-200 dark:border-emerald-900/40 font-semibold">
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse inline-block" />
             Live Pipeline Online
           </div>
-          
+
           <div className="text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 flex items-center gap-1">
             <span>Region:</span>
             <span className="font-bold text-slate-900 dark:text-slate-200">EN-Global (A1)</span>
@@ -525,7 +525,7 @@ export default function App() {
         {/* 3. Hero Section & Configuration (Inspired by Split Cards) */}
         {activeTab === "dashboard" && (
           <section className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden grid grid-cols-1 lg:grid-cols-12 gap-0 animate-fadeIn transition-colors duration-200">
-            
+
             {/* Left Column: Visual Status representation */}
             <div className="lg:col-span-5 bg-slate-50 dark:bg-slate-900/40 p-6 md:p-8 border-b lg:border-b-0 lg:border-r border-slate-200 dark:border-slate-800 flex flex-col justify-between">
               <div className="space-y-4">
@@ -533,7 +533,7 @@ export default function App() {
                   Instrument Panel
                 </span>
                 <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 uppercase tracking-tight">Active Campaign Metrics</h3>
-                
+
                 {/* Clean inline data summary card list */}
                 <div className="space-y-3 pt-2">
                   <div className="flex justify-between items-center bg-white dark:bg-slate-850 p-3 rounded-xl border border-slate-200 dark:border-slate-800/65 shadow-3xs">
@@ -551,8 +551,8 @@ export default function App() {
                   <div className="flex justify-between items-center bg-white dark:bg-slate-850 p-3 rounded-xl border border-slate-200 dark:border-slate-800/65 shadow-3xs">
                     <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Latest Run Sync:</span>
                     <strong className="text-xs text-slate-900 dark:text-slate-200 font-mono font-bold text-[#1D63ED] dark:text-blue-400">
-                      {stats.lastSyncTime === "Never" 
-                        ? "Never" 
+                      {stats.lastSyncTime === "Never"
+                        ? "Never"
                         : new Date(stats.lastSyncTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                       }
                     </strong>
@@ -597,7 +597,7 @@ export default function App() {
                     className="w-full bg-white dark:bg-slate-800 border border-slate-250 dark:border-slate-700 focus:border-[#1D63ED] dark:focus:border-blue-500 focus:ring-2 focus:ring-[#1D63ED]/15 dark:focus:ring-blue-500/15 rounded-xl px-3 py-2.5 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none transition-all shadow-sm"
                   />
                   <p className="text-[9.5px] text-slate-500 dark:text-slate-450">
-                    {hasServerKey 
+                    {hasServerKey
                       ? "✓ Safe backend key connection available."
                       : "💡 Runs local simulations if API Key is empty."}
                   </p>
@@ -779,8 +779,8 @@ export default function App() {
 
                   {/* Card 1: Trend Scout Agent */}
                   <div className={`p-5 rounded-2xl border transition-all flex flex-col justify-between bg-white dark:bg-slate-900 min-h-[300px] ${
-                    activeAgentIndex === 0 
-                      ? "border-[#1D63ED] dark:border-blue-500 shadow-md shadow-blue-500/5 ring-1 ring-[#1D63ED]/10 dark:ring-blue-500/10" 
+                    activeAgentIndex === 0
+                      ? "border-[#1D63ED] dark:border-blue-500 shadow-md shadow-blue-500/5 ring-1 ring-[#1D63ED]/10 dark:ring-blue-500/10"
                       : "border-slate-200 dark:border-slate-800"
                   }`}>
                     <div>
@@ -795,9 +795,9 @@ export default function App() {
                       {/* Agent avatar profile block */}
                       <div className="flex items-center gap-3 mb-4">
                         <div className="h-11 w-11 rounded-full overflow-hidden bg-slate-150 dark:bg-slate-800 border border-slate-250 dark:border-slate-700 shrink-0">
-                          <img 
-                            src="/src/assets/images/trend_scout_agent_1781615884593.jpg" 
-                            alt="Scout AI" 
+                          <img
+                            src="/src/assets/images/trend_scout_agent_1781615884593.jpg"
+                            alt="Scout AI"
                             className="w-full h-full object-cover shrink-0 select-none"
                             referrerPolicy="no-referrer"
                           />
@@ -844,8 +844,8 @@ export default function App() {
 
                   {/* Card 2: Synthesizer Writer Agent */}
                   <div className={`p-5 rounded-2xl border transition-all flex flex-col justify-between bg-white dark:bg-slate-900 min-h-[300px] ${
-                    activeAgentIndex === 1 
-                      ? "border-[#1D63ED] dark:border-blue-500 shadow-md shadow-blue-500/5 ring-1 ring-[#1D63ED]/10 dark:ring-blue-500/10" 
+                    activeAgentIndex === 1
+                      ? "border-[#1D63ED] dark:border-blue-500 shadow-md shadow-blue-500/5 ring-1 ring-[#1D63ED]/10 dark:ring-blue-500/10"
                       : "border-slate-200 dark:border-slate-800"
                   }`}>
                     <div>
@@ -860,9 +860,9 @@ export default function App() {
                       {/* Agent avatar profile block */}
                       <div className="flex items-center gap-3 mb-4">
                         <div className="h-11 w-11 rounded-full overflow-hidden bg-slate-150 dark:bg-slate-800 border border-slate-250 dark:border-slate-700 shrink-0">
-                          <img 
-                            src="/src/assets/images/writer_agent_1781615902469.jpg" 
-                            alt="Writer AI" 
+                          <img
+                            src="/src/assets/images/writer_agent_1781615902469.jpg"
+                            alt="Writer AI"
                             className="w-full h-full object-cover shrink-0 select-none cursor-default"
                             referrerPolicy="no-referrer"
                           />
@@ -909,8 +909,8 @@ export default function App() {
 
                   {/* Card 3: Evaluator Critic Agent */}
                   <div className={`p-5 rounded-2xl border transition-all flex flex-col justify-between bg-white dark:bg-slate-900 min-h-[300px] ${
-                    activeAgentIndex === 2 
-                      ? "border-[#1D63ED] dark:border-blue-500 shadow-md shadow-blue-500/5 ring-1 ring-[#1D63ED]/10 dark:ring-blue-500/10" 
+                    activeAgentIndex === 2
+                      ? "border-[#1D63ED] dark:border-blue-500 shadow-md shadow-blue-500/5 ring-1 ring-[#1D63ED]/10 dark:ring-blue-500/10"
                       : "border-slate-200 dark:border-slate-800"
                   }`}>
                     <div>
@@ -972,7 +972,7 @@ export default function App() {
 
               {/* 5. Functional Core Integration Display Output paper container */}
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 flex flex-col min-h-[480px] shadow-xs relative overflow-hidden transition-colors duration-200">
-                
+
                 {/* Switch view headers */}
                 <div className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-slate-800 shrink-0 flex-wrap gap-2">
                   <div className="flex items-center gap-2">
@@ -1029,10 +1029,10 @@ export default function App() {
                       {previewMode === "preview" ? (
                         /* Beautiful white editor paper simulation format sheet with top-brand line */
                         <div className="bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 rounded-xl p-6 sm:p-10 shadow-md border border-slate-205 dark:border-slate-800 select-text leading-relaxed font-serif animate-fadeIn mx-auto max-w-2xl relative min-h-[440px] transition-colors duration-200">
-                          
+
                           {/* Royal blue premium ribbon bar */}
                           <div className="absolute top-0 inset-x-0 h-1.5 bg-[#1D63ED]" />
-                          
+
                           {/* Corporate Heading Stamp plates */}
                           <div className="text-center pb-5 mb-6 border-b border-slate-300 dark:border-slate-800 font-sans">
                             <p className="text-[9px] font-extrabold tracking-widest text-[#1D63ED] dark:text-blue-400 uppercase font-mono mb-1">
@@ -1132,7 +1132,7 @@ export default function App() {
                     <button
                       onClick={saveNewsletterChanges}
                       className={`w-full sm:w-auto px-4 py-3 rounded-xl border font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                        saveSuccessMsg 
+                        saveSuccessMsg
                           ? "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-400"
                           : "border-slate-200 dark:border-slate-800 hover:border-slate-350 dark:hover:border-slate-700 bg-white dark:bg-slate-950 hover:bg-slate-50 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300"
                       }`}
@@ -1140,7 +1140,7 @@ export default function App() {
                       <Save className="h-4 w-4" />
                       <span>{saveSuccessMsg || "Save Snapshot"}</span>
                     </button>
-                    
+
                     <button
                       onClick={() => copyToClipboard(newsletter, true)}
                       className="w-full sm:w-auto p-3 border border-slate-200 dark:border-slate-800 hover:border-slate-350 dark:hover:border-slate-700 bg-white dark:bg-slate-950 hover:bg-slate-50 dark:hover:bg-slate-900 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
@@ -1179,7 +1179,7 @@ export default function App() {
                   Download or copy the full system-wide multi-agent pipeline script to trigger technical dispatches locally on your device.
                 </p>
               </div>
-              
+
               <div className="flex gap-2.5">
                 <button
                   onClick={() => copyToClipboard(pythonStreamlitCode, false)}
@@ -1270,7 +1270,7 @@ export default function App() {
       {activeLogModal && (
         <div className="fixed inset-0 bg-slate-950/60 dark:bg-black/80 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn">
           <div className="bg-white dark:bg-slate-900 border border-slate-205 dark:border-slate-850 rounded-2xl shadow-xl max-w-lg w-full overflow-hidden flex flex-col max-h-[80vh] transition-colors duration-200">
-            
+
             {/* Modal Title bar */}
             <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-[#F8FAFC] dark:bg-slate-950 flex justify-between items-center">
               <div className="flex items-center gap-2">

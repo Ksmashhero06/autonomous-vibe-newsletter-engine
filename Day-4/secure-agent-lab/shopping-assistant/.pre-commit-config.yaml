@@ -1,0 +1,19 @@
+# shopping-assistant/.pre-commit-config.yaml
+repos:
+  - repo: local
+    hooks:
+      - id: end-of-file-fixer
+        name: End of File Fixer
+        entry: end-of-file-fixer
+        language: system
+        types: [file]
+      - id: trailing-whitespace
+        name: Trailing Whitespace
+        entry: trailing-whitespace-fixer
+        language: system
+        types: [file]
+      - id: semgrep
+        name: Semgrep Security Scan
+        entry: python Day-4/secure-agent-lab/shopping-assistant/.venv/Scripts/pysemgrep --error --config Day-4/secure-agent-lab/shopping-assistant/.semgrep/rules.yaml
+        language: system
+        types: [python]

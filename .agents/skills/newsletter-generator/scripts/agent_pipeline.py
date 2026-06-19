@@ -173,7 +173,7 @@ def fetch_techcrunch_headlines(max_items: int = 15) -> dict[str, Any]:
         title = (item.findtext("title") or "").strip()
         link = (item.findtext("link") or "").strip()
         description = (item.findtext("description") or "").strip()
-        
+
         # Simple HTML tag removal
         import re
         description = re.sub(r'<[^>]*>', '', description)
@@ -225,7 +225,7 @@ def fetch_google_blog_headlines(max_items: int = 10) -> dict[str, Any]:
         title = (item.findtext("title") or "").strip()
         link = (item.findtext("link") or "").strip()
         description = (item.findtext("description") or "").strip()
-        
+
         import re
         description = re.sub(r'<[^>]*>', '', description)
 
@@ -276,7 +276,7 @@ def fetch_openai_blog_headlines(max_items: int = 10) -> dict[str, Any]:
         title = (item.findtext("title") or "").strip()
         link = (item.findtext("link") or "").strip()
         description = (item.findtext("description") or "").strip()
-        
+
         import re
         description = re.sub(r'<[^>]*>', '', description)
 
@@ -327,7 +327,7 @@ def fetch_zoho_blog_headlines(max_items: int = 10) -> dict[str, Any]:
         title = (item.findtext("title") or "").strip()
         link = (item.findtext("link") or "").strip()
         description = (item.findtext("description") or "").strip()
-        
+
         import re
         description = re.sub(r'<[^>]*>', '', description)
 
@@ -378,7 +378,7 @@ def fetch_meta_blog_headlines(max_items: int = 10) -> dict[str, Any]:
         title = (item.findtext("title") or "").strip()
         link = (item.findtext("link") or "").strip()
         description = (item.findtext("description") or "").strip()
-        
+
         import re
         description = re.sub(r'<[^>]*>', '', description)
 
@@ -429,7 +429,7 @@ def fetch_netflix_blog_headlines(max_items: int = 10) -> dict[str, Any]:
         title = (item.findtext("title") or "").strip()
         link = (item.findtext("link") or "").strip()
         description = (item.findtext("description") or "").strip()
-        
+
         import re
         description = re.sub(r'<[^>]*>', '', description)
 
@@ -480,7 +480,7 @@ def fetch_aws_blog_headlines(max_items: int = 10) -> dict[str, Any]:
         title = (item.findtext("title") or "").strip()
         link = (item.findtext("link") or "").strip()
         description = (item.findtext("description") or "").strip()
-        
+
         import re
         description = re.sub(r'<[^>]*>', '', description)
 
@@ -511,22 +511,22 @@ def check_past_issues(titles: list[str]) -> dict[str, list[str]]:
     past_issues_path = os.path.join(os.path.dirname(__file__), "past_issues.json")
     if not os.path.exists(past_issues_path):
         return {"covered_titles": []}
-    
+
     try:
         with open(past_issues_path, "r", encoding="utf-8") as f:
             past_issues = json.load(f)
     except Exception as exc:
         print(f"  [🔧 Tool] ❌ Error reading past_issues.json: {exc}")
         return {"covered_titles": []}
-    
+
     covered_titles = []
     past_titles = [issue.get("title", "").strip().lower() for issue in past_issues if isinstance(issue, dict)]
-    
+
     for title in titles:
         cleaned_title = title.strip().lower()
         if cleaned_title in past_titles:
             covered_titles.append(title)
-            
+
     print(f"  [🔧 Tool] ✅ Found covered titles: {covered_titles}")
     return {"covered_titles": covered_titles}
 
@@ -913,18 +913,18 @@ def run_agent_b(niche: str, topics: list[dict], model_name: str, simulate: bool 
         titles = [t.get("title", "") for t in topics]
         result = check_past_issues(titles)
         covered = result.get("covered_titles", [])
-        
+
         if covered:
             print(f"  [Agent B] Memory skill result: Covered topics found -> {covered}")
             print(f"  [Agent B] Autonomously rejecting covered topic(s): {covered}")
             print("  [Agent B] Autonomously selected alternative topics from Trend Scout list.")
         else:
             print("  [Agent B] Memory skill result: No covered topics found in current list.")
-            
+
         uncovered_topics = [t for t in topics if t.get("title") not in covered]
         if not uncovered_topics:
             uncovered_topics = topics
-            
+
         print("  [Agent B] Compiling high-fidelity pre-compiled template based on niche...")
         simulated_sections = ""
         for idx, t in enumerate(uncovered_topics[:3]):
@@ -1188,7 +1188,7 @@ Draft to evaluate:
 def update_past_issues(niche: str, topics: list[dict], newsletter_content: str):
     """Parses selected topics from the final draft and appends them to past_issues.json."""
     past_issues_path = os.path.join(os.path.dirname(__file__), "past_issues.json")
-    
+
     # Load existing
     past_issues = []
     if os.path.exists(past_issues_path):
@@ -1197,15 +1197,15 @@ def update_past_issues(niche: str, topics: list[dict], newsletter_content: str):
                 past_issues = json.load(f)
         except Exception as exc:
             print(f"  [Memory] Error loading past_issues.json for update: {exc}")
-            
+
     existing_titles = {issue.get("title", "").strip().lower() for issue in past_issues if isinstance(issue, dict)}
-    
+
     updated = False
     for topic in topics:
         title = topic.get("title", "")
         if not title:
             continue
-        
+
         # Check if the title is mentioned in the newsletter content
         if title.lower() in newsletter_content.lower():
             if title.strip().lower() not in existing_titles:
@@ -1217,7 +1217,7 @@ def update_past_issues(niche: str, topics: list[dict], newsletter_content: str):
                 existing_titles.add(title.strip().lower())
                 updated = True
                 print(f"  [Memory] Recorded new covered topic: '{title}'")
-                
+
     if updated:
         try:
             with open(past_issues_path, "w", encoding="utf-8") as f:

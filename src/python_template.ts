@@ -32,7 +32,7 @@ st.markdown("""
         font-family: 'Inter', -apple-system, sans-serif !important;
         color: #1E293B !important;
     }
-    
+
     /* Input fields and selectors overriding for clean white outline inputs */
     div[data-baseweb="input"] {
         background-color: #FFFFFF !important;
@@ -40,12 +40,12 @@ st.markdown("""
         border-radius: 8px !important;
         box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
     }
-    
+
     div[data-baseweb="input"]:focus-within {
         border-color: #1D63ED !important;
         box-shadow: 0 0 0 3px rgba(29, 99, 237, 0.15) !important;
     }
-    
+
     /* Override primary stButtons to use elite deep royal blue */
     button[kind="primary"], .stButton>button {
         background-color: #1D63ED !important;
@@ -58,21 +58,21 @@ st.markdown("""
         transition: all 0.2s ease-in-out !important;
         box-shadow: 0 4px 6px -1px rgba(29, 99, 237, 0.1), 0 2px 4px -1px rgba(29, 99, 237, 0.06) !important;
     }
-    
+
     button[kind="primary"]:hover, .stButton>button:hover {
         background-color: #0A58CA !important;
         border-color: #0A58CA !important;
         color: #FFFFFF !important;
         box-shadow: 0 10px 15px -3px rgba(29, 99, 237, 0.15) !important;
     }
-    
+
     /* Metrics panel display styling */
     div[data-testid="stMetricValue"] {
         font-size: 1.8rem !important;
         font-weight: 700 !important;
         color: #0F172A !important;
     }
-    
+
     div[data-testid="stMetricLabel"] {
         color: #64748B !important;
         font-size: 0.75rem !important;
@@ -144,7 +144,7 @@ with hero_col1:
         <div>
             <span class="portal-tag">Live Status Panel</span>
             <h3 style="font-size: 1.25rem; font-weight: 800; color: #0F172A; margin: 0.2rem 0 1rem 0;">METRIC INSTRUMENTATION</h3>
-            
+
             <div style="display: flex; flex-direction: column; gap: 0.75rem; background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 1rem;">
                 <div style="display: flex; justify-content: space-between; font-size: 0.8rem;">
                     <span style="color: #64748B;">Core Campaign Focus:</span>
@@ -160,7 +160,7 @@ with hero_col1:
                 </div>
             </div>
         </div>
-        
+
         <div style="border-t: 1px solid #E2E8F0; padding-top: 10px; font-size: 0.72rem; color: #64748B; font-family: monospace;">
             STABLE CONNECTED • STAMPED BY LEGAL CRITIC
         </div>
@@ -182,7 +182,7 @@ with hero_col2:
         </div>
     </div>
     \"\"\", unsafe_allow_html=True)
-    
+
     # Render API credentials inputs elegantly over background space
     inner_col1, inner_col2 = st.columns(2)
     with inner_col1:
@@ -224,7 +224,7 @@ with card_col1:
             </div>
             <h4 style="font-size: 0.95rem; font-weight: 700; color: #0F172A; margin: 0 0 0.5rem 0;">Scout-Alpha Pipeline</h4>
             <p style="font-size: 0.75rem; color: #64748B; margin-bottom: 1rem; line-height: 1.4;">Crawls developer endpoints, forums and GitHub parameters to extract trending indices.</p>
-            
+
             <div style="font-size: 0.75rem; color: #334155;">
                 <ul style="padding-left: 1.25rem; margin: 0; display: flex; flex-direction: column; gap: 4px;">
                     <li>Status: <strong>{'ACTIVE SCRAPING' if st.session_state.activity_log and not st.session_state.newsletter else '✓ STANDBY READY'}</strong></li>
@@ -251,7 +251,7 @@ with card_col2:
             </div>
             <h4 style="font-size: 0.95rem; font-weight: 700; color: #0F172A; margin: 0 0 0.5rem 0;">Writer-Beta Engine</h4>
             <p style="font-size: 0.75rem; color: #64748B; margin-bottom: 1rem; line-height: 1.4;">Formats unstructured payload strings and shapes technical academic briefs.</p>
-            
+
             <div style="font-size: 0.75rem; color: #334155;">
                 <ul style="padding-left: 1.25rem; margin: 0; display: flex; flex-direction: column; gap: 4px;">
                     <li>Status: <strong>{'EXPANDING TEXT' if st.session_state.activity_log and not st.session_state.newsletter else '✓ STANDBY READY'}</strong></li>
@@ -278,7 +278,7 @@ with card_col3:
             </div>
             <h4 style="font-size: 0.95rem; font-weight: 700; color: #0F172A; margin: 0 0 0.5rem 0;">Reviewer-Gamma Engine</h4>
             <p style="font-size: 0.75rem; color: #64748B; margin-bottom: 1rem; line-height: 1.4;">Parses grammatical integrity, reviews hierarchies, and issues structural stamps.</p>
-            
+
             <div style="font-size: 0.75rem; color: #334155;">
                 <ul style="padding-left: 1.25rem; margin: 0; display: flex; flex-direction: column; gap: 4px;">
                     <li>Status: <strong>{'EVALUATING STAMP' if st.session_state.activity_log and not st.session_state.newsletter else '✓ STANDBY READY'}</strong></li>
@@ -305,7 +305,7 @@ with launcher_col2:
 # 4. Functional Core Integration Flow Execution
 if trigger_btn:
     st.session_state.activity_log = []
-    
+
     # Helper to append logs cleanly with delay simulation
     def add_log(agent, message, delay=0.8):
         stamp = datetime.now().strftime("%H:%M:%S")
@@ -315,7 +315,7 @@ if trigger_btn:
     add_log("System", "Waking up active organizational officers...")
     add_log("Trend Scout", f"Trend Scout activated for thematic campaign niche: '{st.session_state.niche}'")
     add_log("Trend Scout", "Querying HackerNews RSS feeds and local simulation endpoints...")
-    
+
     # Define custom thematic targets
     if "web3" in st.session_state.niche.lower() or "blockchain" in st.session_state.niche.lower():
         points = [
@@ -338,7 +338,7 @@ if trigger_btn:
 
     for index, pt in enumerate(points):
         add_log("Trend Scout", f"[Trend Spot #{index+1}] Highlighted: {pt['title']}")
-    
+
     add_log("System", "Scout logs completed. Routing sanitized data payload to Writer-Beta for expansion...")
     add_log("Writer", "Writer-Beta initialized. Crafting technical editorial newsletter publication...")
 
@@ -388,16 +388,16 @@ The ecosystem is maturing rapidly. Below, our Scout Agent breaks down this week'
             )
             prompt = f\"\"\"
             Write an incredibly detailed, comprehensive, high-quality, and deeply technical subscriber newsletter focusing on the target niche: "{st.session_state.niche}".
-            
+
             Use these 3 trend reports collected by our Scout Agent:
             1. **{points[0]['title']}**: {points[0]['description']}
             2. **{points[1]['title']}**: {points[1]['description']}
             3. **{points[2]['title']}**: {points[2]['description']}
-            
+
             Adhere to this blueprint:
             - Title: Catchy email subject heading (e.g. "The Sync: Parallelized VM Debates, Rust MCP...")
             - Overview: High-level technical analysis of this niche.
-            - Deep Dive sections: 1 rich, deeply academic section with markdown headers (##) for each of the 3 trends. 
+            - Deep Dive sections: 1 rich, deeply academic section with markdown headers (##) for each of the 3 trends.
             - Code Blocks: Include at least one highly realistic code or configuration snippet.
             - Conclusion: Future outlook.
             - Tone: Professional, sophisticated, and engaging (Substack editorial style). No generic AI introductions!
@@ -409,11 +409,11 @@ The ecosystem is maturing rapidly. Below, our Scout Agent breaks down this week'
         except Exception as e:
             add_log("System", f"❌ Live connection failed: {str(e)}. Defaulting to simulator mode.")
             st.session_state.newsletter = f"API Error: {str(e)}\\n\\nPlease review your local credential variables."
-            
+
     add_log("Evaluator", "Evaluator Agent checking editorial hierarchies and markdown standards...")
     add_log("Evaluator", "Parsing syntax verification. Standard parameters: Compliant.")
     add_log("System", "Orchestrated pipeline completed successfully. releasing publication draft lock! 🎉")
-    
+
     # Prepend professional header plates to final newsletter
     st.session_state.newsletter = f\"\"\"---
 Topic: {st.session_state.niche}
@@ -431,7 +431,7 @@ System dispatch time: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 # 5. Output Preview - Formatted White Paper Layout Document Preview
 if st.session_state.newsletter:
     st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
-    
+
     # Simulate a beautiful white texture paper page
     st.markdown(f\"\"\"
     <div style="background-color: #FFFFFF; border: 1px solid #E2E8F0; padding: 3rem 2.5rem; border-radius: 12px; box-shadow: 0 4px 15px -3px rgba(0,0,0,0.05); max-width: 800px; margin: 0 auto; border-top: 6px solid #1D63ED; position: relative;">
@@ -447,16 +447,16 @@ if st.session_state.newsletter:
         </div>
     </div>
     \"\"\", unsafe_allow_html=True)
-    
+
     # Render draft in a readable standard streamlit component
     st.markdown(st.session_state.newsletter)
-    
+
     st.markdown(\"\"\"
     <div style="background-color: #FFFFFF; border: 1px solid #E2E8F0; border-top: none; padding: 1.5rem; border-radius: 0 0 12px 12px; max-width: 800px; margin: -10px auto 2rem auto; text-align: center; font-size: 0.75rem; color: #94A3B8; font-family: monospace; border-top: 1px dashed #E2E8F0;">
         © 2026 CORPORATE MULTI-AGENT COUNCIL • ALL DISTRIBUTION RIGHTS APPROVED
     </div>
     \"\"\", unsafe_allow_html=True)
-    
+
     # Footer Action Buttons: Copy & Download Markdown
     act_col1, act_col2 = st.columns(2)
     with act_col1:
