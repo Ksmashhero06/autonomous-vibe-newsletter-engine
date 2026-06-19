@@ -63,6 +63,74 @@ if not simulate_mode:
     genai.configure(api_key=GEMINI_API_KEY)
 
 
+# Day 5: Global execution telemetry stats
+execution_telemetry = {
+    "agent_a": {
+        "last_wake": None,
+        "headlines_pulled": [],
+        "source": "Multiple Tech RSS Feeds"
+    },
+    "agent_b": {
+        "prompt_tokens": 0,
+        "output_tokens": 0,
+        "total_tokens": 0,
+        "attempts": 0,
+        "violations": []
+    },
+    "agent_c": {
+        "score": 0,
+        "notes": "",
+        "passed": False
+    }
+}
+
+def save_telemetry(niche: str, model_name: str, status: str, error_message: str = None):
+    history_path = os.path.join(os.path.dirname(__file__), "run_history.json")
+    
+    history = []
+    if os.path.exists(history_path):
+        try:
+            with open(history_path, "r", encoding="utf-8") as f:
+                history = json.load(f)
+        except Exception:
+            history = []
+            
+    record = {
+        "timestamp": datetime.now().isoformat() + "Z",
+        "niche": niche,
+        "model": model_name,
+        "status": status,
+        "error": error_message,
+        "agent_a": {
+            "last_wake": execution_telemetry["agent_a"]["last_wake"],
+            "headlines_pulled": execution_telemetry["agent_a"]["headlines_pulled"],
+            "source": execution_telemetry["agent_a"]["source"]
+        },
+        "agent_b": {
+            "prompt_tokens": execution_telemetry["agent_b"]["prompt_tokens"],
+            "output_tokens": execution_telemetry["agent_b"]["output_tokens"],
+            "total_tokens": execution_telemetry["agent_b"]["total_tokens"],
+            "attempts": execution_telemetry["agent_b"]["attempts"],
+            "violations": execution_telemetry["agent_b"]["violations"]
+        },
+        "agent_c": {
+            "score": execution_telemetry["agent_c"]["score"],
+            "notes": execution_telemetry["agent_c"]["notes"],
+            "passed": execution_telemetry["agent_c"]["passed"]
+        }
+    }
+    
+    history.append(record)
+    history = history[-50:]
+    
+    try:
+        with open(history_path, "w", encoding="utf-8") as f:
+            json.dump(history, f, indent=2)
+        print(f"  [Telemetry] Saved run status to run_history.json")
+    except Exception as exc:
+        print(f"  [Telemetry] Error writing telemetry history: {exc}")
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Agent Tool: HackerNews RSS Live Feed Fetcher
 # ──────────────────────────────────────────────────────────────────────────────
@@ -802,6 +870,8 @@ def run_agent_a(niche: str, model_name: str, simulate: bool = False) -> list[dic
         for i, t in enumerate(topics, 1):
             print(f"    #{i}: {t.get('title')[:72]}...")
             print(f"         Score: {t.get('points')} pts")
+        execution_telemetry["agent_a"]["last_wake"] = datetime.now().isoformat() + "Z"
+        execution_telemetry["agent_a"]["headlines_pulled"] = [t.get("title", "") for t in topics]
         return topics
 
     model = genai.GenerativeModel(model_name=model_name, tools=[
@@ -885,11 +955,15 @@ Respond with a JSON array of exactly 5 objects:
             for i, t in enumerate(topics, 1):
                 print(f"    #{i}: {t.get('title', 'N/A')[:72]}{'...' if len(t.get('title',''))>72 else ''}")
                 print(f"         Score: {t.get('points', '?')} pts")
+            execution_telemetry["agent_a"]["last_wake"] = datetime.now().isoformat() + "Z"
+            execution_telemetry["agent_a"]["headlines_pulled"] = [t.get("title", "") for t in topics]
             return topics
         except json.JSONDecodeError as exc:
             print(f"  [Agent A] ⚠️  JSON decode error: {exc}")
 
     print("  [Agent A] ⚠️  Could not parse structured output. Returning empty list.")
+    execution_telemetry["agent_a"]["last_wake"] = datetime.now().isoformat() + "Z"
+    execution_telemetry["agent_a"]["headlines_pulled"] = []
     return []
 
 
@@ -1007,6 +1081,9 @@ As we move deeper into this development cycle, separation of concerns is being e
             print("  [Agent B] (Simulated Revision Attempt) Successfully corrected formatting errors based on feedback.")
 
         print(f"  [Agent B] ✅ Draft complete ({len(draft):,} characters).")
+        execution_telemetry["agent_b"]["prompt_tokens"] += 1450
+        execution_telemetry["agent_b"]["output_tokens"] += 980
+        execution_telemetry["agent_b"]["total_tokens"] += 2430
         return draft
 
     # Configure the model with system instruction and the check_past_issues tool
@@ -1107,6 +1184,12 @@ Please rewrite the entire newsletter draft from scratch, addressing and fixing e
 
     draft = response.text or ""
     print(f"  [Agent B] ✅ Draft complete ({len(draft):,} characters, ~{len(draft.split()):,} words).")
+    
+    if hasattr(response, "usage_metadata") and response.usage_metadata:
+        execution_telemetry["agent_b"]["prompt_tokens"] += getattr(response.usage_metadata, "prompt_token_count", 0)
+        execution_telemetry["agent_b"]["output_tokens"] += getattr(response.usage_metadata, "candidates_token_count", 0)
+        execution_telemetry["agent_b"]["total_tokens"] += getattr(response.usage_metadata, "total_token_count", 0)
+        
     return draft
 
 
@@ -1173,6 +1256,9 @@ def run_agent_c(niche: str, draft: str, model_name: str, simulate: bool = False)
         print("  [Agent C] Score    : 95/100")
         print("  [Agent C] Checks   : 7/7 passed")
         print("  [Agent C] Notes    : Good technical depth and layout structure.")
+        execution_telemetry["agent_c"]["score"] = 95
+        execution_telemetry["agent_c"]["notes"] = "Good technical depth and layout structure."
+        execution_telemetry["agent_c"]["passed"] = True
         return {
             "passed": True,
             "score": 95,
@@ -1242,11 +1328,17 @@ Draft to evaluate:
             print(f"  [Agent C] Score    : {result.get('score', '?')}/100")
             print(f"  [Agent C] Checks   : {checks_passed}/{checks_total} passed")
             print(f"  [Agent C] Notes    : {result.get('notes', '')}")
+            execution_telemetry["agent_c"]["score"] = result.get("score", 85)
+            execution_telemetry["agent_c"]["notes"] = result.get("notes", "")
+            execution_telemetry["agent_c"]["passed"] = result.get("passed", False)
             return result
         except json.JSONDecodeError:
             pass
 
     print("  [Agent C] ⚠️  Could not parse evaluation JSON — applying default pass.")
+    execution_telemetry["agent_c"]["score"] = 80
+    execution_telemetry["agent_c"]["notes"] = "Evaluation parsing error — default approval applied."
+    execution_telemetry["agent_c"]["passed"] = True
     return {
         "passed": True,
         "score": 80,
@@ -1315,11 +1407,32 @@ def run_pipeline(niche: str = "AI & Agentic Frameworks", model_name: str = "gemi
     Returns:
         The complete stamped newsletter as a string.
     """
+    global execution_telemetry
+    execution_telemetry = {
+        "agent_a": {
+            "last_wake": None,
+            "headlines_pulled": [],
+            "source": "Multiple Tech RSS Feeds"
+        },
+        "agent_b": {
+            "prompt_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+            "attempts": 0,
+            "violations": []
+        },
+        "agent_c": {
+            "score": 0,
+            "notes": "",
+            "passed": False
+        }
+    }
+
     started_at = datetime.now()
 
     print("\n" + "═" * 64)
     print("🤖  AUTONOMOUS NEWSLETTER ENGINE")
-    print("    Day 3: Agent Skills, Context & Memory")
+    print("    Day 5: Production-Grade Observability (The Local Fleet)")
     print(f"    Niche  : {niche}")
     print(f"    Model  : {model_name}")
     if simulate:
@@ -1327,64 +1440,69 @@ def run_pipeline(niche: str = "AI & Agentic Frameworks", model_name: str = "gemi
     print(f"    Started: {started_at.strftime('%Y-%m-%d %H:%M:%S')}")
     print("═" * 64)
 
-    # ── Agent A: Scout with live HN tool ──
-    topics = run_agent_a(niche=niche, model_name=model_name, simulate=simulate)
-    if not topics:
-        print("\n❌  Agent A returned no topics. Pipeline aborted.")
-        return ""
-
-    # ── Agent B: Writer — receives Agent A's payload (with Day 4 Quality Feedback Loop) ──
-    max_attempts = 3
-    feedback = None
-    draft = None
-    
-    for attempt in range(1, max_attempts + 1):
-        print(f"\n🔄  [Attempt {attempt}/{max_attempts}] Running Writer & Guardrail Evaluation...")
-        draft = run_agent_b(
-            niche=niche,
-            topics=topics,
-            model_name=model_name,
-            simulate=simulate,
-            feedback=feedback,
-            previous_draft=draft
-        )
-        if not draft:
-            print("\n❌  Agent B produced no draft. Pipeline aborted.")
+    try:
+        # ── Agent A: Scout with live HN tool ──
+        topics = run_agent_a(niche=niche, model_name=model_name, simulate=simulate)
+        if not topics:
+            print("\n❌  Agent A returned no topics. Pipeline aborted.")
+            save_telemetry(niche, model_name, "failed", "Agent A returned no topics")
             return ""
 
-        # Day 4: Run the automated security & quality checks
-        print(f"🛡️  [Security & Quality] Evaluating draft for Attempt {attempt}...")
-        guardrail_result = evaluate_draft_security_and_quality(draft)
+        # ── Agent B: Writer — receives Agent A's payload (with Day 4 Quality Feedback Loop) ──
+        max_attempts = 3
+        feedback = None
+        draft = None
         
-        if guardrail_result["passed"]:
-            print("🛡️  [Security & Quality] ✅ Check passed. No security or formatting violations found.")
-            break
-        else:
-            violations_text = "\n".join(f"- {v}" for v in guardrail_result["violations"])
-            print(f"🛡️  [Security & Quality] ❌ Violations detected:\n{violations_text}")
+        for attempt in range(1, max_attempts + 1):
+            execution_telemetry["agent_b"]["attempts"] = attempt
+            print(f"\n🔄  [Attempt {attempt}/{max_attempts}] Running Writer & Guardrail Evaluation...")
+            draft = run_agent_b(
+                niche=niche,
+                topics=topics,
+                model_name=model_name,
+                simulate=simulate,
+                feedback=feedback,
+                previous_draft=draft
+            )
+            if not draft:
+                print("\n❌  Agent B produced no draft. Pipeline aborted.")
+                save_telemetry(niche, model_name, "failed", "Agent B produced no draft")
+                return ""
+
+            # Day 4: Run the automated security & quality checks
+            print(f"🛡️  [Security & Quality] Evaluating draft for Attempt {attempt}...")
+            guardrail_result = evaluate_draft_security_and_quality(draft)
             
-            if attempt < max_attempts:
-                print(f"🔄  Feedback Loop: Directing Agent B to rewrite draft to fix violations.")
-                feedback = violations_text
+            if guardrail_result["passed"]:
+                print("🛡️  [Security & Quality] ✅ Check passed. No security or formatting violations found.")
+                break
             else:
-                print("🛡️  [Security & Quality] ⚠️ Maximum correction attempts reached. Proceeding to final audit.")
+                violations_text = "\n".join(f"- {v}" for v in guardrail_result["violations"])
+                print(f"🛡️  [Security & Quality] ❌ Violations detected:\n{violations_text}")
+                execution_telemetry["agent_b"]["violations"].extend(guardrail_result["violations"])
+                
+                if attempt < max_attempts:
+                    print(f"🔄  Feedback Loop: Directing Agent B to rewrite draft to fix violations.")
+                    feedback = violations_text
+                else:
+                    print("🛡️  [Security & Quality] ⚠️ Maximum correction attempts reached. Proceeding to final audit.")
 
-    # ── Agent C: Evaluator ──
-    evaluation = run_agent_c(niche=niche, draft=draft, model_name=model_name, simulate=simulate)
+        # ── Agent C: Evaluator ──
+        evaluation = run_agent_c(niche=niche, draft=draft, model_name=model_name, simulate=simulate)
 
-    # ── Update past issues memory ──
-    update_past_issues(niche, topics, draft)
+        # ── Update past issues memory ──
+        update_past_issues(niche, topics, draft)
 
-    # ── Stamp and assemble the final newsletter ──
-    finished_at = datetime.now()
-    elapsed = (finished_at - started_at).seconds
-    passed = evaluation.get("passed", True)
-    score = evaluation.get("score", 80)
-    checks = evaluation.get("checks", {})
-    checks_summary = " | ".join(f"{k}: {'✓' if v else '✗'}" for k, v in checks.items())
+        # ── Stamp and assemble the final newsletter ──
+        finished_at = datetime.now()
+        elapsed = (finished_at - started_at).seconds
+        passed = evaluation.get("passed", True)
+        score = evaluation.get("score", 80)
+        checks = evaluation.get("checks", {})
+        checks_summary = " | ".join(f"{k}: {'✓' if v else '✗'}" for k, v in checks.items())
 
-    final = f"""---
-Engine       : Autonomous Newsletter Engine v4.0.0 (Day 4 — Security & Evaluation)
+        final = f"""---
+Engine       : Autonomous Newsletter Engine v5.0.0 (Day 5 — Production Observability)
 Niche        : {niche}
 Model        : {model_name}
 ---
@@ -1401,20 +1519,26 @@ Duration     : {elapsed}s
 
 {draft}"""
 
-    # Save to a timestamped Markdown file
-    safe_niche = niche.lower().replace(" ", "_").replace("&", "and").replace("/", "_")[:40]
-    filename = f"newsletter_{safe_niche}_{finished_at.strftime('%Y%m%d_%H%M')}.md"
-    output_path = os.path.join(os.path.dirname(__file__), filename)
+        # Save to a timestamped Markdown file
+        safe_niche = niche.lower().replace(" ", "_").replace("&", "and").replace("/", "_")[:40]
+        filename = f"newsletter_{safe_niche}_{finished_at.strftime('%Y%m%d_%H%M')}.md"
+        output_path = os.path.join(os.path.dirname(__file__), filename)
 
-    with open(output_path, "w", encoding="utf-8") as f:
-        f.write(final)
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(final)
 
-    print("\n" + "═" * 64)
-    print(f"✅  Pipeline complete in {elapsed}s!")
-    print(f"📄  Newsletter saved → {filename}")
-    print("═" * 64)
+        print("\n" + "═" * 64)
+        print(f"✅  Pipeline complete in {elapsed}s!")
+        print(f"📄  Newsletter saved → {filename}")
+        print("═" * 64)
 
-    return final
+        save_telemetry(niche, model_name, "success")
+        return final
+
+    except Exception as exc:
+        save_telemetry(niche, model_name, "failed", str(exc))
+        print(f"\n❌  Pipeline execution failed: {exc}")
+        raise exc
 
 
 # ──────────────────────────────────────────────────────────────────────────────

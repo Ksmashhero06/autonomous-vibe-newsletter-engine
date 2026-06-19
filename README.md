@@ -37,8 +37,40 @@ This repository tracks my progressive journey from conceptualizing user intent t
 - [x] **Day 4: The Compliance Critic Agent (Gamma) & Local Evaluations**
   - Implement programmatic evaluation steps, security checkpoint against prompt injections, PII sanitization (SSNs & credit cards), and a local LLM-as-judge evaluation pipeline.
   - Implement automated quality/security rewrite feedback loops in the multi-agent pipeline (`agent_pipeline.py` and `server.ts`).
-- [ ] **Day 5: Production Fleet Orchestration & Telemetry**
+- [x] **Day 5: Production Fleet Orchestration & Telemetry**
   - Run background loops, generate local markdown archives, compile Streamlit setups, and view complete agent transaction logs.
+
+---
+
+## 🏆 Day 5 Milestone Deliverables: 100% Complete
+
+### 🔭 1. Execution Telemetry Engine (`agent_pipeline.py`)
+Instrumented all three agents with a live telemetry tracking system:
+- **`execution_telemetry` dict** — global state reset at the start of each `run_pipeline` call, tracking per-run metrics for all three agents.
+- **Agent A** — records `last_wake` timestamp and list of `headlines_pulled` from RSS sources.
+- **Agent B** — accumulates `prompt_tokens`, `output_tokens`, `total_tokens` (from Gemini `usage_metadata`), `attempts` count, and list of all guardrail `violations` encountered.
+- **Agent C** — records `score` (0–100), evaluator `notes`, and `passed` verdict.
+- **`save_telemetry()`** — writes each run as a structured JSON record to `run_history.json` (capped at last 50 runs), capturing success/failure status and full agent telemetry.
+- **`run_pipeline` updated to v5.0.0** — now wraps execution in a `try/except` to ensure telemetry is always saved even on failures.
+
+### 🤖 2. Background Fleet Worker (`background_worker.py`)
+A zero-external-dependency Python scheduler that runs the newsletter pipeline in the background:
+- Uses Python's built-in `time` + `threading` modules — no APScheduler or `schedule` required.
+- Configurable run interval via `--interval` CLI flag (default: 5 minutes, decimals supported e.g. `0.5`).
+- Writes `background_worker_status.json` after each cycle (status: `idle`, `generating`, or `stopped`) for the dashboard to poll.
+- Accepts `--niche`, `--model`, `--interval`, `--simulate` CLI arguments.
+- Handles pipeline failures gracefully and records errors to `run_history.json`.
+- **To run:** `python background_worker.py --simulate --interval 5`
+
+### 📊 3. Local Observability Dashboard (`dashboard.py`)
+A full-featured **Streamlit** interactive web dashboard launched at `http://localhost:8501`:
+- **Sidebar** — Select niche, model, toggle simulation mode, trigger a Force Manual Run (executes the full pipeline on demand).
+- **Background Worker Status** — Polls `background_worker_status.json` to display current state and time to next wakeup.
+- **4 Metric Cards** — Last Agent A wakeup time, Total fleet cycles run, Accumulated token count, Compliance success rate.
+- **Tab 1: Fleet Transaction Logs** — Expandable run history; each entry shows Agent A headlines, Agent B token stats and violations, Agent C score and notes.
+- **Tab 2: Newsletter Archive** — Dropdown file selector to browse and read any saved `.md` draft in the project directory.
+- **Tab 3: Token & Quality Metrics** — Line charts tracking token consumption and evaluator score trends over time.
+- **To launch:** `python -m streamlit run dashboard.py`
 
 ---
 
@@ -66,6 +98,7 @@ A secure shopping assistant agent built with Google Agent Development Kit (ADK) 
 * **Secret Leak Prevention:** Git pre-commit hooks configured with Semgrep rules that intercept and block commits containing hardcoded Google API credentials.
 
 ---
+
 
 ## 🏆 Day 1 Milestone deliverables: 100% Complete
 
