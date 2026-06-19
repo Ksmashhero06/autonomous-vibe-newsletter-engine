@@ -39,6 +39,13 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 from typing import Any
 
+# ── Fix Windows cp1252 console encoding for emoji/unicode output ──────────────
+# Must happen before any print() with Unicode characters (including at import time).
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Bootstrap: Validate environment before importing the SDK
 # ──────────────────────────────────────────────────────────────────────────────
