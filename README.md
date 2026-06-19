@@ -34,10 +34,27 @@ This repository tracks my progressive journey from conceptualizing user intent t
   - Equipped Agent A with a live HackerNews RSS tool using Gemini Function Calling. Implemented a 2-turn agentic loop where the model autonomously fetches, filters, and passes real developer trends to Agent B.
 - [x] **Day 3: Agent Skills, Context & Memory**
   - Equipped Agent B (Writer) with a memory skill using a local `past_issues.json` database. Agent B calls this tool, autonomously filters and rejects previously covered topics, and selects alternative developer trends from Agent A's list to manage context and tokens.
-- [ ] **Day 4: The Compliance Critic Agent (Gamma)**
-  - Implement programmatic evaluation steps, stylistic constraints, and compliance checks (avoiding buzzwords, checking formatting).
+- [x] **Day 4: The Compliance Critic Agent (Gamma) & Local Evaluations**
+  - Implement programmatic evaluation steps, security checkpoint against prompt injections, PII sanitization (SSNs & credit cards), and a local LLM-as-judge evaluation pipeline.
 - [ ] **Day 5: Production Fleet Orchestration & Telemetry**
   - Run background loops, generate local markdown archives, compile Streamlit setups, and view complete agent transaction logs.
+
+---
+
+## 🏆 Day 4 Milestone Deliverables: 100% Complete
+
+### 🔒 Ambient Expense-Approval Agent & Security Checkpoint
+* **FastAPI Webhook Server** (`app/fast_api_app.py`): Serves on port 8080. Normalizes fully-qualified Pub/Sub subscription paths to clean session IDs and runs the agent workflow asynchronously in the background.
+* **PII Redaction & Prompt Injection Guardrails** (`expense_agent/`): 
+  * Automatically detects and scrubs sensitive personal data (SSNs and credit card numbers) before payloads reach logs or models.
+  * Safeguards the graph against adversarial instructions. Prompt injections are caught and immediately routed to a human review queue.
+* **Under-$100 Auto-Approvals**: Clean and safe expense reports under $100 bypass LLM processing and auto-approve instantly.
+
+### 🧪 Local Evaluation & LLM-as-Judge Grading
+* **Synthetic Test Dataset** (`tests/eval/datasets/basic-dataset.json`): Contains 5 diverse test scenarios (auto-approvals, PII leaks, prompt injections) to validate routing and safety compliance.
+* **Trace Generator** (`tests/eval/generate_traces.py`): Executes the test suite against the local ADK workflow runner and outputs session traces.
+* **Local Grader** (`tests/eval/run_grade.py`): Custom LLM-as-judge evaluator utilizing the Gemini API directly, bypassing GCP credential requirements.
+* **GitHub Repository Integration**: Published and committed the codebase to the dedicated repository at [Ksmashhero06/ambient-expense-agent](https://github.com/Ksmashhero06/ambient-expense-agent.git).
 
 ---
 
