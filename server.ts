@@ -467,6 +467,46 @@ app.get("/api/status", (req, res) => {
   });
 });
 
+function evaluateDraftSecurityAndQuality(draft: string): { passed: boolean; violations: string[] } {
+  const violations: string[] = [];
+
+  // 1. Prompt Injection Checks
+  const injectionPatterns = [
+    "ignore previous instructions",
+    "ignore all instructions",
+    "bypass all rules",
+    "override compliance",
+    "override system",
+    "you must approve",
+    "always approve",
+    "passed: true",
+    "instruction override"
+  ];
+  const draftLower = draft.toLowerCase();
+  for (const pattern of injectionPatterns) {
+    if (draftLower.includes(pattern)) {
+      violations.push(`Security Violation: Suspected prompt injection pattern detected ('${pattern}').`);
+    }
+  }
+
+  // 2. Fenced Code Block Validation
+  const codeFenceCount = (draft.match(/```/g) || []).length;
+  if (codeFenceCount % 2 !== 0) {
+    violations.push("Formatting Violation: Unclosed markdown code block detected (odd number of triple-backticks).");
+  }
+
+  // 3. Empty Code Block Validation
+  const emptyBlockRegex = /```[a-zA-Z0-9]*\s*```/g;
+  if (emptyBlockRegex.test(draft)) {
+    violations.push("Formatting Violation: Empty markdown code block detected.");
+  }
+
+  return {
+    passed: violations.length === 0,
+    violations,
+  };
+}
+
 // API Route: Trigger Multi-Agent Workflow
 app.post("/api/generate", async (req, res) => {
   const { niche, customApiKey, customHNFeed } = req.body;
@@ -901,38 +941,42 @@ Your mission:
       `Successfully compiled ${trendingTopics.length} primary trending stories for niche: "${targetNiche}". Passing data payload to Agent B (The Writer).`
     );
 
-    // ---- 2. AGENT B (THE WRITER) ACTIVATION ----
-    addLog("Writer", "Writer Agent activated. Awaiting data transfer...");
-    addLog("Writer", "Packaging Trend Scout payload into a structured instruction prompt context.");
-    addLog("Writer", "Formulating Markdown newsletter outline following the Tech Deep-Dive editorial format.");
-
+    // ---- 2. AGENT B (THE WRITER) ACTIVATION (with Day 4 quality/security feedback loop) ----
     let draftContent = "";
+    let feedback = "";
     let runSimulation = !ai;
+    const maxAttempts = 3;
 
-    if (ai) {
-      addLog("Writer", "Streaming memory verification request to Gemini model 'gemini-3.5-flash'...");
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      addLog("Writer", `[Attempt ${attempt}/${maxAttempts}] Activating Writer Agent...`);
+      if (feedback) {
+        addLog("Writer", `Re-running Writer Agent with correction feedback...`);
+      }
 
-      const memoryToolDeclaration = {
-        functionDeclarations: [
-          {
-            name: "check_past_issues",
-            description: "Checks if any of the given article/topic titles have already been covered in past issues of the newsletter. Use this before writing a new draft to ensure you do not repeat topics.",
-            parameters: {
-              type: Type.OBJECT,
-              properties: {
-                titles: {
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING },
-                  description: "List of topic titles to verify against past newsletter memory.",
+      if (ai && !runSimulation) {
+        addLog("Writer", "Streaming memory verification request to Gemini model 'gemini-3.5-flash'...");
+
+        const memoryToolDeclaration = {
+          functionDeclarations: [
+            {
+              name: "check_past_issues",
+              description: "Checks if any of the given article/topic titles have already been covered in past issues of the newsletter. Use this before writing a new draft to ensure you do not repeat topics.",
+              parameters: {
+                type: Type.OBJECT,
+                properties: {
+                  titles: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING },
+                    description: "List of topic titles to verify against past newsletter memory.",
+                  },
                 },
+                required: ["titles"],
               },
-              required: ["titles"],
             },
-          },
-        ],
-      };
+          ],
+        };
 
-      const writerPrompt = `You are Agent B (The Writer), an expert elite technical journalist. Write an incredibly detailed, comprehensive, high-quality, and deeply technical subscriber newsletter focusing on the target niche: "${targetNiche}".
+        let writerPrompt = `You are Agent B (The Writer), an expert elite technical journalist. Write an incredibly detailed, comprehensive, high-quality, and deeply technical subscriber newsletter focusing on the target niche: "${targetNiche}".
 
 Below is the list of candidate trending stories sourced by Agent A (The Trend Scout):
 ${trendingTopics.map((t, idx) => `${idx + 1}. **${t.title}**: ${t.description}`).join("\n")}
@@ -949,99 +993,115 @@ Ensure the newsletter strictly adheres to this clean formatting:
 - **Conclusion**: A futuristic forward-looking wrap-up.
 - Use clean Markdown tables or formatted code snippets to represent system comparisons or configurations. Keep the tone sophisticated, engaging, and professional. Avoid fluffy intro/outro greetings like "Hey everyone, welcome back to my channel". Keep it like an expert, premium Substack technical memo.`;
 
-      try {
-        const turn1 = await ai.models.generateContent({
-          model: "gemini-3.5-flash",
-          contents: [{ role: "user", parts: [{ text: writerPrompt }] }],
-          config: {
-            systemInstruction: "You are an elite, highly esteemed engineering newsletter author and principal technical architect.",
-            tools: [memoryToolDeclaration],
-            temperature: 0.8,
-          },
-        });
+        if (feedback) {
+          writerPrompt += `
 
-        const fnCalls = turn1.functionCalls;
+⚠️ REVISION REQUIRED:
+Your previous draft failed automated quality and security checks.
+Below is the review feedback specifying the violations you must correct:
+${feedback}
 
-        if (fnCalls && fnCalls.length > 0) {
-          const fc = fnCalls[0];
-          const titlesToCheck = Array.isArray(fc.args?.titles) ? (fc.args.titles as string[]) : [];
+For reference, here was your previous draft that failed validation:
+---
+${draftContent}
+---
 
-          addLog("Writer", `🔧 Memory skill tool call initiated checking ${titlesToCheck.length} titles...`);
+Please rewrite the entire newsletter draft from scratch, addressing and fixing every violation listed in the feedback. Ensure all markdown code blocks are fully closed (even number of triple-backticks), and do NOT include any phrases that attempt to override, ignore, or bypass compliance instructions.`;
+        }
 
-          // Execute check
-          const pastIssues = getPastIssues();
-          const pastTitles = pastIssues.map(issue => issue.title.trim().toLowerCase());
-          const covered = titlesToCheck.filter(title => pastTitles.includes(title.trim().toLowerCase()));
-
-          addLog("Writer", `Memory skill result: Covered topics found -> [${covered.join(", ") || "None"}].`);
-
-          if (covered.length > 0) {
-            addLog("Writer", `Autonomously rejecting covered topic(s): [${covered.join(", ")}].`);
-          }
-
-          // Turn 2: Send tool output back to Writer to generate the newsletter draft
-          addLog("Writer", "Generating newsletter draft with remaining uncovered topics...");
-          const turn2 = await ai.models.generateContent({
+        try {
+          const turn1 = await ai.models.generateContent({
             model: "gemini-3.5-flash",
-            contents: [
-              { role: "user", parts: [{ text: writerPrompt }] },
-              { role: "model", parts: turn1.candidates![0].content.parts },
-              {
-                role: "user",
-                parts: [
-                  {
-                    functionResponse: {
-                      name: fc.name,
-                      response: { covered_titles: covered },
-                    },
-                  },
-                ],
-              },
-            ],
+            contents: [{ role: "user", parts: [{ text: writerPrompt }] }],
             config: {
               systemInstruction: "You are an elite, highly esteemed engineering newsletter author and principal technical architect.",
+              tools: [memoryToolDeclaration],
               temperature: 0.8,
-            }
+            },
           });
 
-          draftContent = turn2.text || "";
-        } else {
-          // Model didn't call the tool, just generated directly
-          draftContent = turn1.text || "";
+          const fnCalls = turn1.functionCalls;
+
+          if (fnCalls && fnCalls.length > 0) {
+            const fc = fnCalls[0];
+            const titlesToCheck = Array.isArray(fc.args?.titles) ? (fc.args.titles as string[]) : [];
+
+            addLog("Writer", `🔧 Memory skill tool call initiated checking ${titlesToCheck.length} titles...`);
+
+            // Execute check
+            const pastIssues = getPastIssues();
+            const pastTitles = pastIssues.map(issue => issue.title.trim().toLowerCase());
+            const covered = titlesToCheck.filter(title => pastTitles.includes(title.trim().toLowerCase()));
+
+            addLog("Writer", `Memory skill result: Covered topics found -> [${covered.join(", ") || "None"}].`);
+
+            if (covered.length > 0) {
+              addLog("Writer", `Autonomously rejecting covered topic(s): [${covered.join(", ")}].`);
+            }
+
+            // Turn 2: Send tool output back to Writer to generate the newsletter draft
+            addLog("Writer", "Generating newsletter draft with remaining uncovered topics...");
+            const turn2 = await ai.models.generateContent({
+              model: "gemini-3.5-flash",
+              contents: [
+                { role: "user", parts: [{ text: writerPrompt }] },
+                { role: "model", parts: turn1.candidates![0].content.parts },
+                {
+                  role: "user",
+                  parts: [
+                    {
+                      functionResponse: {
+                        name: fc.name,
+                        response: { covered_titles: covered },
+                      },
+                    },
+                  ],
+                },
+              ],
+              config: {
+                systemInstruction: "You are an elite, highly esteemed engineering newsletter author and principal technical architect.",
+                temperature: 0.8,
+              }
+            });
+
+            draftContent = turn2.text || "";
+          } else {
+            // Model didn't call the tool, just generated directly
+            draftContent = turn1.text || "";
+          }
+          addLog("Writer", "Received text pipeline streams from Gemini.");
+        } catch (err: any) {
+          console.error("[Agent B] Error during Writer Agent workflow:", err);
+          addLog("Writer", `⚠️ Writer API Error: ${err.message}. Switching to offline Simulation Mode.`);
+          runSimulation = true;
         }
-        addLog("Writer", "Received 100% of text pipeline streams from Gemini. Preparing validation review.");
-      } catch (err: any) {
-        console.error("[Agent B] Error during Writer Agent workflow:", err);
-        addLog("Writer", `⚠️ Writer API Error: ${err.message}. Switching to offline Simulation Mode.`);
-        runSimulation = true;
-      }
-    }
-
-    if (runSimulation) {
-      addLog("Writer", "⚠️ Working in Simulation Mode.");
-      addLog("Writer", "🔧 Tool call requested: 'check_past_issues' checking candidate titles...");
-
-      const pastIssues = getPastIssues();
-      const pastTitles = pastIssues.map(issue => issue.title.trim().toLowerCase());
-
-      // Filter out covered trendingTopics
-      const filteredTopics = trendingTopics.filter(t => !pastTitles.includes(t.title.trim().toLowerCase()));
-      const rejectedTopics = trendingTopics.filter(t => pastTitles.includes(t.title.trim().toLowerCase()));
-
-      if (rejectedTopics.length > 0) {
-        addLog("Writer", `Memory skill result: Covered topics found -> [${rejectedTopics.map(t => t.title).join(", ")}].`);
-        addLog("Writer", `Autonomously rejecting covered topic(s): [${rejectedTopics.map(t => t.title).join(", ")}].`);
-        addLog("Writer", `Autonomously selected alternative topics from Trend Scout list.`);
-      } else {
-        addLog("Writer", "Memory skill result: No previously covered topics found in current list.");
       }
 
-      addLog("Writer", "Compiling high-fidelity pre-compiled template based on niche to keep the dashboard responsive...");
+      if (runSimulation) {
+        addLog("Writer", "⚠️ Working in Simulation Mode.");
+        addLog("Writer", "🔧 Tool call requested: 'check_past_issues' checking candidate titles...");
 
-      let simulatedSections = "";
-      filteredTopics.slice(0, 3).forEach((t, idx) => {
-        if (idx === 0) {
-          simulatedSections += `
+        const pastIssues = getPastIssues();
+        const pastTitles = pastIssues.map(issue => issue.title.trim().toLowerCase());
+
+        // Filter out covered trendingTopics
+        const filteredTopics = trendingTopics.filter(t => !pastTitles.includes(t.title.trim().toLowerCase()));
+        const rejectedTopics = trendingTopics.filter(t => pastTitles.includes(t.title.trim().toLowerCase()));
+
+        if (rejectedTopics.length > 0) {
+          addLog("Writer", `Memory skill result: Covered topics found -> [${rejectedTopics.map(t => t.title).join(", ")}].`);
+          addLog("Writer", `Autonomously rejecting covered topic(s): [${rejectedTopics.map(t => t.title).join(", ")}].`);
+          addLog("Writer", `Autonomously selected alternative topics from Trend Scout list.`);
+        } else {
+          addLog("Writer", "Memory skill result: No previously covered topics found in current list.");
+        }
+
+        addLog("Writer", "Compiling high-fidelity pre-compiled template based on niche...");
+
+        let simulatedSections = "";
+        filteredTopics.slice(0, 3).forEach((t, idx) => {
+          if (idx === 0) {
+            simulatedSections += `
 ## 1. 🔍 Deep Dive: ${t.title}
 
 ### The Core Paradigm
@@ -1067,8 +1127,8 @@ impl SpeculativeScheduler {
 - **100x Production Reductions**: Overcomes standard network transaction peaks.
 - **Off-chain Consistency**: Cryptographic state guarantees are fully preserved.
 `;
-        } else if (idx === 1) {
-          simulatedSections += `
+          } else if (idx === 1) {
+            simulatedSections += `
 ## 2. ⚡ Deep Dive: ${t.title}
 
 ${t.description}
@@ -1081,8 +1141,8 @@ ${t.description}
 | Throughput | 1,200 tps | **45,000 tps** |
 | Resource Load | 89% CPU | **34% CPU** |
 `;
-        } else {
-          simulatedSections += `
+          } else {
+            simulatedSections += `
 ## ${idx + 1}. 🔬 Deep Dive: ${t.title}
 
 ${t.description}
@@ -1090,10 +1150,10 @@ ${t.description}
 ### Architectural Impact
 This presents a major shift. By moving secondary orchestration details into lightweight compilers, we completely eliminate runtime performance hits.
 `;
-        }
-      });
+          }
+        });
 
-      draftContent = `# 🤖 The Autonomous ${targetNiche} Briefing
+        const baseSimulatedDraft = `# 🤖 The Autonomous ${targetNiche} Briefing
 
 Welcome to this week's technical briefing on **${targetNiche}**, generated autonomously by our Multi-Agent Agentic Pipeline.
 
@@ -1103,7 +1163,7 @@ Welcome to this week's technical briefing on **${targetNiche}**, generated auton
 The tech landscape is shifting rapidly. Today we are exploring critical breakthroughs compiled from developers on the ground and leading HackerNews engineering threads. Here are our top focus areas for the week:
 
 ---
-${simulatedSections}
+{simulatedSections}
 ---
 
 ## 🔮 Concluding Outlook & Analysis
@@ -1111,6 +1171,34 @@ As we move deeper into this development cycle, separation of concerns is being e
 
 *This newsletter was compiled, drafted, and edited entirely by our Scout, Writer, and Evaluator Multi-Agent pipeline.*
 `;
+
+        if (!feedback) {
+          addLog("Writer", "(Simulated First Attempt) Intentionally injecting an unclosed code block to trigger feedback loop...");
+          draftContent = baseSimulatedDraft + "\n\n```rust\n// Unclosed code block simulated to test quality controls and safety feedback loop.";
+        } else {
+          addLog("Writer", "(Simulated Revision Attempt) Successfully corrected formatting errors based on feedback.");
+          draftContent = baseSimulatedDraft;
+        }
+      }
+
+      // Day 4: Run automated guardrails
+      addLog("Evaluator", `🛡️ [Security & Quality] Evaluating draft for Attempt ${attempt}...`);
+      const guardrailResult = evaluateDraftSecurityAndQuality(draftContent);
+
+      if (guardrailResult.passed) {
+        addLog("Evaluator", "🛡️ [Security & Quality] ✅ Check passed. No violations found.");
+        break;
+      } else {
+        const violationsText = guardrailResult.violations.map(v => `- ${v}`).join("\n");
+        addLog("Evaluator", `🛡️ [Security & Quality] ❌ Violations detected:\n${violationsText}`);
+
+        if (attempt < maxAttempts) {
+          addLog("System", `🔄 Feedback Loop active: Directing Writer to revise and fix violations.`);
+          feedback = violationsText;
+        } else {
+          addLog("System", `🛡️ [Security & Quality] ⚠️ Maximum correction attempts reached. Proceeding to final audit.`);
+        }
+      }
     }
 
     addLog("Writer", `Newsletter draft completed successfully (Draft length: ${draftContent.length} characters). Moving context into Agent C (The Evaluator).`);
@@ -1122,7 +1210,7 @@ As we move deeper into this development cycle, separation of concerns is being e
     // Simulate some edits or polishing (like prepending metadata)
     const polishedNewsletter = `---
 Issue: Autonomous Newsletter Hub -- Niche: ${targetNiche}
-Engine Version: v2.5.0-autonomous
+Engine Version: v4.0.0-security-audit
 Status: Approved & Polished by Agent C (Evaluator)
 Timestamp: ${new Date().toLocaleString()}
 ---

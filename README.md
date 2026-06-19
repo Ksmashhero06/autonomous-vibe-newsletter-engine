@@ -36,6 +36,7 @@ This repository tracks my progressive journey from conceptualizing user intent t
   - Equipped Agent B (Writer) with a memory skill using a local `past_issues.json` database. Agent B calls this tool, autonomously filters and rejects previously covered topics, and selects alternative developer trends from Agent A's list to manage context and tokens.
 - [x] **Day 4: The Compliance Critic Agent (Gamma) & Local Evaluations**
   - Implement programmatic evaluation steps, security checkpoint against prompt injections, PII sanitization (SSNs & credit cards), and a local LLM-as-judge evaluation pipeline.
+  - Implement automated quality/security rewrite feedback loops in the multi-agent pipeline (`agent_pipeline.py` and `server.ts`).
 - [ ] **Day 5: Production Fleet Orchestration & Telemetry**
   - Run background loops, generate local markdown archives, compile Streamlit setups, and view complete agent transaction logs.
 
@@ -43,16 +44,20 @@ This repository tracks my progressive journey from conceptualizing user intent t
 
 ## 🏆 Day 4 Milestone Deliverables: 100% Complete
 
+### 🛡️ 1. Newsletter Security Guardrails
+Implemented automated quality and security evaluation loop inside the multi-agent pipeline (both python CLI `agent_pipeline.py` and Node/TS dashboard `server.ts`). Detects unclosed/hallucinated code blocks and suspected prompt injection strings, triggering a 3-attempt rewrite/feedback loop with Agent B.
+
+
 Day 4 deliverables are split into two standalone repositories:
 
-### 🔒 1. Ambient Expense-Approval Agent
+### 🔒 2. Ambient Expense-Approval Agent
 An automated expense-routing agent designed using a 5-node ADK Workflow graph featuring a local evaluation loop and Pub/Sub webhook integration.
 * **Repository Link:** [Ksmashhero06/ambient-expense-agent](https://github.com/Ksmashhero06/ambient-expense-agent)
 * **Webhook Server** (`app/fast_api_app.py`): Serves on port 8080 to handle incoming Pub/Sub push messages and run agent workflows asynchronously.
 * **Security Checkpoint** (`expense_agent/`): Automatically detects and scrubs sensitive PII (SSNs & credit cards) and filters out prompt injection attacks.
 * **Evaluation Pipeline** (`tests/eval/`): Includes synthetic datasets, a trace generator, and a local LLM-as-judge grader.
 
-### 🛒 2. Secure Agent Lab: Shopping Assistant
+### 🛒 3. Secure Agent Lab: Shopping Assistant
 A secure shopping assistant agent built with Google Agent Development Kit (ADK) featuring outcome-based security testing and automated commit gating.
 * **Repository Link:** [Ksmashhero06/secure-agent-lab](https://github.com/Ksmashhero06/secure-agent-lab)
 * **Agent logic (`app/agent.py`):** Features stateful tools to manage cart checkouts, redeem discount codes, award loyalty points, and update coupon activation states.

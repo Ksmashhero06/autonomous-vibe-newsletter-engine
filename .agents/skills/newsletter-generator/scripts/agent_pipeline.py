@@ -897,14 +897,17 @@ Respond with a JSON array of exactly 5 objects:
 # Agent B — Writer
 # ──────────────────────────────────────────────────────────────────────────────
 
-def run_agent_b(niche: str, topics: list[dict], model_name: str, simulate: bool = False) -> str:
+def run_agent_b(niche: str, topics: list[dict], model_name: str, simulate: bool = False, feedback: str = None, previous_draft: str = None) -> str:
     """
     Agent B (The Writer): Receives Agent A's clean topic payload, calls its memory
     skill to filter out covered topics, and drafts a high-quality, deeply technical
     newsletter in Markdown format using uncovered stories.
     """
     print("\n" + "─" * 64)
-    print("✍️   AGENT B — WRITER: Activating...")
+    if feedback:
+        print("✍️   AGENT B — WRITER: Activating for REVISION/REWRITE...")
+    else:
+        print("✍️   AGENT B — WRITER: Activating...")
     print(f"    Received {len(topics)} sourced stories from Agent A.")
     print("─" * 64)
 
@@ -996,6 +999,13 @@ As we move deeper into this development cycle, separation of concerns is being e
 
 *This newsletter was compiled, drafted, and edited entirely by our Scout, Writer, and Evaluator Multi-Agent pipeline.*
 """
+        # Day 4 Milestone check: If this is the first attempt in simulation mode, inject a simulated syntax error!
+        if not feedback:
+            print("  [Agent B] (Simulated First Attempt) Intentionally injecting an unclosed code block to trigger feedback loop...")
+            draft += "\n\n```rust\n// Unclosed code block simulated to test quality controls and safety feedback loop."
+        else:
+            print("  [Agent B] (Simulated Revision Attempt) Successfully corrected formatting errors based on feedback.")
+
         print(f"  [Agent B] ✅ Draft complete ({len(draft):,} characters).")
         return draft
 
@@ -1041,6 +1051,22 @@ Newsletter structure requirements:
 
 Tone: Expert Substack technical memo. No greetings. No filler. Start directly with the title."""
 
+    if feedback and previous_draft:
+        writer_prompt += f"""
+
+⚠️ REVISION REQUIRED:
+Your previous draft failed automated quality and security checks.
+Below is the review feedback specifying the violations you must correct:
+{feedback}
+
+For reference, here is your previous draft that failed validation:
+---
+{previous_draft}
+---
+
+Please rewrite the entire newsletter draft from scratch, addressing and fixing every violation listed in the feedback. Ensure all markdown code blocks are fully closed (even number of triple-backticks), and do NOT include any phrases that attempt to override, ignore, or bypass compliance instructions.
+"""
+
     print(f"  [Agent B] Sending writing mission prompt and activating memory tool check...")
 
     chat = model.start_chat(enable_automatic_function_calling=False)
@@ -1082,6 +1108,50 @@ Tone: Expert Substack technical memo. No greetings. No filler. Start directly wi
     draft = response.text or ""
     print(f"  [Agent B] ✅ Draft complete ({len(draft):,} characters, ~{len(draft.split()):,} words).")
     return draft
+
+
+def evaluate_draft_security_and_quality(draft: str) -> dict:
+    """
+    Day 4: Security and Quality guardrail checker.
+    Validates:
+      1. Prompt injection defense (Safety constraints)
+      2. Unclosed code blocks / Hallucinated code block count (Formatting constraints)
+      3. Empty code blocks (Formatting constraints)
+    """
+    violations = []
+    
+    # 1. Prompt Injection checks
+    injection_patterns = [
+        "ignore previous instructions",
+        "ignore all instructions",
+        "bypass all rules",
+        "override compliance",
+        "override system",
+        "you must approve",
+        "always approve",
+        "passed: true",
+        "instruction override"
+    ]
+    draft_lower = draft.lower()
+    for pattern in injection_patterns:
+        if pattern in draft_lower:
+            violations.append(f"Security Violation: Suspected prompt injection pattern detected ('{pattern}').")
+
+    # 2. Markdown fenced code block validation (even number of backticks)
+    code_fence_count = draft.count("```")
+    if code_fence_count % 2 != 0:
+        violations.append("Formatting Violation: Unclosed markdown code block detected (odd number of triple-backticks).")
+
+    # 3. Empty code block validation
+    import re
+    empty_blocks = re.findall(r"```[a-zA-Z0-9]*\s*```", draft)
+    if empty_blocks:
+        violations.append("Formatting Violation: Empty markdown code block detected.")
+
+    return {
+        "passed": len(violations) == 0,
+        "violations": violations
+    }
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -1263,11 +1333,41 @@ def run_pipeline(niche: str = "AI & Agentic Frameworks", model_name: str = "gemi
         print("\n❌  Agent A returned no topics. Pipeline aborted.")
         return ""
 
-    # ── Agent B: Writer — receives Agent A's payload ──
-    draft = run_agent_b(niche=niche, topics=topics, model_name=model_name, simulate=simulate)
-    if not draft:
-        print("\n❌  Agent B produced no draft. Pipeline aborted.")
-        return ""
+    # ── Agent B: Writer — receives Agent A's payload (with Day 4 Quality Feedback Loop) ──
+    max_attempts = 3
+    feedback = None
+    draft = None
+    
+    for attempt in range(1, max_attempts + 1):
+        print(f"\n🔄  [Attempt {attempt}/{max_attempts}] Running Writer & Guardrail Evaluation...")
+        draft = run_agent_b(
+            niche=niche,
+            topics=topics,
+            model_name=model_name,
+            simulate=simulate,
+            feedback=feedback,
+            previous_draft=draft
+        )
+        if not draft:
+            print("\n❌  Agent B produced no draft. Pipeline aborted.")
+            return ""
+
+        # Day 4: Run the automated security & quality checks
+        print(f"🛡️  [Security & Quality] Evaluating draft for Attempt {attempt}...")
+        guardrail_result = evaluate_draft_security_and_quality(draft)
+        
+        if guardrail_result["passed"]:
+            print("🛡️  [Security & Quality] ✅ Check passed. No security or formatting violations found.")
+            break
+        else:
+            violations_text = "\n".join(f"- {v}" for v in guardrail_result["violations"])
+            print(f"🛡️  [Security & Quality] ❌ Violations detected:\n{violations_text}")
+            
+            if attempt < max_attempts:
+                print(f"🔄  Feedback Loop: Directing Agent B to rewrite draft to fix violations.")
+                feedback = violations_text
+            else:
+                print("🛡️  [Security & Quality] ⚠️ Maximum correction attempts reached. Proceeding to final audit.")
 
     # ── Agent C: Evaluator ──
     evaluation = run_agent_c(niche=niche, draft=draft, model_name=model_name, simulate=simulate)
@@ -1284,12 +1384,12 @@ def run_pipeline(niche: str = "AI & Agentic Frameworks", model_name: str = "gemi
     checks_summary = " | ".join(f"{k}: {'✓' if v else '✗'}" for k, v in checks.items())
 
     final = f"""---
-Engine       : Autonomous Newsletter Engine v3.0.0 (Day 3 — Context & Memory)
+Engine       : Autonomous Newsletter Engine v4.0.0 (Day 4 — Security & Evaluation)
 Niche        : {niche}
 Model        : {model_name}
 ---
 Agent A      : Trend Scout  →  fetch_hackernews_headlines (Live RSS Tool)
-Agent B      : Writer       →  Memory check (check_past_issues) → Markdown draft
+Agent B      : Writer       →  Memory check (check_past_issues) → Auto-Guardrail Loop
 Agent C      : Evaluator    →  {"APPROVED ✅" if passed else "REVIEW NEEDED ⚠️"} (Score: {score}/100)
 ---
 Checks       : {checks_summary}
