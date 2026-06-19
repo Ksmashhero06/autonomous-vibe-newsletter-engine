@@ -6,3 +6,7 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Ignore Day-4 contents except README
+Day-4/*
+!Day-4/README.md
