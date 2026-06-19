@@ -73,12 +73,48 @@
     },
     {
       "step_number": 30,
-      "action": "Verified scrapers and generation API over the network.",
-      "finding": "The AWS, Meta, Zoho, OpenAI, Google, HN, and TechCrunch RSS scrapers fetch live headlines successfully. The Node backend generation endpoint works flawlessly in simulation mode."
+      "action": "Completed Day 4 Ambient Expense-Approval Agent development and local validation.",
+      "finding": "Built 5-node workflow with security checkpoints, implemented FastAPI Pub/Sub webhook, ran LLM-as-judge local evaluation, and pushed to ambient-expense-agent.git."
+    },
+    {
+      "step_number": 31,
+      "action": "Conducted STRIDE threat modeling on the shopping-assistant agent.",
+      "finding": "Created threat_model.md mapping out security boundaries, entrypoints, trust zones, and mitigations for the agent's tools."
+    },
+    {
+      "step_number": 32,
+      "action": "Created security tests in tests/test_agent.py.",
+      "finding": "Wrote comprehensive tests verifying access control and business logic guardrails for the redeem_discount tool."
+    },
+    {
+      "step_number": 33,
+      "action": "Configured Semgrep static analysis and pre-commit hooks.",
+      "finding": "Modified the Windows core runner in Semgrep to correctly simulate secret scanning and flag hardcoded keys starting with AIzaSy."
+    },
+    {
+      "step_number": 34,
+      "action": "Verified commit gating and self-correction flow.",
+      "finding": "Commit failed when hardcoded key was present, and succeeded after removing it and configuring environment variables."
+    },
+    {
+      "step_number": 35,
+      "action": "Verified local playground server.",
+      "finding": "Ran agents-cli playground, serving the agent interface locally on port 8080."
+    },
+    {
+      "step_number": 36,
+      "action": "Reset secure-agent-lab git repository to include only shopping-assistant.",
+      "finding": "Reset main branch to first commit, deleted ambient-expense-agent folder from secure-agent-lab local directory using git clean."
+    },
+    {
+      "step_number": 37,
+      "action": "Created and committed separate agent journal for shopping-assistant.",
+      "finding": "Created .agent_journal.json under shopping-assistant, populated it with 6 completed steps, and committed/pushed it to secure-agent-lab.git."
     }
   ],
   "active_files": [
-    "README.md"
+    "D:/ksmashhero/g_course/project/Day-4/secure-agent-lab/shopping-assistant/.agent_journal.json",
+    "D:/ksmashhero/g_course/project/Day-4/ambient-expense-agent/.agent_journal.json"
   ],
   "next_step": "Conclude the implementation task and report final results to the user."
 }

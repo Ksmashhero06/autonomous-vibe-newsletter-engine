@@ -43,18 +43,22 @@ This repository tracks my progressive journey from conceptualizing user intent t
 
 ## 🏆 Day 4 Milestone Deliverables: 100% Complete
 
-### 🔒 Ambient Expense-Approval Agent & Security Checkpoint
-* **FastAPI Webhook Server** (`app/fast_api_app.py`): Serves on port 8080. Normalizes fully-qualified Pub/Sub subscription paths to clean session IDs and runs the agent workflow asynchronously in the background.
-* **PII Redaction & Prompt Injection Guardrails** (`expense_agent/`):
-  * Automatically detects and scrubs sensitive personal data (SSNs and credit card numbers) before payloads reach logs or models.
-  * Safeguards the graph against adversarial instructions. Prompt injections are caught and immediately routed to a human review queue.
-* **Under-$100 Auto-Approvals**: Clean and safe expense reports under $100 bypass LLM processing and auto-approve instantly.
+Day 4 deliverables are split into two standalone repositories:
 
-### 🧪 Local Evaluation & LLM-as-Judge Grading
-* **Synthetic Test Dataset** (`tests/eval/datasets/basic-dataset.json`): Contains 5 diverse test scenarios (auto-approvals, PII leaks, prompt injections) to validate routing and safety compliance.
-* **Trace Generator** (`tests/eval/generate_traces.py`): Executes the test suite against the local ADK workflow runner and outputs session traces.
-* **Local Grader** (`tests/eval/run_grade.py`): Custom LLM-as-judge evaluator utilizing the Gemini API directly, bypassing GCP credential requirements.
-* **GitHub Repository Integration**: Published and committed the codebase to the dedicated repository at [Ksmashhero06/ambient-expense-agent](https://github.com/Ksmashhero06/ambient-expense-agent.git).
+### 🔒 1. Ambient Expense-Approval Agent
+An automated expense-routing agent designed using a 5-node ADK Workflow graph featuring a local evaluation loop and Pub/Sub webhook integration.
+* **Repository Link:** [Ksmashhero06/ambient-expense-agent](https://github.com/Ksmashhero06/ambient-expense-agent)
+* **Webhook Server** (`app/fast_api_app.py`): Serves on port 8080 to handle incoming Pub/Sub push messages and run agent workflows asynchronously.
+* **Security Checkpoint** (`expense_agent/`): Automatically detects and scrubs sensitive PII (SSNs & credit cards) and filters out prompt injection attacks.
+* **Evaluation Pipeline** (`tests/eval/`): Includes synthetic datasets, a trace generator, and a local LLM-as-judge grader.
+
+### 🛒 2. Secure Agent Lab: Shopping Assistant
+A secure shopping assistant agent built with Google Agent Development Kit (ADK) featuring outcome-based security testing and automated commit gating.
+* **Repository Link:** [Ksmashhero06/secure-agent-lab](https://github.com/Ksmashhero06/secure-agent-lab)
+* **Agent logic (`app/agent.py`):** Features stateful tools to manage cart checkouts, redeem discount codes, award loyalty points, and update coupon activation states.
+* **STRIDE Threat Model (`threat_model.md`):** Complete mapping of trust boundaries, entrypoints, threat vectors, and mitigations.
+* **Security Tests (`tests/test_agent.py`):** High-coverage outcome-based unit tests verifying parameter checks, access boundaries, and discount state validation.
+* **Secret Leak Prevention:** Git pre-commit hooks configured with Semgrep rules that intercept and block commits containing hardcoded Google API credentials.
 
 ---
 
