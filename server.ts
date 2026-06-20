@@ -4,6 +4,7 @@ import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import fs from "fs";
+import crypto from "crypto";
 
 dotenv.config();
 
@@ -1152,6 +1153,7 @@ app.post("/api/generate", async (req, res) => {
   let apiErrorsCount = 0;
   let writerViolationsCount = 0;
   let attemptsCount = 0;
+  let runSimulation = false; // will be determined after key/AI checks
 
   // Initialize a log array representing live agent activities
   const logs: { agent: string; message: string; timestamp: string }[] = [];
@@ -1522,12 +1524,18 @@ Your mission:
       } catch (toolErr: any) {
         console.error("[Agent A] Tool-calling error:", toolErr);
         addLog("Trend Scout", `⚠️ Tool error: ${toolErr.message}. Switching to niche-matched simulation mode.`);
+        // Fast-fail: 403 means key is blocked — force simulation immediately
+        if (toolErr.status === 403 || toolErr.message?.includes("403") || toolErr.message?.includes("PERMISSION_DENIED") || toolErr.message?.includes("SERVICE_DISABLED")) {
+          addLog("Trend Scout", "⚡ API key blocked (403). Activating full simulation mode for this run.");
+          keys.gemini = undefined as any; // prevent further API calls this run
+        }
       }
       }
     }
 
     // ── Fallback: Niche-matched simulated topics (no key / tool failure) ──
     if (trendingTopics.length === 0) {
+      runSimulation = true; // no API, force full simulation
       if (topic) {
         addLog("Trend Scout", `Offline mode: Emulating custom topic deconstruction for "${topic}"...`);
         trendingTopics = [
@@ -1654,7 +1662,7 @@ Your mission:
     agentBStart = Date.now();
 
     // ---- v6.0 RAG Fetcher ----
-    let runSimulation = !ai;
+    runSimulation = !ai || !keys.gemini;
     const ragStore = await runRagContentFetcher(
       trendingTopics,
       targetNiche,
@@ -1844,6 +1852,11 @@ Please rewrite the entire newsletter draft from scratch, addressing and fixing e
           console.error("[Agent B] Error during Writer Agent workflow:", err);
           addLog("Writer", `⚠️ Writer API Error: ${err.message}. Switching to offline Simulation Mode.`);
           runSimulation = true;
+          // Fast-fail on 403: don't retry with dead key
+          if (err.status === 403 || err.message?.includes("403") || err.message?.includes("PERMISSION_DENIED") || err.message?.includes("SERVICE_DISABLED")) {
+            addLog("Writer", "⚡ API key blocked (403) — running simulation for remaining attempts.");
+            keys.gemini = undefined as any;
+          }
         }
       }
 
@@ -2074,7 +2087,7 @@ ${draftContent}`;
     const agentCCost = calculateTokenCost(selectedModel, agentCPromptTokens, agentCOutputTokens);
     const totalCost = Number((agentACost + agentBCost + agentCCost).toFixed(6));
 
-    const crypto = require("crypto");
+
     const traceId = crypto.randomBytes(16).toString("hex");
     const pipelineSpanId = crypto.randomBytes(8).toString("hex");
     const agentASpanId = crypto.randomBytes(8).toString("hex");
@@ -2226,7 +2239,7 @@ ${draftContent}`;
     const agentCCost = calculateTokenCost(selectedModel, agentCPromptTokens, agentCOutputTokens);
     const totalCost = Number((agentACost + agentBCost + agentCCost).toFixed(6));
 
-    const crypto = require("crypto");
+
     const traceId = crypto.randomBytes(16).toString("hex");
     const pipelineSpanId = crypto.randomBytes(8).toString("hex");
     const agentASpanId = crypto.randomBytes(8).toString("hex");
