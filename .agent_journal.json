@@ -51,6 +51,16 @@
       "step_number": 10,
       "action": "Wired log_agent_interaction and check_past_issues into simulated and live pipelines, and created a Live Agent Cooperation chat UI in dashboard.py",
       "finding": "Conversational agent interactions are now logged and displayed in real-time on a new dashboard tab."
+    },
+    {
+      "step_number": 11,
+      "action": "Implemented custom topic targeting and deconstruction in run_agent_a and run_pipeline",
+      "finding": "Added topic parameter to run_pipeline. When topic is present, Agent A deconstructs the topic into sub-topics instead of doing RSS feed calls, and Orchestrator logs the research mission correctly."
+    },
+    {
+      "step_number": 12,
+      "action": "Updated Streamlit dashboard sidebar to support optional Custom Subject Topic input",
+      "finding": "Added topic text field and propagated the value to run_pipeline. Tested successfully in simulation mode, verifying that the Live Agent Cooperation chat logs update dynamically."
     }
   ],
 
@@ -59,8 +69,10 @@
     "background_worker.py",
     "dashboard.py",
     "run_history.json",
-    "agent_interactions.json"
+    "agent_interactions.json",
+    ".agent_journal.json",
+    ".agent_code_map.md"
   ],
 
-  "next_step": "Commit the Day 5 changes and push to GitHub using /commit-milestone"
+  "next_step": "Run /commit-milestone workflow to commit the changes."
 }

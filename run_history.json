@@ -262,5 +262,65 @@
       "notes": "Good technical depth and layout structure.",
       "passed": true
     }
+  },
+  {
+    "timestamp": "2026-06-20T16:02:47.419943Z",
+    "niche": "AI & Agentic Frameworks",
+    "model": "gemini-1.5-flash",
+    "status": "success",
+    "error": null,
+    "agent_a": {
+      "last_wake": "2026-06-20T16:02:46.970785Z",
+      "headlines_pulled": [
+        "Deep Dive: Architecture of Model-Context Protocol details",
+        "Performance Tuning & Optimization for Model-Context Protocol details",
+        "Common Pitfalls and Anti-patterns in Model-Context Protocol details Implementations"
+      ],
+      "source": "Multiple Tech RSS Feeds"
+    },
+    "agent_b": {
+      "prompt_tokens": 2900,
+      "output_tokens": 1960,
+      "total_tokens": 4860,
+      "attempts": 2,
+      "violations": [
+        "Formatting Violation: Unclosed markdown code block detected (odd number of triple-backticks)."
+      ]
+    },
+    "agent_c": {
+      "score": 95,
+      "notes": "Good technical depth and layout structure.",
+      "passed": true
+    }
+  },
+  {
+    "timestamp": "2026-06-20T16:18:40.395351Z",
+    "niche": "AI & Agentic Frameworks",
+    "model": "gemini-1.5-flash",
+    "status": "success",
+    "error": null,
+    "agent_a": {
+      "last_wake": "2026-06-20T16:18:40.023317Z",
+      "headlines_pulled": [
+        "Deep Dive: Architecture of Model-Context Protocol (MCP) details",
+        "Performance Tuning & Optimization for Model-Context Protocol (MCP) details",
+        "Common Pitfalls and Anti-patterns in Model-Context Protocol (MCP) details Implementations"
+      ],
+      "source": "Multiple Tech RSS Feeds"
+    },
+    "agent_b": {
+      "prompt_tokens": 2900,
+      "output_tokens": 1960,
+      "total_tokens": 4860,
+      "attempts": 2,
+      "violations": [
+        "Formatting Violation: Unclosed markdown code block detected (odd number of triple-backticks)."
+      ]
+    },
+    "agent_c": {
+      "score": 95,
+      "notes": "Good technical depth and layout structure.",
+      "passed": true
+    }
   }
 ]

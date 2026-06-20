@@ -195,6 +195,13 @@ with st.sidebar:
         key="niche_select"
     )
 
+    topic = st.text_input(
+        "📝 Custom Subject Topic (Optional)",
+        value="",
+        help="If set, agents will build a targeted deep-dive newsletter on this specific topic instead of fetching general trends.",
+        key="topic_input"
+    )
+
     model = st.selectbox(
         "🧠 Generative Model",
         ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.5-flash"],
@@ -261,8 +268,16 @@ if force_run:
         with st.status("🚀 Executing multi-agent pipeline...", expanded=True) as status_box:
             try:
                 st.write("⚡ Waking up Agent A (Trend Scout)...")
-                st.write(f"📡 Sourcing RSS feeds for: **{niche}**")
-                final_content = run_pipeline(niche=niche, model_name=model, simulate=simulate)
+                if topic.strip():
+                    st.write(f"📝 Researching custom topic: **{topic.strip()}**")
+                else:
+                    st.write(f"📡 Sourcing RSS feeds for: **{niche}**")
+                final_content = run_pipeline(
+                    niche=niche,
+                    model_name=model,
+                    simulate=simulate,
+                    topic=topic.strip() if topic.strip() else None
+                )
                 status_box.update(label="✅ Pipeline complete!", state="complete")
                 st.success("Newsletter draft saved to project directory.")
                 st.toast("Newsletter published!", icon="📰")

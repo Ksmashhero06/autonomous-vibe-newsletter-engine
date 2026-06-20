@@ -869,43 +869,54 @@ def dispatch_tool(name: str, args: dict) -> Any:
 # Agent A — Trend Scout (with Live Tool Use)
 # ──────────────────────────────────────────────────────────────────────────────
 
-def run_agent_a(niche: str, model_name: str, simulate: bool = False) -> list[dict]:
+def run_agent_a(niche: str, model_name: str, simulate: bool = False, topic: str = None) -> list[dict]:
     """
     Agent A (Trend Scout): Autonomously fetches live headlines via its
     registered tools, then filters and returns the top 5 most technically
-    relevant stories for the target niche.
+    relevant stories for the target niche. If a specific topic is provided,
+    it deconstructs it into a structured sub-topic breakdown.
     """
     print("\n" + "─" * 64)
     print("🔍  AGENT A — TREND SCOUT: Activating...")
     print(f"    Niche: {niche}")
+    if topic:
+        print(f"    Topic: {topic}")
     print("─" * 64)
 
     if simulate:
-        print("  [Agent A] Offline simulation mode active. Emulating scrapers with niche-matched templates...")
-        if "web3" in niche.lower() or "crypto" in niche.lower() or "contract" in niche.lower():
+        if topic:
+            print(f"  [Agent A] Offline simulation mode active. Generating custom breakdown for: {topic}...")
             topics = [
-                {"title": "Solana State Compression: Reducing NFT minting costs by 100x via Merkle Trees", "description": "Deep dive into concurrent Merkle tree structures that store state off-chain while guaranteeing security through ledger signatures.", "points": 312},
-                {"title": "EVM Parallelization: Arbitrum and Monad Approaches", "description": "Analyzing architectural differences in executing non-conflicting Ethereum smart contracts simultaneously via speculative execution.", "points": 245},
-                {"title": "ZK-Rollups vs. Optimistic Rollups in 2026", "description": "A benchmark of cryptographic proof generation times and execution stability for real-time low-latency consumer applications.", "points": 189}
-            ]
-        elif "ai" in niche.lower() or "agent" in niche.lower() or "learn" in niche.lower():
-            topics = [
-                {"title": "Show HN: Model-Context Protocol (MCP) clients built entirely in Rust", "description": "A high-performance implementation of standard context management protocol for LLMs, eliminating TypeScript/Node overhead.", "points": 541},
-                {"title": "OpenAI launches GPT-5.5 with real-time semantic video streaming and sub-50ms latency", "description": "OpenAI news feed reports on major architectural shifts enabling multi-modal semantic streams to feed direct client sockets without intermediary transcription buffers.", "points": 612},
-                {"title": "Google introduces Gemini 2.5 Pro with native 10-million token context windows", "description": "Google Research details memory optimization via sparse attention mechanisms that permit native indexing of entire codebases in active memory.", "points": 588},
-                {"title": "Meta Research details LLaMA 4: 100T parameter model optimized for agentic tool use and complex reasoning", "description": "Meta Research blog details architectural updates including speculative decoding pipelines and low-rank adaptation techniques for edge devices.", "points": 575},
-                {"title": "Is clean token-to-token streaming with low late-delivery possible over HTTP/3?", "description": "Engineering team reviews benchmarks of QUIC protocol streams for feeding chunked real-time LLM reasoning traces to multiple client sockets.", "points": 402},
-                {"title": "Autonomous agents now manage $50k/day ad budgets with zero human overview", "description": "A critical review of standard feedback loop errors where autonomous models enter recursive spending traps due to misaligned reward targets.", "points": 288}
+                {"title": f"Deep Dive: Architecture of {topic}", "description": f"Exploring the core components and low-level mechanics of {topic} inside production systems.", "points": 450},
+                {"title": f"Performance Tuning & Optimization for {topic}", "description": f"Best practices for reducing latency, lock contention, and resource overhead in systems leveraging {topic}.", "points": 380},
+                {"title": f"Common Pitfalls and Anti-patterns in {topic} Implementations", "description": f"A comprehensive audit checklist detailing common failure states, edge-case race conditions, and how to safeguard against them.", "points": 290}
             ]
         else:
-            topics = [
-                {"title": "Netflix TechBlog: Migrating a core streaming service from Java to Rust", "description": "Netflix engineers detail how migrating to Rust reduced CPU utilization by 40% and eliminated garbage collection latency spikes in high-throughput video metadata streams.", "points": 490},
-                {"title": "AWS News: Introducing Amazon ECS Serverless Containers with sub-second scaling", "description": "AWS details the new micro-VM technology enabling instant container startup and auto-scaling based on incoming socket pressure.", "points": 510},
-                {"title": "Zoho releases unified compiler for cloud orchestrations on serverless setups", "description": "Zoho Blog documents a custom Rust compiler that optimizes execution latency on Zoho cloud functions by tree-shaking dead runtime modules.", "points": 420},
-                {"title": f"Advancements in {niche} Core Architectures", "description": "Developers debate if current paradigm shifts are sustainable for production workloads, pointing out bottlenecks in standard runtime environments.", "points": 154},
-                {"title": f"Show HN: Lightweight CLI for compiling {niche} assets", "description": "An open-source compiler written in Go that optimizes production bundles by omitting unused intermediate tree-shaking properties.", "points": 211},
-                {"title": f"Critical memory leaks found in default {niche} libraries", "description": "A detailed post-mortem documenting GC starvation issues when high volumes of asynchronous events are registered inside long-running loops.", "points": 388}
-            ]
+            print("  [Agent A] Offline simulation mode active. Emulating scrapers with niche-matched templates...")
+            if "web3" in niche.lower() or "crypto" in niche.lower() or "contract" in niche.lower():
+                topics = [
+                    {"title": "Solana State Compression: Reducing NFT minting costs by 100x via Merkle Trees", "description": "Deep dive into concurrent Merkle tree structures that store state off-chain while guaranteeing security through ledger signatures.", "points": 312},
+                    {"title": "EVM Parallelization: Arbitrum and Monad Approaches", "description": "Analyzing architectural differences in executing non-conflicting Ethereum smart contracts simultaneously via speculative execution.", "points": 245},
+                    {"title": "ZK-Rollups vs. Optimistic Rollups in 2026", "description": "A benchmark of cryptographic proof generation times and execution stability for real-time low-latency consumer applications.", "points": 189}
+                ]
+            elif "ai" in niche.lower() or "agent" in niche.lower() or "learn" in niche.lower():
+                topics = [
+                    {"title": "Show HN: Model-Context Protocol (MCP) clients built entirely in Rust", "description": "A high-performance implementation of standard context management protocol for LLMs, eliminating TypeScript/Node overhead.", "points": 541},
+                    {"title": "OpenAI launches GPT-5.5 with real-time semantic video streaming and sub-50ms latency", "description": "OpenAI news feed reports on major architectural shifts enabling multi-modal semantic streams to feed direct client sockets without intermediary transcription buffers.", "points": 612},
+                    {"title": "Google introduces Gemini 2.5 Pro with native 10-million token context windows", "description": "Google Research details memory optimization via sparse attention mechanisms that permit native indexing of entire codebases in active memory.", "points": 588},
+                    {"title": "Meta Research details LLaMA 4: 100T parameter model optimized for agentic tool use and complex reasoning", "description": "Meta Research blog details architectural updates including speculative decoding pipelines and low-rank adaptation techniques for edge devices.", "points": 575},
+                    {"title": "Is clean token-to-token streaming with low late-delivery possible over HTTP/3?", "description": "Engineering team reviews benchmarks of QUIC protocol streams for feeding chunked real-time LLM reasoning traces to multiple client sockets.", "points": 402},
+                    {"title": "Autonomous agents now manage $50k/day ad budgets with zero human overview", "description": "A critical review of standard feedback loop errors where autonomous models enter recursive spending traps due to misaligned reward targets.", "points": 288}
+                ]
+            else:
+                topics = [
+                    {"title": "Netflix TechBlog: Migrating a core streaming service from Java to Rust", "description": "Netflix engineers detail how migrating to Rust reduced CPU utilization by 40% and eliminated garbage collection latency spikes in high-throughput video metadata streams.", "points": 490},
+                    {"title": "AWS News: Introducing Amazon ECS Serverless Containers with sub-second scaling", "description": "AWS details the new micro-VM technology enabling instant container startup and auto-scaling based on incoming socket pressure.", "points": 510},
+                    {"title": "Zoho releases unified compiler for cloud orchestrations on serverless setups", "description": "Zoho Blog documents a custom Rust compiler that optimizes execution latency on Zoho cloud functions by tree-shaking dead runtime modules.", "points": 420},
+                    {"title": f"Advancements in {niche} Core Architectures", "description": "Developers debate if current paradigm shifts are sustainable for production workloads, pointing out bottlenecks in standard runtime environments.", "points": 154},
+                    {"title": f"Show HN: Lightweight CLI for compiling {niche} assets", "description": "An open-source compiler written in Go that optimize production bundles by omitting unused intermediate tree-shaking properties.", "points": 211},
+                    {"title": f"Critical memory leaks found in default {niche} libraries", "description": "A detailed post-mortem documenting GC starvation issues when high volumes of asynchronous events are registered inside long-running loops.", "points": 388}
+                ]
         print(f"\n  [Agent A] ✅ Successfully compiled {len(topics)} top stories.")
         for i, t in enumerate(topics, 1):
             print(f"    #{i}: {t.get('title')[:72]}...")
@@ -917,24 +928,38 @@ def run_agent_a(niche: str, model_name: str, simulate: bool = False) -> list[dic
         log_agent_interaction(
             "Agent A (Trend Scout)",
             "Agent B (Writer)",
+            f"Handing over {len(topics)} researched sub-topics for custom topic '{topic}'." if topic else
             f"Handing over {len(topics)} curated technology headlines from RSS feeds for writing. Sourced topics include: "
             + ", ".join(f"'{t.get('title')[:40]}...'" for t in topics)
         )
         return topics
 
-    model = genai.GenerativeModel(model_name=model_name, tools=[
-        HN_TOOL_DECLARATION,
-        TC_TOOL_DECLARATION,
-        GOOGLE_TOOL_DECLARATION,
-        OPENAI_TOOL_DECLARATION,
-        ZOHO_TOOL_DECLARATION,
-        META_TOOL_DECLARATION,
-        NETFLIX_TOOL_DECLARATION,
-        AWS_TOOL_DECLARATION
-    ])
-    chat = model.start_chat(enable_automatic_function_calling=False)
+    if topic:
+        model = genai.GenerativeModel(model_name=model_name)
+        scout_prompt = f"""You are Agent A (The Trend Scout), an autonomous AI research agent.
+Your mission for this pipeline run:
+1. Analyze the user-specified technical topic: "{topic}".
+2. Deconstruct this topic into exactly 3-5 distinct technical sub-topics, architectural layers, performance considerations, or implementation patterns relevant to the niche: "{niche}".
+3. For each sub-topic, write a 1–2 sentence technical description explaining why it is critical when working with or implementing "{topic}".
+4. Assign an engagement score (50–600) based on complexity and relevance.
 
-    scout_prompt = f"""You are Agent A (The Trend Scout), an autonomous AI research agent with access to live technology RSS feed tools.
+Respond with a JSON array of exactly 3 to 5 objects (do NOT call any tools):
+[
+  {{"title": "Sub-topic/Aspect Title", "description": "Technical description...", "points": 123}},
+  ...
+]"""
+    else:
+        model = genai.GenerativeModel(model_name=model_name, tools=[
+            HN_TOOL_DECLARATION,
+            TC_TOOL_DECLARATION,
+            GOOGLE_TOOL_DECLARATION,
+            OPENAI_TOOL_DECLARATION,
+            ZOHO_TOOL_DECLARATION,
+            META_TOOL_DECLARATION,
+            NETFLIX_TOOL_DECLARATION,
+            AWS_TOOL_DECLARATION
+        ])
+        scout_prompt = f"""You are Agent A (The Trend Scout), an autonomous AI research agent with access to live technology RSS feed tools.
 
 Your mission for this pipeline run:
 1. Call the appropriate tools (fetch_hackernews_headlines, fetch_techcrunch_headlines, fetch_google_blog_headlines, fetch_openai_blog_headlines, fetch_zoho_blog_headlines, fetch_meta_blog_headlines, fetch_netflix_blog_headlines, or fetch_aws_blog_headlines) to retrieve the latest technology news, developer trends, company blog announcements, and product updates.
@@ -950,9 +975,8 @@ Respond with a JSON array of exactly 5 objects:
   ...
 ]"""
 
+    chat = model.start_chat(enable_automatic_function_calling=False)
     print(f"  [Agent A] Sending mission prompt...")
-
-    # ── Turn 1: Agent A reasons and calls the tool ──
     response = chat.send_message(scout_prompt)
 
     # ── Agentic loop: Handle tool calls until Agent A gives a final answer ──
@@ -1511,7 +1535,7 @@ def update_past_issues(niche: str, topics: list[dict], newsletter_content: str):
 # Pipeline Orchestrator
 # ──────────────────────────────────────────────────────────────────────────────
 
-def run_pipeline(niche: str = "AI & Agentic Frameworks", model_name: str = "gemini-1.5-flash", simulate: bool = False) -> str:
+def run_pipeline(niche: str = "AI & Agentic Frameworks", model_name: str = "gemini-1.5-flash", simulate: bool = False, topic: str = None) -> str:
     """
     Orchestrates the full Day 3 multi-agent pipeline:
 
@@ -1560,6 +1584,8 @@ def run_pipeline(niche: str = "AI & Agentic Frameworks", model_name: str = "gemi
     print("🤖  AUTONOMOUS NEWSLETTER ENGINE")
     print("    Day 5: Production-Grade Observability (The Local Fleet)")
     print(f"    Niche  : {niche}")
+    if topic:
+        print(f"    Topic  : {topic}")
     print(f"    Model  : {model_name}")
     if simulate:
         print("    Mode   : OFFLINE SIMULATION MODE")
@@ -1574,11 +1600,12 @@ def run_pipeline(niche: str = "AI & Agentic Frameworks", model_name: str = "gemi
         log_agent_interaction(
             "Orchestrator",
             "Agent A (Trend Scout)",
+            f"Waking up Scout. Mission: Research and deconstruct the custom topic '{topic}'." if topic else
             f"Waking up Scout. Mission: Source and filter top headlines for target niche '{niche}' using live tools."
         )
         
         # ── Agent A: Scout with live HN tool ──
-        topics = run_agent_a(niche=niche, model_name=model_name, simulate=simulate)
+        topics = run_agent_a(niche=niche, model_name=model_name, simulate=simulate, topic=topic)
         if not topics:
             print("\n❌  Agent A returned no topics. Pipeline aborted.")
             save_telemetry(niche, model_name, "failed", "Agent A returned no topics")
@@ -1729,6 +1756,11 @@ Examples:
         action="store_true",
         help="Run the pipeline in offline simulation mode without calling Gemini API",
     )
+    parser.add_argument(
+        "--topic",
+        default=None,
+        help="A specific topic to research and write about (e.g. 'Google Gemini 2.5 context window')",
+    )
     args = parser.parse_args()
 
     # Validate key early for CLI usage (gives a clean error message)
@@ -1739,7 +1771,7 @@ Examples:
         print("    Alternatively, run in offline simulation mode: python agent_pipeline.py --simulate")
         sys.exit(1)
 
-    result = run_pipeline(niche=args.niche, model_name=args.model, simulate=args.simulate)
+    result = run_pipeline(niche=args.niche, model_name=args.model, simulate=args.simulate, topic=args.topic)
 
     if result:
         lines = result.split("\n")
