@@ -375,23 +375,74 @@ execution_telemetry = {
     "agent_a": {
         "last_wake": None,
         "headlines_pulled": [],
-        "source": "Multiple Tech RSS Feeds"
+        "source": "Multiple Tech RSS Feeds",
+        "duration_ms": 0
     },
     "agent_b": {
         "prompt_tokens": 0,
         "output_tokens": 0,
         "total_tokens": 0,
         "attempts": 0,
-        "violations": []
+        "violations": [],
+        "duration_ms": 0
     },
     "agent_c": {
         "score": 0,
         "notes": "",
-        "passed": False
+        "passed": False,
+        "duration_ms": 0
+    },
+    "total_duration_ms": 0,
+    "total_cost_usd": 0.0,
+    "spans": [],
+    "failures": {
+        "violations_count": 0,
+        "attempts_count": 0,
+        "api_errors_count": 0
     }
 }
 
+def calculate_token_cost(model_name: str, prompt_tokens: int, output_tokens: int) -> float:
+    model_lower = model_name.lower()
+    input_cost_per_m = 0.0
+    output_cost_per_m = 0.0
+    
+    if "gemini-1.5-flash" in model_lower:
+        input_cost_per_m = 0.075
+        output_cost_per_m = 0.30
+    elif "gemini-1.5-pro" in model_lower:
+        input_cost_per_m = 1.25
+        output_cost_per_m = 5.00
+    elif "gemini-2.5-flash" in model_lower:
+        input_cost_per_m = 0.075
+        output_cost_per_m = 0.30
+    elif "gemini-2.5-pro" in model_lower:
+        input_cost_per_m = 1.25
+        output_cost_per_m = 5.00
+    elif "gpt-4o-mini" in model_lower:
+        input_cost_per_m = 0.150
+        output_cost_per_m = 0.60
+    elif "gpt-4o" in model_lower:
+        input_cost_per_m = 2.50
+        output_cost_per_m = 10.00
+    elif "claude-3-5-sonnet" in model_lower:
+        input_cost_per_m = 3.00
+        output_cost_per_m = 15.00
+    elif "claude-3-5-haiku" in model_lower:
+        input_cost_per_m = 0.80
+        output_cost_per_m = 4.00
+    elif "llama-3" in model_lower or "mixtral" in model_lower or "gemma2" in model_lower:
+        input_cost_per_m = 0.05
+        output_cost_per_m = 0.10
+    else:
+        input_cost_per_m = 0.075
+        output_cost_per_m = 0.30
+        
+    cost = (prompt_tokens * input_cost_per_m / 1000000.0) + (output_tokens * output_cost_per_m / 1000000.0)
+    return round(cost, 6)
+
 def save_telemetry(niche: str, model_name: str, status: str, error_message: str = None):
+    import uuid
     history_path = os.path.join(os.path.dirname(__file__), "run_history.json")
     
     history = []
@@ -401,6 +452,97 @@ def save_telemetry(niche: str, model_name: str, status: str, error_message: str 
                 history = json.load(f)
         except Exception:
             history = []
+
+    # Calculate token cost
+    total_prompt = execution_telemetry["agent_b"]["prompt_tokens"]
+    total_output = execution_telemetry["agent_b"]["output_tokens"]
+    cost = calculate_token_cost(model_name, total_prompt, total_output)
+    execution_telemetry["total_cost_usd"] = cost
+
+    # Calculate failure metrics
+    api_errors = 1 if status == "failed" else 0
+    execution_telemetry["failures"] = {
+        "violations_count": len(execution_telemetry["agent_b"]["violations"]),
+        "attempts_count": execution_telemetry["agent_b"]["attempts"],
+        "api_errors_count": api_errors
+    }
+
+    # Generate OpenTelemetry spans
+    trace_id = uuid.uuid4().hex
+    pipeline_span_id = uuid.uuid4().hex[:16]
+    agent_a_span_id = uuid.uuid4().hex[:16]
+    agent_b_span_id = uuid.uuid4().hex[:16]
+    agent_c_span_id = uuid.uuid4().hex[:16]
+
+    now_iso = datetime.now().isoformat() + "Z"
+    
+    spans = [
+        {
+            "name": "pipeline_run",
+            "context": {
+                "trace_id": trace_id,
+                "span_id": pipeline_span_id
+            },
+            "parent_span_id": None,
+            "start_time": execution_telemetry["agent_a"]["last_wake"] or now_iso,
+            "end_time": now_iso,
+            "duration_ms": execution_telemetry["total_duration_ms"],
+            "attributes": {
+                "niche": niche,
+                "model": model_name,
+                "status": status,
+                "error": error_message or ""
+            }
+        },
+        {
+            "name": "agent_a_trend_scout",
+            "context": {
+                "trace_id": trace_id,
+                "span_id": agent_a_span_id
+            },
+            "parent_span_id": pipeline_span_id,
+            "start_time": execution_telemetry["agent_a"]["last_wake"] or now_iso,
+            "end_time": now_iso,
+            "duration_ms": execution_telemetry["agent_a"]["duration_ms"],
+            "attributes": {
+                "source": execution_telemetry["agent_a"]["source"],
+                "headlines_pulled_count": len(execution_telemetry["agent_a"]["headlines_pulled"])
+            }
+        },
+        {
+            "name": "agent_b_writer",
+            "context": {
+                "trace_id": trace_id,
+                "span_id": agent_b_span_id
+            },
+            "parent_span_id": pipeline_span_id,
+            "start_time": now_iso,
+            "end_time": now_iso,
+            "duration_ms": execution_telemetry["agent_b"]["duration_ms"],
+            "attributes": {
+                "attempts": execution_telemetry["agent_b"]["attempts"],
+                "violations_count": len(execution_telemetry["agent_b"]["violations"]),
+                "prompt_tokens": total_prompt,
+                "output_tokens": total_output
+            }
+        },
+        {
+            "name": "agent_c_evaluator",
+            "context": {
+                "trace_id": trace_id,
+                "span_id": agent_c_span_id
+            },
+            "parent_span_id": pipeline_span_id,
+            "start_time": now_iso,
+            "end_time": now_iso,
+            "duration_ms": execution_telemetry["agent_c"]["duration_ms"],
+            "attributes": {
+                "score": execution_telemetry["agent_c"]["score"],
+                "passed": execution_telemetry["agent_c"]["passed"]
+            }
+        }
+    ]
+    execution_telemetry["spans"] = spans
             
     record = {
         "timestamp": datetime.now().isoformat() + "Z",
@@ -411,19 +553,31 @@ def save_telemetry(niche: str, model_name: str, status: str, error_message: str 
         "agent_a": {
             "last_wake": execution_telemetry["agent_a"]["last_wake"],
             "headlines_pulled": execution_telemetry["agent_a"]["headlines_pulled"],
-            "source": execution_telemetry["agent_a"]["source"]
+            "source": execution_telemetry["agent_a"]["source"],
+            "duration_ms": execution_telemetry["agent_a"]["duration_ms"]
         },
         "agent_b": {
-            "prompt_tokens": execution_telemetry["agent_b"]["prompt_tokens"],
-            "output_tokens": execution_telemetry["agent_b"]["output_tokens"],
-            "total_tokens": execution_telemetry["agent_b"]["total_tokens"],
+            "prompt_tokens": total_prompt,
+            "output_tokens": total_output,
+            "total_tokens": total_prompt + total_output,
             "attempts": execution_telemetry["agent_b"]["attempts"],
-            "violations": execution_telemetry["agent_b"]["violations"]
+            "violations": execution_telemetry["agent_b"]["violations"],
+            "duration_ms": execution_telemetry["agent_b"]["duration_ms"]
         },
         "agent_c": {
             "score": execution_telemetry["agent_c"]["score"],
             "notes": execution_telemetry["agent_c"]["notes"],
-            "passed": execution_telemetry["agent_c"]["passed"]
+            "passed": execution_telemetry["agent_c"]["passed"],
+            "duration_ms": execution_telemetry["agent_c"]["duration_ms"]
+        },
+        "telemetry": {
+            "total_duration_ms": execution_telemetry["total_duration_ms"],
+            "total_cost_usd": cost,
+            "agent_a_duration_ms": execution_telemetry["agent_a"]["duration_ms"],
+            "agent_b_duration_ms": execution_telemetry["agent_b"]["duration_ms"],
+            "agent_c_duration_ms": execution_telemetry["agent_c"]["duration_ms"],
+            "spans": spans,
+            "failures": execution_telemetry["failures"]
         }
     }
     
@@ -1848,19 +2002,30 @@ def run_pipeline(niche: str = "AI & Agentic Frameworks", model_name: str = "gemi
         "agent_a": {
             "last_wake": None,
             "headlines_pulled": [],
-            "source": "Multiple Tech RSS Feeds"
+            "source": "Multiple Tech RSS Feeds",
+            "duration_ms": 0
         },
         "agent_b": {
             "prompt_tokens": 0,
             "output_tokens": 0,
             "total_tokens": 0,
             "attempts": 0,
-            "violations": []
+            "violations": [],
+            "duration_ms": 0
         },
         "agent_c": {
             "score": 0,
             "notes": "",
-            "passed": False
+            "passed": False,
+            "duration_ms": 0
+        },
+        "total_duration_ms": 0,
+        "total_cost_usd": 0.0,
+        "spans": [],
+        "failures": {
+            "violations_count": 0,
+            "attempts_count": 0,
+            "api_errors_count": 0
         }
     }
 
@@ -1872,7 +2037,9 @@ def run_pipeline(niche: str = "AI & Agentic Frameworks", model_name: str = "gemi
         except Exception:
             pass
 
+    import time
     started_at = datetime.now()
+    pipeline_start_t = time.time()
 
     print("\n" + "═" * 64)
     print("🤖  AUTONOMOUS NEWSLETTER ENGINE")
@@ -1899,8 +2066,14 @@ def run_pipeline(niche: str = "AI & Agentic Frameworks", model_name: str = "gemi
         )
         
         # ── Agent A: Scout with live HN tool ──
+        agent_a_start_t = time.time()
         topics = run_agent_a(niche=niche, model_name=model_name, simulate=simulate, topic=topic)
+        agent_a_end_t = time.time()
+        execution_telemetry["agent_a"]["duration_ms"] = int((agent_a_end_t - agent_a_start_t) * 1000)
+
         if not topics:
+            pipeline_end_t = time.time()
+            execution_telemetry["total_duration_ms"] = int((pipeline_end_t - pipeline_start_t) * 1000)
             print("\n❌  Agent A returned no topics. Pipeline aborted.")
             save_telemetry(niche, model_name, "failed", "Agent A returned no topics")
             return ""
@@ -1910,6 +2083,7 @@ def run_pipeline(niche: str = "AI & Agentic Frameworks", model_name: str = "gemi
         feedback = None
         draft = None
         
+        agent_b_start_t = time.time()
         for attempt in range(1, max_attempts + 1):
             execution_telemetry["agent_b"]["attempts"] = attempt
             print(f"\n🔄  [Attempt {attempt}/{max_attempts}] Running Writer & Guardrail Evaluation...")
@@ -1922,6 +2096,10 @@ def run_pipeline(niche: str = "AI & Agentic Frameworks", model_name: str = "gemi
                 previous_draft=draft
             )
             if not draft:
+                agent_b_end_t = time.time()
+                execution_telemetry["agent_b"]["duration_ms"] = int((agent_b_end_t - agent_b_start_t) * 1000)
+                pipeline_end_t = time.time()
+                execution_telemetry["total_duration_ms"] = int((pipeline_end_t - pipeline_start_t) * 1000)
                 print("\n❌  Agent B produced no draft. Pipeline aborted.")
                 save_telemetry(niche, model_name, "failed", "Agent B produced no draft")
                 return ""
@@ -1959,16 +2137,25 @@ def run_pipeline(niche: str = "AI & Agentic Frameworks", model_name: str = "gemi
                         "Agent C (Evaluator)",
                         "WARNING: Security/formatting violations remain, but retry limit reached. Forcing handoff to Critic."
                     )
+        
+        agent_b_end_t = time.time()
+        execution_telemetry["agent_b"]["duration_ms"] = int((agent_b_end_t - agent_b_start_t) * 1000)
 
         # ── Agent C: Evaluator ──
+        agent_c_start_t = time.time()
         evaluation = run_agent_c(niche=niche, draft=draft, model_name=model_name, simulate=simulate)
+        agent_c_end_t = time.time()
+        execution_telemetry["agent_c"]["duration_ms"] = int((agent_c_end_t - agent_c_start_t) * 1000)
 
         # ── Update past issues memory ──
         update_past_issues(niche, topics, draft)
 
         # ── Stamp and assemble the final newsletter ──
         finished_at = datetime.now()
-        elapsed = (finished_at - started_at).seconds
+        pipeline_end_t = time.time()
+        elapsed = int(pipeline_end_t - pipeline_start_t)
+        execution_telemetry["total_duration_ms"] = elapsed * 1000
+        
         passed = evaluation.get("passed", True)
         score = evaluation.get("score", 80)
         checks = evaluation.get("checks", {})
@@ -2017,6 +2204,8 @@ Duration     : {elapsed}s
         return final
 
     except Exception as exc:
+        pipeline_end_t = time.time()
+        execution_telemetry["total_duration_ms"] = int((pipeline_end_t - pipeline_start_t) * 1000)
         save_telemetry(niche, model_name, "failed", str(exc))
         print(f"\n❌  Pipeline execution failed: {exc}")
         raise exc

@@ -39,28 +39,584 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 from typing import Any
 
+def load_env_file():
+    try:
+        possible_dirs = [
+            os.getcwd(),
+            os.path.dirname(os.path.abspath(__file__)),
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        ]
+        for d in possible_dirs:
+            env_path = os.path.join(d, ".env")
+            if os.path.exists(env_path):
+                with open(env_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#") and "=" in line:
+                            k, v = line.split("=", 1)
+                            val = v.strip().strip("'").strip('"')
+                            os.environ[k.strip()] = val
+                break
+    except Exception as e:
+        print(f"⚠️ Failed to load local .env file: {e}")
+
+load_env_file()
+
+# ── Fix Windows cp1252 console encoding for emoji/unicode output ──────────────
+# Must happen before any print() with Unicode characters (including at import time).
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 # ──────────────────────────────────────────────────────────────────────────────
-# Bootstrap: Validate environment before importing the SDK
+# Bootstrap: Lazy-load Gemini SDK — safe for Streamlit Cloud imports
 # ──────────────────────────────────────────────────────────────────────────────
 
-simulate_mode = "--simulate" in sys.argv
+# NOTE: We do NOT call sys.exit() at import time — that would kill the
+# Streamlit server process. Instead we do a deferred check inside run_pipeline().
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
-if not GEMINI_API_KEY and not simulate_mode:
-    print("❌  GEMINI_API_KEY environment variable is not set.")
-    print("    Set it with:  $env:GEMINI_API_KEY = 'your-key'  (PowerShell)")
-    print("               or: export GEMINI_API_KEY='your-key'  (bash)")
-    print("    Alternatively, run in offline simulation mode: python agent_pipeline.py --simulate")
-    sys.exit(1)
+genai = None  # Lazily imported when a live run is requested
 
-if not simulate_mode:
+def _init_genai():
+    """Import and configure the Gemini SDK on first use. Raises on failure."""
+    global genai, GEMINI_API_KEY
+    GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
+    if not GEMINI_API_KEY:
+        raise EnvironmentError(
+            "GEMINI_API_KEY is not set. Add it to Streamlit Secrets or your environment, "
+            "or run in simulate mode."
+        )
     try:
-        import google.generativeai as genai
+        import google.generativeai as _genai
+        _genai.configure(api_key=GEMINI_API_KEY)
+        genai = _genai
     except ImportError:
-        print("❌  google-generativeai is not installed.")
-        print("    Run:  pip install google-generativeai")
-        sys.exit(1)
-    genai.configure(api_key=GEMINI_API_KEY)
+        raise ImportError(
+            "google-generativeai is not installed. Run: pip install google-generativeai"
+        )
+
+def get_provider_from_model(model: str) -> str:
+    m = model.lower()
+    if m.startswith("gemini-"):
+        return "gemini"
+    if m.startswith("gpt-"):
+        return "openai"
+    if m.startswith("claude-"):
+        return "anthropic"
+    if m.startswith("ollama-"):
+        return "ollama"
+    if "llama-3" in m or "mixtral" in m or "gemma2" in m:
+        return "groq"
+    return "gemini"
+
+def get_api_key_for_provider(provider: str) -> str:
+    if provider == "gemini":
+        return os.environ.get("GEMINI_API_KEY", "").strip()
+    if provider == "openai":
+        return os.environ.get("OPENAI_API_KEY", "").strip()
+    if provider == "anthropic":
+        return os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if provider == "groq":
+        return os.environ.get("GROQ_API_KEY", "").strip()
+    return ""
+
+def map_contents_to_messages(contents, tools=None):
+    messages = []
+    
+    if tools:
+        tools_desc = []
+        for t in tools:
+            name = ""
+            description = ""
+            params = {}
+            if hasattr(t, "function_declarations"):
+                fd = t.function_declarations[0]
+                name = fd.name
+                description = fd.description
+                params = getattr(fd, "parameters", {})
+                if hasattr(params, "to_json"):
+                    params = params.to_json()
+            elif isinstance(t, dict):
+                fd = t.get("functionDeclarations", [{}])[0]
+                name = fd.get("name", "")
+                description = fd.get("description", "")
+                params = fd.get("parameters", {})
+            else:
+                name = getattr(t, "name", "")
+                description = getattr(t, "description", "")
+                params = getattr(t, "parameters", {})
+
+            tools_desc.append(f"- **{name}**: {description}. Params: {json.dumps(params)}")
+        tools_str = "\n".join(tools_desc)
+        messages.append({
+            "role": "system",
+            "content": f"You have access to the following tools:\n\n{tools_str}\n\nTo use a tool, you MUST respond ONLY with a JSON object in this format:\n{{\n  \"tool_call\": {{\n    \"name\": \"tool_name\",\n    \"arguments\": {{\n      \"arg_name\": \"value\"\n    }}\n  }}\n}}\n\nDo not add any other conversational text if you are calling a tool."
+        })
+
+    for turn in contents:
+        role = "assistant" if turn.get("role") == "model" else "user"
+        text_content = ""
+        parts = turn.get("parts", [])
+        if isinstance(parts, str):
+            text_content = parts
+        elif isinstance(parts, list):
+            for part in parts:
+                if isinstance(part, str):
+                    text_content += part
+                elif isinstance(part, dict):
+                    if "text" in part:
+                        text_content += part["text"]
+                    elif "functionCall" in part:
+                        text_content += f"\nCalling tool: {part['functionCall']['name']} with args: {json.dumps(part['functionCall'].get('args', {}))}"
+                    elif "functionResponse" in part:
+                        text_content += f"\nTool result for {part['functionResponse']['name']}: {json.dumps(part['functionResponse'].get('response', {}))}"
+                elif hasattr(part, "text") and part.text:
+                    text_content += part.text
+                elif hasattr(part, "function_call") and part.function_call.name:
+                    text_content += f"\nCalling tool: {part.function_call.name} with args: {json.dumps(dict(part.function_call.args))}"
+                elif hasattr(part, "function_response") and part.function_response.name:
+                    text_content += f"\nTool result for {part.function_response.name}: {json.dumps(dict(part.function_response.response))}"
+        
+        if text_content.strip():
+            messages.append({"role": role, "content": text_content})
+            
+    return messages
+
+def call_rest_provider(provider: str, model: str, messages: list, response_schema=None) -> dict:
+    headers = {
+        "Content-Type": "application/json"
+    }
+    url = ""
+    body = {}
+    
+    api_key = get_api_key_for_provider(provider)
+    
+    if provider in ["openai", "groq", "ollama"]:
+        if provider == "openai":
+            url = "https://api.openai.com/v1/chat/completions"
+            headers["Authorization"] = f"Bearer {api_key}"
+        elif provider == "groq":
+            url = "https://api.groq.com/openai/v1/chat/completions"
+            headers["Authorization"] = f"Bearer {api_key}"
+        else:
+            host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+            url = f"{host}/v1/chat/completions"
+            
+        body = {
+            "model": model,
+            "messages": messages,
+            "temperature": 0.2
+        }
+        if response_schema:
+            body["response_format"] = {"type": "json_object"}
+            
+    elif provider == "anthropic":
+        url = "https://api.anthropic.com/v1/messages"
+        headers["x-api-key"] = api_key
+        headers["anthropic-version"] = "2023-06-01"
+        body = {
+            "model": model,
+            "max_tokens": 4000,
+            "messages": messages,
+            "temperature": 0.2
+        }
+        
+    req = urllib.request.Request(url, data=json.dumps(body).encode("utf-8"), headers=headers, method="POST")
+    try:
+        with urllib.request.urlopen(req) as res:
+            resp_data = json.loads(res.read().decode("utf-8"))
+    except Exception as e:
+        if hasattr(e, "read"):
+            err_details = e.read().decode("utf-8")
+            raise RuntimeError(f"LLM Provider {provider} API error: {e} - {err_details}")
+        raise e
+        
+    text = ""
+    if provider in ["openai", "groq", "ollama"]:
+        text = resp_data.get("choices", [{}])[0].get("message", {}).get("content", "")
+    elif provider == "anthropic":
+        text = resp_data.get("content", [{}])[0].get("text", "")
+        
+    function_calls = None
+    if "tool_call" in text:
+        try:
+            start = text.find("{")
+            end = text.rfind("}") + 1
+            if start >= 0 and end > start:
+                parsed = json.loads(text[start:end])
+                if "tool_call" in parsed:
+                    tc = parsed["tool_call"]
+                    function_calls = [{
+                        "name": tc.get("name"),
+                        "args": tc.get("arguments", {})
+                    }]
+        except:
+            pass
+            
+    return {"text": text, "function_calls": function_calls}
+
+class LLMChatRouter:
+    def __init__(self, model_name, system_instruction=None, tools=None):
+        self.model_name = model_name
+        self.system_instruction = system_instruction
+        self.tools = tools
+        self.contents = []
+        self.provider = get_provider_from_model(model_name)
+        self.native_chat = None
+        
+    def start_chat(self, enable_automatic_function_calling=False):
+        if self.provider == "gemini":
+            _init_genai()
+            if self.tools:
+                model = genai.GenerativeModel(model_name=self.model_name, tools=self.tools)
+            else:
+                model = genai.GenerativeModel(model_name=self.model_name)
+            self.native_chat = model.start_chat(enable_automatic_function_calling=enable_automatic_function_calling)
+        return self
+        
+    def send_message(self, message):
+        if self.provider == "gemini":
+            return self.native_chat.send_message(message)
+            
+        if isinstance(message, list):
+            parts = []
+            for part in message:
+                if hasattr(part, "function_response"):
+                    parts.append({
+                        "functionResponse": {
+                            "name": part.function_response.name,
+                            "response": json.loads(part.function_response.response.get("result", "{}"))
+                        }
+                    })
+                elif isinstance(part, dict) and "functionResponse" in part:
+                    parts.append(part)
+                else:
+                    parts.append(str(part))
+            self.contents.append({"role": "user", "parts": parts})
+        else:
+            self.contents.append({"role": "user", "parts": [{"text": str(message)}]})
+            
+        messages = map_contents_to_messages(self.contents, self.tools)
+        if self.system_instruction:
+            messages.insert(0, {"role": "system", "content": self.system_instruction})
+            
+        res = call_rest_provider(self.provider, self.model_name, messages)
+        
+        model_parts = []
+        if res.get("function_calls"):
+            fc = res["function_calls"][0]
+            class MockFunctionCall:
+                def __init__(self, name, args):
+                    self.name = name
+                    self.args = args
+            class MockPart:
+                def __init__(self, name, args):
+                    self.function_call = MockFunctionCall(name, args)
+            model_parts = [MockPart(fc["name"], fc["args"])]
+        else:
+            class MockPart:
+                def __init__(self, text):
+                    self.text = text
+                    self.function_call = None
+            model_parts = [MockPart(res["text"])]
+            
+        self.contents.append({"role": "model", "parts": model_parts})
+        
+        class MockCandidate:
+            def __init__(self, parts):
+                class MockContent:
+                    def __init__(self, pts):
+                        self.parts = pts
+                self.content = MockContent(parts)
+
+        class MockResponse:
+            def __init__(self, text, parts):
+                self.text = text
+                self.parts = parts
+                self.candidates = [MockCandidate(parts)]
+                    
+        return MockResponse(res["text"], model_parts)
+
+    def generate_content(self, prompt, generation_config=None):
+        if self.provider == "gemini":
+            _init_genai()
+            model = genai.GenerativeModel(model_name=self.model_name, system_instruction=self.system_instruction, tools=self.tools)
+            return model.generate_content(prompt, generation_config=generation_config)
+            
+        messages = [{"role": "user", "content": prompt}]
+        if self.system_instruction:
+            messages.insert(0, {"role": "system", "content": self.system_instruction})
+            
+        res = call_rest_provider(self.provider, self.model_name, messages)
+        
+        class MockResponse:
+            def __init__(self, text):
+                self.text = text
+        return MockResponse(res["text"])
+
+class LLMRouter:
+    @staticmethod
+    def get_model(model_name, system_instruction=None, tools=None):
+        provider = get_provider_from_model(model_name)
+        if provider == "gemini":
+            _init_genai()
+            if system_instruction:
+                return genai.GenerativeModel(model_name=model_name, system_instruction=system_instruction, tools=tools)
+            return genai.GenerativeModel(model_name=model_name, tools=tools)
+        else:
+            return LLMChatRouter(model_name, system_instruction=system_instruction, tools=tools)
+
+
+
+# Day 5: Global execution telemetry stats
+execution_telemetry = {
+    "agent_a": {
+        "last_wake": None,
+        "headlines_pulled": [],
+        "source": "Multiple Tech RSS Feeds",
+        "duration_ms": 0
+    },
+    "agent_b": {
+        "prompt_tokens": 0,
+        "output_tokens": 0,
+        "total_tokens": 0,
+        "attempts": 0,
+        "violations": [],
+        "duration_ms": 0
+    },
+    "agent_c": {
+        "score": 0,
+        "notes": "",
+        "passed": False,
+        "duration_ms": 0
+    },
+    "total_duration_ms": 0,
+    "total_cost_usd": 0.0,
+    "spans": [],
+    "failures": {
+        "violations_count": 0,
+        "attempts_count": 0,
+        "api_errors_count": 0
+    }
+}
+
+def calculate_token_cost(model_name: str, prompt_tokens: int, output_tokens: int) -> float:
+    model_lower = model_name.lower()
+    input_cost_per_m = 0.0
+    output_cost_per_m = 0.0
+    
+    if "gemini-1.5-flash" in model_lower:
+        input_cost_per_m = 0.075
+        output_cost_per_m = 0.30
+    elif "gemini-1.5-pro" in model_lower:
+        input_cost_per_m = 1.25
+        output_cost_per_m = 5.00
+    elif "gemini-2.5-flash" in model_lower:
+        input_cost_per_m = 0.075
+        output_cost_per_m = 0.30
+    elif "gemini-2.5-pro" in model_lower:
+        input_cost_per_m = 1.25
+        output_cost_per_m = 5.00
+    elif "gpt-4o-mini" in model_lower:
+        input_cost_per_m = 0.150
+        output_cost_per_m = 0.60
+    elif "gpt-4o" in model_lower:
+        input_cost_per_m = 2.50
+        output_cost_per_m = 10.00
+    elif "claude-3-5-sonnet" in model_lower:
+        input_cost_per_m = 3.00
+        output_cost_per_m = 15.00
+    elif "claude-3-5-haiku" in model_lower:
+        input_cost_per_m = 0.80
+        output_cost_per_m = 4.00
+    elif "llama-3" in model_lower or "mixtral" in model_lower or "gemma2" in model_lower:
+        input_cost_per_m = 0.05
+        output_cost_per_m = 0.10
+    else:
+        input_cost_per_m = 0.075
+        output_cost_per_m = 0.30
+        
+    cost = (prompt_tokens * input_cost_per_m / 1000000.0) + (output_tokens * output_cost_per_m / 1000000.0)
+    return round(cost, 6)
+
+def save_telemetry(niche: str, model_name: str, status: str, error_message: str = None):
+    import uuid
+    history_path = os.path.join(os.path.dirname(__file__), "run_history.json")
+    
+    history = []
+    if os.path.exists(history_path):
+        try:
+            with open(history_path, "r", encoding="utf-8") as f:
+                history = json.load(f)
+        except Exception:
+            history = []
+
+    # Calculate token cost
+    total_prompt = execution_telemetry["agent_b"]["prompt_tokens"]
+    total_output = execution_telemetry["agent_b"]["output_tokens"]
+    cost = calculate_token_cost(model_name, total_prompt, total_output)
+    execution_telemetry["total_cost_usd"] = cost
+
+    # Calculate failure metrics
+    api_errors = 1 if status == "failed" else 0
+    execution_telemetry["failures"] = {
+        "violations_count": len(execution_telemetry["agent_b"]["violations"]),
+        "attempts_count": execution_telemetry["agent_b"]["attempts"],
+        "api_errors_count": api_errors
+    }
+
+    # Generate OpenTelemetry spans
+    trace_id = uuid.uuid4().hex
+    pipeline_span_id = uuid.uuid4().hex[:16]
+    agent_a_span_id = uuid.uuid4().hex[:16]
+    agent_b_span_id = uuid.uuid4().hex[:16]
+    agent_c_span_id = uuid.uuid4().hex[:16]
+
+    now_iso = datetime.now().isoformat() + "Z"
+    
+    spans = [
+        {
+            "name": "pipeline_run",
+            "context": {
+                "trace_id": trace_id,
+                "span_id": pipeline_span_id
+            },
+            "parent_span_id": None,
+            "start_time": execution_telemetry["agent_a"]["last_wake"] or now_iso,
+            "end_time": now_iso,
+            "duration_ms": execution_telemetry["total_duration_ms"],
+            "attributes": {
+                "niche": niche,
+                "model": model_name,
+                "status": status,
+                "error": error_message or ""
+            }
+        },
+        {
+            "name": "agent_a_trend_scout",
+            "context": {
+                "trace_id": trace_id,
+                "span_id": agent_a_span_id
+            },
+            "parent_span_id": pipeline_span_id,
+            "start_time": execution_telemetry["agent_a"]["last_wake"] or now_iso,
+            "end_time": now_iso,
+            "duration_ms": execution_telemetry["agent_a"]["duration_ms"],
+            "attributes": {
+                "source": execution_telemetry["agent_a"]["source"],
+                "headlines_pulled_count": len(execution_telemetry["agent_a"]["headlines_pulled"])
+            }
+        },
+        {
+            "name": "agent_b_writer",
+            "context": {
+                "trace_id": trace_id,
+                "span_id": agent_b_span_id
+            },
+            "parent_span_id": pipeline_span_id,
+            "start_time": now_iso,
+            "end_time": now_iso,
+            "duration_ms": execution_telemetry["agent_b"]["duration_ms"],
+            "attributes": {
+                "attempts": execution_telemetry["agent_b"]["attempts"],
+                "violations_count": len(execution_telemetry["agent_b"]["violations"]),
+                "prompt_tokens": total_prompt,
+                "output_tokens": total_output
+            }
+        },
+        {
+            "name": "agent_c_evaluator",
+            "context": {
+                "trace_id": trace_id,
+                "span_id": agent_c_span_id
+            },
+            "parent_span_id": pipeline_span_id,
+            "start_time": now_iso,
+            "end_time": now_iso,
+            "duration_ms": execution_telemetry["agent_c"]["duration_ms"],
+            "attributes": {
+                "score": execution_telemetry["agent_c"]["score"],
+                "passed": execution_telemetry["agent_c"]["passed"]
+            }
+        }
+    ]
+    execution_telemetry["spans"] = spans
+            
+    record = {
+        "timestamp": datetime.now().isoformat() + "Z",
+        "niche": niche,
+        "model": model_name,
+        "status": status,
+        "error": error_message,
+        "agent_a": {
+            "last_wake": execution_telemetry["agent_a"]["last_wake"],
+            "headlines_pulled": execution_telemetry["agent_a"]["headlines_pulled"],
+            "source": execution_telemetry["agent_a"]["source"],
+            "duration_ms": execution_telemetry["agent_a"]["duration_ms"]
+        },
+        "agent_b": {
+            "prompt_tokens": total_prompt,
+            "output_tokens": total_output,
+            "total_tokens": total_prompt + total_output,
+            "attempts": execution_telemetry["agent_b"]["attempts"],
+            "violations": execution_telemetry["agent_b"]["violations"],
+            "duration_ms": execution_telemetry["agent_b"]["duration_ms"]
+        },
+        "agent_c": {
+            "score": execution_telemetry["agent_c"]["score"],
+            "notes": execution_telemetry["agent_c"]["notes"],
+            "passed": execution_telemetry["agent_c"]["passed"],
+            "duration_ms": execution_telemetry["agent_c"]["duration_ms"]
+        },
+        "telemetry": {
+            "total_duration_ms": execution_telemetry["total_duration_ms"],
+            "total_cost_usd": cost,
+            "agent_a_duration_ms": execution_telemetry["agent_a"]["duration_ms"],
+            "agent_b_duration_ms": execution_telemetry["agent_b"]["duration_ms"],
+            "agent_c_duration_ms": execution_telemetry["agent_c"]["duration_ms"],
+            "spans": spans,
+            "failures": execution_telemetry["failures"]
+        }
+    }
+    
+    history.append(record)
+    history = history[-50:]
+    
+    try:
+        with open(history_path, "w", encoding="utf-8") as f:
+            json.dump(history, f, indent=2)
+        print(f"  [Telemetry] Saved run status to run_history.json")
+    except Exception as exc:
+        print(f"  [Telemetry] Error writing telemetry history: {exc}")
+
+
+def log_agent_interaction(sender: str, receiver: str, message: str):
+    """Logs the conversational interaction between agents to a JSON file for real-time UI streaming."""
+    log_path = os.path.join(os.path.dirname(__file__), "agent_interactions.json")
+    
+    logs = []
+    if os.path.exists(log_path):
+        try:
+            with open(log_path, "r", encoding="utf-8") as f:
+                logs = json.load(f)
+        except Exception:
+            logs = []
+            
+    logs.append({
+        "timestamp": datetime.now().strftime("%H:%M:%S"),
+        "sender": sender,
+        "receiver": receiver,
+        "message": message
+    })
+    
+    try:
+        with open(log_path, "w", encoding="utf-8") as f:
+            json.dump(logs, f, indent=2)
+    except Exception as e:
+        print(f"  [Telemetry] Failed to write agent interaction log: {e}")
+
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -761,62 +1317,97 @@ def dispatch_tool(name: str, args: dict) -> Any:
 # Agent A — Trend Scout (with Live Tool Use)
 # ──────────────────────────────────────────────────────────────────────────────
 
-def run_agent_a(niche: str, model_name: str, simulate: bool = False) -> list[dict]:
+def run_agent_a(niche: str, model_name: str, simulate: bool = False, topic: str = None) -> list[dict]:
     """
     Agent A (Trend Scout): Autonomously fetches live headlines via its
     registered tools, then filters and returns the top 5 most technically
-    relevant stories for the target niche.
+    relevant stories for the target niche. If a specific topic is provided,
+    it deconstructs it into a structured sub-topic breakdown.
     """
     print("\n" + "─" * 64)
     print("🔍  AGENT A — TREND SCOUT: Activating...")
     print(f"    Niche: {niche}")
+    if topic:
+        print(f"    Topic: {topic}")
     print("─" * 64)
 
     if simulate:
-        print("  [Agent A] Offline simulation mode active. Emulating scrapers with niche-matched templates...")
-        if "web3" in niche.lower() or "crypto" in niche.lower() or "contract" in niche.lower():
+        if topic:
+            print(f"  [Agent A] Offline simulation mode active. Generating custom breakdown for: {topic}...")
             topics = [
-                {"title": "Solana State Compression: Reducing NFT minting costs by 100x via Merkle Trees", "description": "Deep dive into concurrent Merkle tree structures that store state off-chain while guaranteeing security through ledger signatures.", "points": 312},
-                {"title": "EVM Parallelization: Arbitrum and Monad Approaches", "description": "Analyzing architectural differences in executing non-conflicting Ethereum smart contracts simultaneously via speculative execution.", "points": 245},
-                {"title": "ZK-Rollups vs. Optimistic Rollups in 2026", "description": "A benchmark of cryptographic proof generation times and execution stability for real-time low-latency consumer applications.", "points": 189}
-            ]
-        elif "ai" in niche.lower() or "agent" in niche.lower() or "learn" in niche.lower():
-            topics = [
-                {"title": "Show HN: Model-Context Protocol (MCP) clients built entirely in Rust", "description": "A high-performance implementation of standard context management protocol for LLMs, eliminating TypeScript/Node overhead.", "points": 541},
-                {"title": "OpenAI launches GPT-5.5 with real-time semantic video streaming and sub-50ms latency", "description": "OpenAI news feed reports on major architectural shifts enabling multi-modal semantic streams to feed direct client sockets without intermediary transcription buffers.", "points": 612},
-                {"title": "Google introduces Gemini 2.5 Pro with native 10-million token context windows", "description": "Google Research details memory optimization via sparse attention mechanisms that permit native indexing of entire codebases in active memory.", "points": 588},
-                {"title": "Meta Research details LLaMA 4: 100T parameter model optimized for agentic tool use and complex reasoning", "description": "Meta Research blog details architectural updates including speculative decoding pipelines and low-rank adaptation techniques for edge devices.", "points": 575},
-                {"title": "Is clean token-to-token streaming with low late-delivery possible over HTTP/3?", "description": "Engineering team reviews benchmarks of QUIC protocol streams for feeding chunked real-time LLM reasoning traces to multiple client sockets.", "points": 402},
-                {"title": "Autonomous agents now manage $50k/day ad budgets with zero human overview", "description": "A critical review of standard feedback loop errors where autonomous models enter recursive spending traps due to misaligned reward targets.", "points": 288}
+                {"title": f"Deep Dive: Architecture of {topic}", "description": f"Exploring the core components and low-level mechanics of {topic} inside production systems.", "points": 450},
+                {"title": f"Performance Tuning & Optimization for {topic}", "description": f"Best practices for reducing latency, lock contention, and resource overhead in systems leveraging {topic}.", "points": 380},
+                {"title": f"Common Pitfalls and Anti-patterns in {topic} Implementations", "description": f"A comprehensive audit checklist detailing common failure states, edge-case race conditions, and how to safeguard against them.", "points": 290}
             ]
         else:
-            topics = [
-                {"title": "Netflix TechBlog: Migrating a core streaming service from Java to Rust", "description": "Netflix engineers detail how migrating to Rust reduced CPU utilization by 40% and eliminated garbage collection latency spikes in high-throughput video metadata streams.", "points": 490},
-                {"title": "AWS News: Introducing Amazon ECS Serverless Containers with sub-second scaling", "description": "AWS details the new micro-VM technology enabling instant container startup and auto-scaling based on incoming socket pressure.", "points": 510},
-                {"title": "Zoho releases unified compiler for cloud orchestrations on serverless setups", "description": "Zoho Blog documents a custom Rust compiler that optimizes execution latency on Zoho cloud functions by tree-shaking dead runtime modules.", "points": 420},
-                {"title": f"Advancements in {niche} Core Architectures", "description": "Developers debate if current paradigm shifts are sustainable for production workloads, pointing out bottlenecks in standard runtime environments.", "points": 154},
-                {"title": f"Show HN: Lightweight CLI for compiling {niche} assets", "description": "An open-source compiler written in Go that optimizes production bundles by omitting unused intermediate tree-shaking properties.", "points": 211},
-                {"title": f"Critical memory leaks found in default {niche} libraries", "description": "A detailed post-mortem documenting GC starvation issues when high volumes of asynchronous events are registered inside long-running loops.", "points": 388}
-            ]
+            print("  [Agent A] Offline simulation mode active. Emulating scrapers with niche-matched templates...")
+            if "web3" in niche.lower() or "crypto" in niche.lower() or "contract" in niche.lower():
+                topics = [
+                    {"title": "Solana State Compression: Reducing NFT minting costs by 100x via Merkle Trees", "description": "Deep dive into concurrent Merkle tree structures that store state off-chain while guaranteeing security through ledger signatures.", "points": 312},
+                    {"title": "EVM Parallelization: Arbitrum and Monad Approaches", "description": "Analyzing architectural differences in executing non-conflicting Ethereum smart contracts simultaneously via speculative execution.", "points": 245},
+                    {"title": "ZK-Rollups vs. Optimistic Rollups in 2026", "description": "A benchmark of cryptographic proof generation times and execution stability for real-time low-latency consumer applications.", "points": 189}
+                ]
+            elif "ai" in niche.lower() or "agent" in niche.lower() or "learn" in niche.lower():
+                topics = [
+                    {"title": "Show HN: Model-Context Protocol (MCP) clients built entirely in Rust", "description": "A high-performance implementation of standard context management protocol for LLMs, eliminating TypeScript/Node overhead.", "points": 541},
+                    {"title": "OpenAI launches GPT-5.5 with real-time semantic video streaming and sub-50ms latency", "description": "OpenAI news feed reports on major architectural shifts enabling multi-modal semantic streams to feed direct client sockets without intermediary transcription buffers.", "points": 612},
+                    {"title": "Google introduces Gemini 2.5 Pro with native 10-million token context windows", "description": "Google Research details memory optimization via sparse attention mechanisms that permit native indexing of entire codebases in active memory.", "points": 588},
+                    {"title": "Meta Research details LLaMA 4: 100T parameter model optimized for agentic tool use and complex reasoning", "description": "Meta Research blog details architectural updates including speculative decoding pipelines and low-rank adaptation techniques for edge devices.", "points": 575},
+                    {"title": "Is clean token-to-token streaming with low late-delivery possible over HTTP/3?", "description": "Engineering team reviews benchmarks of QUIC protocol streams for feeding chunked real-time LLM reasoning traces to multiple client sockets.", "points": 402},
+                    {"title": "Autonomous agents now manage $50k/day ad budgets with zero human overview", "description": "A critical review of standard feedback loop errors where autonomous models enter recursive spending traps due to misaligned reward targets.", "points": 288}
+                ]
+            else:
+                topics = [
+                    {"title": "Netflix TechBlog: Migrating a core streaming service from Java to Rust", "description": "Netflix engineers detail how migrating to Rust reduced CPU utilization by 40% and eliminated garbage collection latency spikes in high-throughput video metadata streams.", "points": 490},
+                    {"title": "AWS News: Introducing Amazon ECS Serverless Containers with sub-second scaling", "description": "AWS details the new micro-VM technology enabling instant container startup and auto-scaling based on incoming socket pressure.", "points": 510},
+                    {"title": "Zoho releases unified compiler for cloud orchestrations on serverless setups", "description": "Zoho Blog documents a custom Rust compiler that optimizes execution latency on Zoho cloud functions by tree-shaking dead runtime modules.", "points": 420},
+                    {"title": f"Advancements in {niche} Core Architectures", "description": "Developers debate if current paradigm shifts are sustainable for production workloads, pointing out bottlenecks in standard runtime environments.", "points": 154},
+                    {"title": f"Show HN: Lightweight CLI for compiling {niche} assets", "description": "An open-source compiler written in Go that optimize production bundles by omitting unused intermediate tree-shaking properties.", "points": 211},
+                    {"title": f"Critical memory leaks found in default {niche} libraries", "description": "A detailed post-mortem documenting GC starvation issues when high volumes of asynchronous events are registered inside long-running loops.", "points": 388}
+                ]
         print(f"\n  [Agent A] ✅ Successfully compiled {len(topics)} top stories.")
         for i, t in enumerate(topics, 1):
             print(f"    #{i}: {t.get('title')[:72]}...")
             print(f"         Score: {t.get('points')} pts")
+        execution_telemetry["agent_a"]["last_wake"] = datetime.now().isoformat() + "Z"
+        execution_telemetry["agent_a"]["headlines_pulled"] = [t.get("title", "") for t in topics]
+        
+        # Log agent-to-agent interaction
+        log_agent_interaction(
+            "Agent A (Trend Scout)",
+            "Agent B (Writer)",
+            f"Handing over {len(topics)} researched sub-topics for custom topic '{topic}'." if topic else
+            f"Handing over {len(topics)} curated technology headlines from RSS feeds for writing. Sourced topics include: "
+            + ", ".join(f"'{t.get('title')[:40]}...'" for t in topics)
+        )
         return topics
 
-    model = genai.GenerativeModel(model_name=model_name, tools=[
-        HN_TOOL_DECLARATION,
-        TC_TOOL_DECLARATION,
-        GOOGLE_TOOL_DECLARATION,
-        OPENAI_TOOL_DECLARATION,
-        ZOHO_TOOL_DECLARATION,
-        META_TOOL_DECLARATION,
-        NETFLIX_TOOL_DECLARATION,
-        AWS_TOOL_DECLARATION
-    ])
-    chat = model.start_chat(enable_automatic_function_calling=False)
+    if topic:
+        model = LLMRouter.get_model(model_name=model_name)
+        scout_prompt = f"""You are Agent A (The Trend Scout), an autonomous AI research agent.
+Your mission for this pipeline run:
+1. Analyze the user-specified technical topic: "{topic}".
+2. Deconstruct this topic into exactly 3-5 distinct technical sub-topics, architectural layers, performance considerations, or implementation patterns relevant to the niche: "{niche}".
+3. For each sub-topic, write a 1–2 sentence technical description explaining why it is critical when working with or implementing "{topic}".
+4. Assign an engagement score (50–600) based on complexity and relevance.
 
-    scout_prompt = f"""You are Agent A (The Trend Scout), an autonomous AI research agent with access to live technology RSS feed tools.
+Respond with a JSON array of exactly 3 to 5 objects (do NOT call any tools):
+[
+  {{"title": "Sub-topic/Aspect Title", "description": "Technical description...", "points": 123}},
+  ...
+]"""
+    else:
+        model = LLMRouter.get_model(model_name=model_name, tools=[
+            HN_TOOL_DECLARATION,
+            TC_TOOL_DECLARATION,
+            GOOGLE_TOOL_DECLARATION,
+            OPENAI_TOOL_DECLARATION,
+            ZOHO_TOOL_DECLARATION,
+            META_TOOL_DECLARATION,
+            NETFLIX_TOOL_DECLARATION,
+            AWS_TOOL_DECLARATION
+        ])
+        scout_prompt = f"""You are Agent A (The Trend Scout), an autonomous AI research agent with access to live technology RSS feed tools.
 
 Your mission for this pipeline run:
 1. Call the appropriate tools (fetch_hackernews_headlines, fetch_techcrunch_headlines, fetch_google_blog_headlines, fetch_openai_blog_headlines, fetch_zoho_blog_headlines, fetch_meta_blog_headlines, fetch_netflix_blog_headlines, or fetch_aws_blog_headlines) to retrieve the latest technology news, developer trends, company blog announcements, and product updates.
@@ -832,9 +1423,8 @@ Respond with a JSON array of exactly 5 objects:
   ...
 ]"""
 
+    chat = model.start_chat(enable_automatic_function_calling=False)
     print(f"  [Agent A] Sending mission prompt...")
-
-    # ── Turn 1: Agent A reasons and calls the tool ──
     response = chat.send_message(scout_prompt)
 
     # ── Agentic loop: Handle tool calls until Agent A gives a final answer ──
@@ -885,11 +1475,23 @@ Respond with a JSON array of exactly 5 objects:
             for i, t in enumerate(topics, 1):
                 print(f"    #{i}: {t.get('title', 'N/A')[:72]}{'...' if len(t.get('title',''))>72 else ''}")
                 print(f"         Score: {t.get('points', '?')} pts")
+            execution_telemetry["agent_a"]["last_wake"] = datetime.now().isoformat() + "Z"
+            execution_telemetry["agent_a"]["headlines_pulled"] = [t.get("title", "") for t in topics]
+            
+            # Log agent-to-agent interaction
+            log_agent_interaction(
+                "Agent A (Trend Scout)",
+                "Agent B (Writer)",
+                f"Handing over {len(topics)} live technology headlines sourced from HN/Tech blogs. Selected titles: "
+                + ", ".join(f"'{t.get('title')[:40]}...'" for t in topics)
+            )
             return topics
         except json.JSONDecodeError as exc:
             print(f"  [Agent A] ⚠️  JSON decode error: {exc}")
 
     print("  [Agent A] ⚠️  Could not parse structured output. Returning empty list.")
+    execution_telemetry["agent_a"]["last_wake"] = datetime.now().isoformat() + "Z"
+    execution_telemetry["agent_a"]["headlines_pulled"] = []
     return []
 
 
@@ -914,6 +1516,14 @@ def run_agent_b(niche: str, topics: list[dict], model_name: str, simulate: bool 
     if simulate:
         print("  [Agent B] Offline simulation mode active. Calling memory check_past_issues...")
         titles = [t.get("title", "") for t in topics]
+        
+        log_agent_interaction(
+            "Agent B (Writer)",
+            "System Memory Layer",
+            f"Checking memory to verify if any topics are already covered: "
+            + ", ".join(f"'{title[:30]}...'" for title in titles)
+        )
+        
         result = check_past_issues(titles)
         covered = result.get("covered_titles", [])
 
@@ -921,8 +1531,18 @@ def run_agent_b(niche: str, topics: list[dict], model_name: str, simulate: bool 
             print(f"  [Agent B] Memory skill result: Covered topics found -> {covered}")
             print(f"  [Agent B] Autonomously rejecting covered topic(s): {covered}")
             print("  [Agent B] Autonomously selected alternative topics from Trend Scout list.")
+            log_agent_interaction(
+                "System Memory Layer",
+                "Agent B (Writer)",
+                f"Deduplication alert! The following topics are already covered in past issues and were rejected: {covered}. Use alternative stories."
+            )
         else:
             print("  [Agent B] Memory skill result: No covered topics found in current list.")
+            log_agent_interaction(
+                "System Memory Layer",
+                "Agent B (Writer)",
+                "Deduplication complete. All candidate topics are fresh and ready for writing!"
+            )
 
         uncovered_topics = [t for t in topics if t.get("title") not in covered]
         if not uncovered_topics:
@@ -1003,14 +1623,27 @@ As we move deeper into this development cycle, separation of concerns is being e
         if not feedback:
             print("  [Agent B] (Simulated First Attempt) Intentionally injecting an unclosed code block to trigger feedback loop...")
             draft += "\n\n```rust\n// Unclosed code block simulated to test quality controls and safety feedback loop."
+            log_agent_interaction(
+                "Agent B (Writer)",
+                "Evaluation Guardrail",
+                f"Draft completed (Attempt 1). Dispatching {len(draft)} characters for automated security & quality checks."
+            )
         else:
             print("  [Agent B] (Simulated Revision Attempt) Successfully corrected formatting errors based on feedback.")
+            log_agent_interaction(
+                "Agent B (Writer)",
+                "Evaluation Guardrail",
+                f"Draft revision completed (Attempt 2). Submitting corrected version ({len(draft)} characters) for validation."
+            )
 
         print(f"  [Agent B] ✅ Draft complete ({len(draft):,} characters).")
+        execution_telemetry["agent_b"]["prompt_tokens"] += 1450
+        execution_telemetry["agent_b"]["output_tokens"] += 980
+        execution_telemetry["agent_b"]["total_tokens"] += 2430
         return draft
 
     # Configure the model with system instruction and the check_past_issues tool
-    model = genai.GenerativeModel(
+    model = LLMRouter.get_model(
         model_name=model_name,
         tools=[MEMORY_TOOL_DECLARATION],
         system_instruction=(
@@ -1090,7 +1723,21 @@ Please rewrite the entire newsletter draft from scratch, addressing and fixing e
         tool_response_parts = []
         for fc in tool_calls:
             print(f"  [Agent B] 🔧 Autonomously calling tool: {fc.name}({dict(fc.args)})")
+            if fc.name == "check_past_issues":
+                log_agent_interaction(
+                    "Agent B (Writer)",
+                    "System Memory Layer",
+                    f"Verifying topics against past issue database: {fc.args.get('titles', [])}"
+                )
+                
             tool_result = dispatch_tool(fc.name, dict(fc.args))
+
+            if fc.name == "check_past_issues":
+                log_agent_interaction(
+                    "System Memory Layer",
+                    "Agent B (Writer)",
+                    f"Deduplication completed. Found covered topics: {tool_result.get('covered_titles', [])}"
+                )
 
             tool_response_parts.append(
                 genai.protos.Part(
@@ -1107,6 +1754,18 @@ Please rewrite the entire newsletter draft from scratch, addressing and fixing e
 
     draft = response.text or ""
     print(f"  [Agent B] ✅ Draft complete ({len(draft):,} characters, ~{len(draft.split()):,} words).")
+    
+    log_agent_interaction(
+        "Agent B (Writer)",
+        "Evaluation Guardrail",
+        f"Drafting complete ({len(draft)} characters). Handing over to automated compliance guardrails."
+    )
+    
+    if hasattr(response, "usage_metadata") and response.usage_metadata:
+        execution_telemetry["agent_b"]["prompt_tokens"] += getattr(response.usage_metadata, "prompt_token_count", 0)
+        execution_telemetry["agent_b"]["output_tokens"] += getattr(response.usage_metadata, "candidates_token_count", 0)
+        execution_telemetry["agent_b"]["total_tokens"] += getattr(response.usage_metadata, "total_token_count", 0)
+        
     return draft
 
 
@@ -1173,6 +1832,15 @@ def run_agent_c(niche: str, draft: str, model_name: str, simulate: bool = False)
         print("  [Agent C] Score    : 95/100")
         print("  [Agent C] Checks   : 7/7 passed")
         print("  [Agent C] Notes    : Good technical depth and layout structure.")
+        execution_telemetry["agent_c"]["score"] = 95
+        execution_telemetry["agent_c"]["notes"] = "Good technical depth and layout structure."
+        execution_telemetry["agent_c"]["passed"] = True
+        
+        log_agent_interaction(
+            "Agent C (Evaluator)",
+            "Orchestrator",
+            "Audit complete. Verdict: APPROVED (Score: 95/100). Checklist: 7/7 requirements satisfied."
+        )
         return {
             "passed": True,
             "score": 95,
@@ -1188,7 +1856,7 @@ def run_agent_c(niche: str, draft: str, model_name: str, simulate: bool = False)
             "notes": "Good technical depth and layout structure."
         }
 
-    model = genai.GenerativeModel(model_name=model_name)
+    model = LLMRouter.get_model(model_name=model_name)
 
     # Only send the first 4000 chars to keep token usage reasonable
     draft_preview = draft[:4000] + ("\n...[truncated]" if len(draft) > 4000 else "")
@@ -1242,11 +1910,25 @@ Draft to evaluate:
             print(f"  [Agent C] Score    : {result.get('score', '?')}/100")
             print(f"  [Agent C] Checks   : {checks_passed}/{checks_total} passed")
             print(f"  [Agent C] Notes    : {result.get('notes', '')}")
+            execution_telemetry["agent_c"]["score"] = result.get("score", 85)
+            execution_telemetry["agent_c"]["notes"] = result.get("notes", "")
+            execution_telemetry["agent_c"]["passed"] = result.get("passed", False)
+            
+            verdict = "APPROVED" if result.get("passed") else "REVIEW NEEDED"
+            log_agent_interaction(
+                "Agent C (Evaluator)",
+                "Orchestrator",
+                f"Audit complete. Verdict: {verdict} (Score: {result.get('score', 85)}/100). "
+                f"Checklist requirements passed: {checks_passed}/{checks_total}. Notes: {result.get('notes', '')}"
+            )
             return result
         except json.JSONDecodeError:
             pass
 
     print("  [Agent C] ⚠️  Could not parse evaluation JSON — applying default pass.")
+    execution_telemetry["agent_c"]["score"] = 80
+    execution_telemetry["agent_c"]["notes"] = "Evaluation parsing error — default approval applied."
+    execution_telemetry["agent_c"]["passed"] = True
     return {
         "passed": True,
         "score": 80,
@@ -1301,7 +1983,7 @@ def update_past_issues(niche: str, topics: list[dict], newsletter_content: str):
 # Pipeline Orchestrator
 # ──────────────────────────────────────────────────────────────────────────────
 
-def run_pipeline(niche: str = "AI & Agentic Frameworks", model_name: str = "gemini-1.5-flash", simulate: bool = False) -> str:
+def run_pipeline(niche: str = "AI & Agentic Frameworks", model_name: str = "gemini-1.5-flash", simulate: bool = False, topic: str = None) -> str:
     """
     Orchestrates the full Day 3 multi-agent pipeline:
 
@@ -1315,76 +1997,172 @@ def run_pipeline(niche: str = "AI & Agentic Frameworks", model_name: str = "gemi
     Returns:
         The complete stamped newsletter as a string.
     """
+    global execution_telemetry
+    execution_telemetry = {
+        "agent_a": {
+            "last_wake": None,
+            "headlines_pulled": [],
+            "source": "Multiple Tech RSS Feeds",
+            "duration_ms": 0
+        },
+        "agent_b": {
+            "prompt_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+            "attempts": 0,
+            "violations": [],
+            "duration_ms": 0
+        },
+        "agent_c": {
+            "score": 0,
+            "notes": "",
+            "passed": False,
+            "duration_ms": 0
+        },
+        "total_duration_ms": 0,
+        "total_cost_usd": 0.0,
+        "spans": [],
+        "failures": {
+            "violations_count": 0,
+            "attempts_count": 0,
+            "api_errors_count": 0
+        }
+    }
+
+    # Clear previous agent interactions log
+    log_path = os.path.join(os.path.dirname(__file__), "agent_interactions.json")
+    if os.path.exists(log_path):
+        try:
+            os.remove(log_path)
+        except Exception:
+            pass
+
+    import time
     started_at = datetime.now()
+    pipeline_start_t = time.time()
 
     print("\n" + "═" * 64)
     print("🤖  AUTONOMOUS NEWSLETTER ENGINE")
-    print("    Day 3: Agent Skills, Context & Memory")
+    print("    Day 5: Production-Grade Observability (The Local Fleet)")
     print(f"    Niche  : {niche}")
+    if topic:
+        print(f"    Topic  : {topic}")
     print(f"    Model  : {model_name}")
     if simulate:
         print("    Mode   : OFFLINE SIMULATION MODE")
     print(f"    Started: {started_at.strftime('%Y-%m-%d %H:%M:%S')}")
     print("═" * 64)
 
-    # ── Agent A: Scout with live HN tool ──
-    topics = run_agent_a(niche=niche, model_name=model_name, simulate=simulate)
-    if not topics:
-        print("\n❌  Agent A returned no topics. Pipeline aborted.")
-        return ""
+    # Initialize Gemini SDK for live runs (deferred from import time)
+    if not simulate:
+        _init_genai()
 
-    # ── Agent B: Writer — receives Agent A's payload (with Day 4 Quality Feedback Loop) ──
-    max_attempts = 3
-    feedback = None
-    draft = None
-    
-    for attempt in range(1, max_attempts + 1):
-        print(f"\n🔄  [Attempt {attempt}/{max_attempts}] Running Writer & Guardrail Evaluation...")
-        draft = run_agent_b(
-            niche=niche,
-            topics=topics,
-            model_name=model_name,
-            simulate=simulate,
-            feedback=feedback,
-            previous_draft=draft
+    try:
+        log_agent_interaction(
+            "Orchestrator",
+            "Agent A (Trend Scout)",
+            f"Waking up Scout. Mission: Research and deconstruct the custom topic '{topic}'." if topic else
+            f"Waking up Scout. Mission: Source and filter top headlines for target niche '{niche}' using live tools."
         )
-        if not draft:
-            print("\n❌  Agent B produced no draft. Pipeline aborted.")
+        
+        # ── Agent A: Scout with live HN tool ──
+        agent_a_start_t = time.time()
+        topics = run_agent_a(niche=niche, model_name=model_name, simulate=simulate, topic=topic)
+        agent_a_end_t = time.time()
+        execution_telemetry["agent_a"]["duration_ms"] = int((agent_a_end_t - agent_a_start_t) * 1000)
+
+        if not topics:
+            pipeline_end_t = time.time()
+            execution_telemetry["total_duration_ms"] = int((pipeline_end_t - pipeline_start_t) * 1000)
+            print("\n❌  Agent A returned no topics. Pipeline aborted.")
+            save_telemetry(niche, model_name, "failed", "Agent A returned no topics")
             return ""
 
-        # Day 4: Run the automated security & quality checks
-        print(f"🛡️  [Security & Quality] Evaluating draft for Attempt {attempt}...")
-        guardrail_result = evaluate_draft_security_and_quality(draft)
+        # ── Agent B: Writer — receives Agent A's payload (with Day 4 Quality Feedback Loop) ──
+        max_attempts = 3
+        feedback = None
+        draft = None
         
-        if guardrail_result["passed"]:
-            print("🛡️  [Security & Quality] ✅ Check passed. No security or formatting violations found.")
-            break
-        else:
-            violations_text = "\n".join(f"- {v}" for v in guardrail_result["violations"])
-            print(f"🛡️  [Security & Quality] ❌ Violations detected:\n{violations_text}")
+        agent_b_start_t = time.time()
+        for attempt in range(1, max_attempts + 1):
+            execution_telemetry["agent_b"]["attempts"] = attempt
+            print(f"\n🔄  [Attempt {attempt}/{max_attempts}] Running Writer & Guardrail Evaluation...")
+            draft = run_agent_b(
+                niche=niche,
+                topics=topics,
+                model_name=model_name,
+                simulate=simulate,
+                feedback=feedback,
+                previous_draft=draft
+            )
+            if not draft:
+                agent_b_end_t = time.time()
+                execution_telemetry["agent_b"]["duration_ms"] = int((agent_b_end_t - agent_b_start_t) * 1000)
+                pipeline_end_t = time.time()
+                execution_telemetry["total_duration_ms"] = int((pipeline_end_t - pipeline_start_t) * 1000)
+                print("\n❌  Agent B produced no draft. Pipeline aborted.")
+                save_telemetry(niche, model_name, "failed", "Agent B produced no draft")
+                return ""
+
+            # Day 4: Run the automated security & quality checks
+            print(f"🛡️  [Security & Quality] Evaluating draft for Attempt {attempt}...")
+            guardrail_result = evaluate_draft_security_and_quality(draft)
             
-            if attempt < max_attempts:
-                print(f"🔄  Feedback Loop: Directing Agent B to rewrite draft to fix violations.")
-                feedback = violations_text
+            if guardrail_result["passed"]:
+                print("🛡️  [Security & Quality] ✅ Check passed. No security or formatting violations found.")
+                log_agent_interaction(
+                    "Evaluation Guardrail",
+                    "Agent C (Evaluator)",
+                    "PASSED security and formatting checks. Handing over to Evaluator for structured quality review."
+                )
+                break
             else:
-                print("🛡️  [Security & Quality] ⚠️ Maximum correction attempts reached. Proceeding to final audit.")
+                violations_text = "\n".join(f"- {v}" for v in guardrail_result["violations"])
+                print(f"🛡️  [Security & Quality] ❌ Violations detected:\n{violations_text}")
+                execution_telemetry["agent_b"]["violations"].extend(guardrail_result["violations"])
+                
+                if attempt < max_attempts:
+                    print(f"🔄  Feedback Loop: Directing Agent B to rewrite draft to fix violations.")
+                    feedback = violations_text
+                    log_agent_interaction(
+                        "Evaluation Guardrail",
+                        "Agent B (Writer)",
+                        f"REJECTED. The draft contains syntax/formatting violations: {violations_text}. "
+                        "Please perform a complete rewrite to correct these issues."
+                    )
+                else:
+                    print("🛡️  [Security & Quality] ⚠️ Maximum correction attempts reached. Proceeding to final audit.")
+                    log_agent_interaction(
+                        "Evaluation Guardrail",
+                        "Agent C (Evaluator)",
+                        "WARNING: Security/formatting violations remain, but retry limit reached. Forcing handoff to Critic."
+                    )
+        
+        agent_b_end_t = time.time()
+        execution_telemetry["agent_b"]["duration_ms"] = int((agent_b_end_t - agent_b_start_t) * 1000)
 
-    # ── Agent C: Evaluator ──
-    evaluation = run_agent_c(niche=niche, draft=draft, model_name=model_name, simulate=simulate)
+        # ── Agent C: Evaluator ──
+        agent_c_start_t = time.time()
+        evaluation = run_agent_c(niche=niche, draft=draft, model_name=model_name, simulate=simulate)
+        agent_c_end_t = time.time()
+        execution_telemetry["agent_c"]["duration_ms"] = int((agent_c_end_t - agent_c_start_t) * 1000)
 
-    # ── Update past issues memory ──
-    update_past_issues(niche, topics, draft)
+        # ── Update past issues memory ──
+        update_past_issues(niche, topics, draft)
 
-    # ── Stamp and assemble the final newsletter ──
-    finished_at = datetime.now()
-    elapsed = (finished_at - started_at).seconds
-    passed = evaluation.get("passed", True)
-    score = evaluation.get("score", 80)
-    checks = evaluation.get("checks", {})
-    checks_summary = " | ".join(f"{k}: {'✓' if v else '✗'}" for k, v in checks.items())
+        # ── Stamp and assemble the final newsletter ──
+        finished_at = datetime.now()
+        pipeline_end_t = time.time()
+        elapsed = int(pipeline_end_t - pipeline_start_t)
+        execution_telemetry["total_duration_ms"] = elapsed * 1000
+        
+        passed = evaluation.get("passed", True)
+        score = evaluation.get("score", 80)
+        checks = evaluation.get("checks", {})
+        checks_summary = " | ".join(f"{k}: {'✓' if v else '✗'}" for k, v in checks.items())
 
-    final = f"""---
-Engine       : Autonomous Newsletter Engine v4.0.0 (Day 4 — Security & Evaluation)
+        final = f"""---
+Engine       : Autonomous Newsletter Engine v5.0.0 (Day 5 — Production Observability)
 Niche        : {niche}
 Model        : {model_name}
 ---
@@ -1401,20 +2179,36 @@ Duration     : {elapsed}s
 
 {draft}"""
 
-    # Save to a timestamped Markdown file
-    safe_niche = niche.lower().replace(" ", "_").replace("&", "and").replace("/", "_")[:40]
-    filename = f"newsletter_{safe_niche}_{finished_at.strftime('%Y%m%d_%H%M')}.md"
-    output_path = os.path.join(os.path.dirname(__file__), filename)
+        # Save to a timestamped Markdown file in the 'newsletters' folder
+        safe_niche = niche.lower().replace(" ", "_").replace("&", "and").replace("/", "_")[:40]
+        filename = f"newsletter_{safe_niche}_{finished_at.strftime('%Y%m%d_%H%M')}.md"
+        newsletters_dir = os.path.join(os.path.dirname(__file__), "newsletters")
+        os.makedirs(newsletters_dir, exist_ok=True)
+        output_path = os.path.join(newsletters_dir, filename)
 
-    with open(output_path, "w", encoding="utf-8") as f:
-        f.write(final)
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(final)
 
-    print("\n" + "═" * 64)
-    print(f"✅  Pipeline complete in {elapsed}s!")
-    print(f"📄  Newsletter saved → {filename}")
-    print("═" * 64)
+        print("\n" + "═" * 64)
+        print(f"✅  Pipeline complete in {elapsed}s!")
+        print(f"📄  Newsletter saved → newsletters/{filename}")
+        print("═" * 64)
 
-    return final
+        log_agent_interaction(
+            "Orchestrator",
+            "Streamlit Portal",
+            f"Pipeline complete! Output saved to: 'newsletters/{filename}'. Ready for distribution."
+        )
+
+        save_telemetry(niche, model_name, "success")
+        return final
+
+    except Exception as exc:
+        pipeline_end_t = time.time()
+        execution_telemetry["total_duration_ms"] = int((pipeline_end_t - pipeline_start_t) * 1000)
+        save_telemetry(niche, model_name, "failed", str(exc))
+        print(f"\n❌  Pipeline execution failed: {exc}")
+        raise exc
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -1423,14 +2217,13 @@ Duration     : {elapsed}s
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Autonomous Newsletter Engine — Day 3 Multi-Agent Pipeline",
+        description="Autonomous Newsletter Engine — Day 5 Multi-Agent Pipeline",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python agent_pipeline.py
+  python agent_pipeline.py --simulate
   python agent_pipeline.py --niche "Rust Systems & WebAssembly"
   python agent_pipeline.py --niche "Edge AI & Distributed Compute" --model gemini-1.5-pro
-  python agent_pipeline.py --simulate
         """,
     )
     parser.add_argument(
@@ -1448,14 +2241,27 @@ Examples:
         action="store_true",
         help="Run the pipeline in offline simulation mode without calling Gemini API",
     )
+    parser.add_argument(
+        "--topic",
+        default=None,
+        help="A specific topic to research and write about (e.g. 'Google Gemini 2.5 context window')",
+    )
     args = parser.parse_args()
 
-    result = run_pipeline(niche=args.niche, model_name=args.model, simulate=args.simulate)
+    # Validate key early for CLI usage (gives a clean error message)
+    if not args.simulate and not os.environ.get("GEMINI_API_KEY", "").strip():
+        print("❌  GEMINI_API_KEY environment variable is not set.")
+        print("    Set it with:  $env:GEMINI_API_KEY = 'your-key'  (PowerShell)")
+        print("               or: export GEMINI_API_KEY='your-key'  (bash)")
+        print("    Alternatively, run in offline simulation mode: python agent_pipeline.py --simulate")
+        sys.exit(1)
+
+    result = run_pipeline(niche=args.niche, model_name=args.model, simulate=args.simulate, topic=args.topic)
 
     if result:
-        # Print a short preview to the console
         lines = result.split("\n")
         preview_lines = [l for l in lines if not l.startswith("---") and l.strip()][:8]
         print("\n── Newsletter Preview ──")
         print("\n".join(preview_lines))
         print("...")
+
