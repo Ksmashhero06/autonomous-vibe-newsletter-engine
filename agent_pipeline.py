@@ -1698,23 +1698,25 @@ Duration     : {elapsed}s
 
 {draft}"""
 
-        # Save to a timestamped Markdown file
+        # Save to a timestamped Markdown file in the 'newsletters' folder
         safe_niche = niche.lower().replace(" ", "_").replace("&", "and").replace("/", "_")[:40]
         filename = f"newsletter_{safe_niche}_{finished_at.strftime('%Y%m%d_%H%M')}.md"
-        output_path = os.path.join(os.path.dirname(__file__), filename)
+        newsletters_dir = os.path.join(os.path.dirname(__file__), "newsletters")
+        os.makedirs(newsletters_dir, exist_ok=True)
+        output_path = os.path.join(newsletters_dir, filename)
 
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(final)
 
         print("\n" + "═" * 64)
         print(f"✅  Pipeline complete in {elapsed}s!")
-        print(f"📄  Newsletter saved → {filename}")
+        print(f"📄  Newsletter saved → newsletters/{filename}")
         print("═" * 64)
 
         log_agent_interaction(
             "Orchestrator",
             "Streamlit Portal",
-            f"Pipeline complete! Output saved to: '{filename}'. Ready for distribution."
+            f"Pipeline complete! Output saved to: 'newsletters/{filename}'. Ready for distribution."
         )
 
         save_telemetry(niche, model_name, "success")

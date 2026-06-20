@@ -167,7 +167,7 @@ def load_worker_status():
     return None
 
 def get_drafts():
-    drafts = glob.glob(os.path.join(PROJECT_DIR, "newsletter_*.md"))
+    drafts = glob.glob(os.path.join(PROJECT_DIR, "newsletters", "newsletter_*.md"))
     drafts.sort(key=os.path.getmtime, reverse=True)
     return [os.path.basename(d) for d in drafts]
 
@@ -463,11 +463,11 @@ with tab_drafts:
     if not drafts:
         st.info("No newsletter drafts found yet. Run the pipeline to generate your first issue.")
     else:
-        st.markdown(f"**{len(drafts)} draft(s)** found in project directory.")
+        st.markdown(f"**{len(drafts)} draft(s)** found in `newsletters/` archive.")
         selected = st.selectbox("Select a draft to read:", drafts, key="draft_select")
 
         if selected:
-            draft_path = os.path.join(PROJECT_DIR, selected)
+            draft_path = os.path.join(PROJECT_DIR, "newsletters", selected)
             try:
                 with open(draft_path, "r", encoding="utf-8") as f:
                     content = f.read()
