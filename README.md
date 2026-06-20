@@ -41,7 +41,7 @@ python agent_pipeline.py --simulate
 
 ---
 
-## 🏗️ Full System Architecture
+## 🏗️ Full System Architecture (v6.0)
 
 ```
 ╔═══════════════════════════════════════════════════════════════════╗
@@ -50,37 +50,35 @@ python agent_pipeline.py --simulate
 ║  [Niche Selector]  [Custom Topic]  [Model Picker]  [API Key]     ║
 ║  [Wake Up Newsroom Button]                                        ║
 ║                                                                   ║
-║  Tabs:  Workstation | Cooperation | Fleet Logs | Archive | Analytics║
+║  Tabs:  Workstation | Cooperation | Fleet Logs | Archive | Traces ║
 ╚═════════════════════════════╦═════════════════════════════════════╝
                               │ POST /api/generate
                               │ {niche, topic, model, apiKey}
                               ▼
 ╔═══════════════════════════════════════════════════════════════════╗
-║              EXPRESS SERVER  (server.ts)                         ║
-║   Orchestrates the pipeline, writes telemetry, saves files       ║
+║              EXPRESS SERVER  (server.ts) v6.0                    ║
+║   Orchestrates pipeline, writes telemetry, 6-span OTel traces    ║
 ║   Also serves: /api/history  /api/interactions  /api/drafts      ║
-╚══════════╦═══════════════════╦═══════════════════╦═══════════════╝
-           │                   │                   │
-           ▼                   ▼                   ▼
-╔══════════════╗    ╔════════════════╗   ╔═══════════════════╗
-║   AGENT A    ║───▶║    AGENT B     ║──▶║     AGENT C       ║
-║ Trend Scout  ║    ║  The Writer    ║   ║  The Evaluator    ║
-╠══════════════╣    ╠════════════════╣   ╠═══════════════════╣
-║ 8 RSS Tools  ║    ║ Memory Tool    ║   ║ Security Check    ║
-║ + Gemini     ║    ║ past_issues.   ║   ║ LLM-as-Judge      ║
-║ Function     ║    ║ json lookup    ║   ║ 7-point checklist ║
-║ Calling      ║    ║ Rewrite loop   ║   ║ Score 0-100       ║
-╚══════════════╝    ╚════════════════╝   ╚═══════════════════╝
-           │                   │                   │
-           └───────────────────┴───────────────────┘
-                               │
-                 ╔═════════════▼═════════════╗
-                 ║       DATA LAYER          ║
-                 ║  newsletters/  (.md)       ║
-                 ║  run_history.json          ║
-                 ║  agent_interactions.json   ║
-                 ║  past_issues.json          ║
-                 ╚═══════════════════════════╝
+╚═════╦══════════╦════════════╦════════════╦══════════╦════════════╝
+      │          │            │            │          │
+      ▼          ▼            ▼            ▼          ▼
+╔══════════╗ ╔══════════╗ ╔══════════╗ ╔══════════╗ ╔══════════════╗
+║ AGENT A  ║ ║   RAG    ║ ║ AGENT B  ║ ║ AGENT C  ║ ║  AGENT D     ║
+║  Scout   ║─▶ Fetcher  ║─▶  Writer  ║─▶ Evaluator║─▶ Fact Checker ║
+╠══════════╣ ╠══════════╣ ╠══════════╣ ╠══════════╣ ╠══════════════╣
+║ 8 RSS    ║ ║ URL Crawl║ ║ Memory   ║ ║ Security ║ ║ Claim        ║
+║ Tools    ║ ║ Chunk    ║ ║ Tool     ║ ║ Guardrail║ ║ Extraction   ║
+║ Function ║ ║ Embed    ║ ║ RAG      ║ ║ LLM Judge║ ║ Cosine Sim   ║
+║ Calling  ║ ║ Retrieve ║ ║ Evidence ║ ║ 0–100    ║ ║ Coverage %   ║
+╚══════════╝ ╚══════════╝ ╚══════════╝ ╚══════════╝ ╚══════════════╝
+                              │
+            ╔═════════════════▼═════════════════╗
+            ║           DATA LAYER              ║
+            ║  newsletters/  (.md files)         ║
+            ║  run_history.json  (6-span OTel)   ║
+            ║  agent_interactions.json           ║
+            ║  past_issues.json  (memory DB)     ║
+            ╚═══════════════════════════════════╝
 ```
 
 ---
@@ -427,27 +425,49 @@ Contains the full Streamlit dashboard source code as a downloadable `app.py`. In
 ### `run_history.json` schema (per record)
 ```json
 {
-  "timestamp": "2026-06-20T16:18:40.395351Z",
+  "timestamp": "2026-06-20T18:53:20.393Z",
   "niche": "AI & Agentic Frameworks",
   "model": "gemini-1.5-flash",
   "status": "success",
   "error": null,
   "agent_a": {
-    "last_wake": "2026-06-20T16:18:40.023317Z",
+    "last_wake": "2026-06-20T18:53:20.393Z",
     "headlines_pulled": ["Title 1", "Title 2", "..."],
-    "source": "Multiple Tech RSS Feeds"
+    "source": "Multiple Tech RSS Feeds",
+    "duration_ms": 9564
   },
   "agent_b": {
     "prompt_tokens": 2900,
     "output_tokens": 1960,
     "total_tokens": 4860,
     "attempts": 2,
-    "violations": ["Formatting Violation: Unclosed markdown code block"]
+    "violations": [],
+    "duration_ms": 7
   },
   "agent_c": {
     "score": 95,
-    "notes": "Good technical depth and layout structure.",
-    "passed": true
+    "notes": "Approved by Evaluator Agent",
+    "passed": true,
+    "duration_ms": 3
+  },
+  "agent_d": {
+    "score": 94,
+    "verified": 5,
+    "total": 5,
+    "passed": true,
+    "duration_ms": 0
+  },
+  "telemetry": {
+    "total_duration_ms": 9574,
+    "total_cost_usd": 0.000806,
+    "spans": [
+      { "name": "pipeline_run", "duration_ms": 9574 },
+      { "name": "agent_a_trend_scout", "duration_ms": 9564 },
+      { "name": "rag_fetcher", "duration_ms": 0, "attributes": { "chunks_count": 3 } },
+      { "name": "agent_b_writer", "duration_ms": 7 },
+      { "name": "agent_c_evaluator", "duration_ms": 3 },
+      { "name": "agent_d_fact_checker", "duration_ms": 0, "attributes": { "score": 94, "verified_claims": 5 } }
+    ]
   }
 }
 ```
@@ -524,15 +544,19 @@ npm run lint     # TypeScript type check
 | **Custom topic mode** | User provides any subject; Agent A deconstructs into 3–5 technical sub-topics without RSS |
 | **Gemini Function Calling** | 2-turn agentic loop; Gemini autonomously decides which tool to call |
 | **Memory deduplication** | `check_past_issues` tool queries `past_issues.json`; never repeats a published topic |
+| **RAG Full-Article Engine** | Crawls article URLs, strips HTML, chunks into 800-word windows, embeds via `text-embedding-004`, cosine-similarity retrieval |
+| **Evidence-grounded writing** | Agent B writes ONLY from retrieved evidence chunks — no hallucinated numbers, quotes, or details |
+| **Agent D Fact Checker** | Post-draft claim extraction + keyword overlap audit against RAG vector store; returns % source coverage |
 | **Security guardrail** | Regex scan for prompt injection patterns + code block balance check — runs before LLM evaluation |
 | **LLM-as-judge scoring** | Agent C scores drafts 0–100 against 7 structured criteria; triggers rewrite if below threshold |
 | **Rewrite feedback loop** | Up to 3 attempts; violation details sent back to Agent B with original draft for targeted correction |
 | **Multi-model support** | Gemini 2.5 Flash/Pro, 1.5 Flash/Pro — all free tier, selectable per run |
-| **Execution telemetry** | Per-agent metrics saved to `run_history.json` after every run, including failures |
+| **6-span OTel telemetry** | Per-agent metrics + RAG + Fact Checker spans saved to `run_history.json` with trace/span IDs |
 | **Agent communication log** | Every agent handoff message saved to `agent_interactions.json` and displayed in the UI |
 | **Auto-archive** | All newsletters saved as timestamped `.md` files in `newsletters/` automatically |
 | **Background worker** | Python scheduler with configurable interval; writes heartbeat for the dashboard |
-| **Offline simulation** | Full pipeline runs without an API key using niche-matched curated templates |
+| **Offline simulation** | Full 5-agent pipeline runs without an API key using niche-matched curated templates |
+| **403 fast-fail** | API key errors instantly switch the entire pipeline to simulation without retrying |
 | **API key UI** | Paste key in the React UI → saved to `.env` → persists across server restarts |
 | **Zero cloud cost** | 100% local; only uses Google AI Studio free tier |
 
