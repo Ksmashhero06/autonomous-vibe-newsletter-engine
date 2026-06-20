@@ -39,6 +39,29 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 from typing import Any
 
+def load_env_file():
+    try:
+        possible_dirs = [
+            os.getcwd(),
+            os.path.dirname(os.path.abspath(__file__)),
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        ]
+        for d in possible_dirs:
+            env_path = os.path.join(d, ".env")
+            if os.path.exists(env_path):
+                with open(env_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#") and "=" in line:
+                            k, v = line.split("=", 1)
+                            val = v.strip().strip("'").strip('"')
+                            os.environ[k.strip()] = val
+                break
+    except Exception as e:
+        print(f"⚠️ Failed to load local .env file: {e}")
+
+load_env_file()
+
 # ── Fix Windows cp1252 console encoding for emoji/unicode output ──────────────
 # Must happen before any print() with Unicode characters (including at import time).
 if hasattr(sys.stdout, "reconfigure"):
@@ -73,6 +96,277 @@ def _init_genai():
         raise ImportError(
             "google-generativeai is not installed. Run: pip install google-generativeai"
         )
+
+def get_provider_from_model(model: str) -> str:
+    m = model.lower()
+    if m.startswith("gemini-"):
+        return "gemini"
+    if m.startswith("gpt-"):
+        return "openai"
+    if m.startswith("claude-"):
+        return "anthropic"
+    if m.startswith("ollama-"):
+        return "ollama"
+    if "llama-3" in m or "mixtral" in m or "gemma2" in m:
+        return "groq"
+    return "gemini"
+
+def get_api_key_for_provider(provider: str) -> str:
+    if provider == "gemini":
+        return os.environ.get("GEMINI_API_KEY", "").strip()
+    if provider == "openai":
+        return os.environ.get("OPENAI_API_KEY", "").strip()
+    if provider == "anthropic":
+        return os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if provider == "groq":
+        return os.environ.get("GROQ_API_KEY", "").strip()
+    return ""
+
+def map_contents_to_messages(contents, tools=None):
+    messages = []
+    
+    if tools:
+        tools_desc = []
+        for t in tools:
+            name = ""
+            description = ""
+            params = {}
+            if hasattr(t, "function_declarations"):
+                fd = t.function_declarations[0]
+                name = fd.name
+                description = fd.description
+                params = getattr(fd, "parameters", {})
+                if hasattr(params, "to_json"):
+                    params = params.to_json()
+            elif isinstance(t, dict):
+                fd = t.get("functionDeclarations", [{}])[0]
+                name = fd.get("name", "")
+                description = fd.get("description", "")
+                params = fd.get("parameters", {})
+            else:
+                name = getattr(t, "name", "")
+                description = getattr(t, "description", "")
+                params = getattr(t, "parameters", {})
+
+            tools_desc.append(f"- **{name}**: {description}. Params: {json.dumps(params)}")
+        tools_str = "\n".join(tools_desc)
+        messages.append({
+            "role": "system",
+            "content": f"You have access to the following tools:\n\n{tools_str}\n\nTo use a tool, you MUST respond ONLY with a JSON object in this format:\n{{\n  \"tool_call\": {{\n    \"name\": \"tool_name\",\n    \"arguments\": {{\n      \"arg_name\": \"value\"\n    }}\n  }}\n}}\n\nDo not add any other conversational text if you are calling a tool."
+        })
+
+    for turn in contents:
+        role = "assistant" if turn.get("role") == "model" else "user"
+        text_content = ""
+        parts = turn.get("parts", [])
+        if isinstance(parts, str):
+            text_content = parts
+        elif isinstance(parts, list):
+            for part in parts:
+                if isinstance(part, str):
+                    text_content += part
+                elif isinstance(part, dict):
+                    if "text" in part:
+                        text_content += part["text"]
+                    elif "functionCall" in part:
+                        text_content += f"\nCalling tool: {part['functionCall']['name']} with args: {json.dumps(part['functionCall'].get('args', {}))}"
+                    elif "functionResponse" in part:
+                        text_content += f"\nTool result for {part['functionResponse']['name']}: {json.dumps(part['functionResponse'].get('response', {}))}"
+                elif hasattr(part, "text") and part.text:
+                    text_content += part.text
+                elif hasattr(part, "function_call") and part.function_call.name:
+                    text_content += f"\nCalling tool: {part.function_call.name} with args: {json.dumps(dict(part.function_call.args))}"
+                elif hasattr(part, "function_response") and part.function_response.name:
+                    text_content += f"\nTool result for {part.function_response.name}: {json.dumps(dict(part.function_response.response))}"
+        
+        if text_content.strip():
+            messages.append({"role": role, "content": text_content})
+            
+    return messages
+
+def call_rest_provider(provider: str, model: str, messages: list, response_schema=None) -> dict:
+    headers = {
+        "Content-Type": "application/json"
+    }
+    url = ""
+    body = {}
+    
+    api_key = get_api_key_for_provider(provider)
+    
+    if provider in ["openai", "groq", "ollama"]:
+        if provider == "openai":
+            url = "https://api.openai.com/v1/chat/completions"
+            headers["Authorization"] = f"Bearer {api_key}"
+        elif provider == "groq":
+            url = "https://api.groq.com/openai/v1/chat/completions"
+            headers["Authorization"] = f"Bearer {api_key}"
+        else:
+            host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+            url = f"{host}/v1/chat/completions"
+            
+        body = {
+            "model": model,
+            "messages": messages,
+            "temperature": 0.2
+        }
+        if response_schema:
+            body["response_format"] = {"type": "json_object"}
+            
+    elif provider == "anthropic":
+        url = "https://api.anthropic.com/v1/messages"
+        headers["x-api-key"] = api_key
+        headers["anthropic-version"] = "2023-06-01"
+        body = {
+            "model": model,
+            "max_tokens": 4000,
+            "messages": messages,
+            "temperature": 0.2
+        }
+        
+    req = urllib.request.Request(url, data=json.dumps(body).encode("utf-8"), headers=headers, method="POST")
+    try:
+        with urllib.request.urlopen(req) as res:
+            resp_data = json.loads(res.read().decode("utf-8"))
+    except Exception as e:
+        if hasattr(e, "read"):
+            err_details = e.read().decode("utf-8")
+            raise RuntimeError(f"LLM Provider {provider} API error: {e} - {err_details}")
+        raise e
+        
+    text = ""
+    if provider in ["openai", "groq", "ollama"]:
+        text = resp_data.get("choices", [{}])[0].get("message", {}).get("content", "")
+    elif provider == "anthropic":
+        text = resp_data.get("content", [{}])[0].get("text", "")
+        
+    function_calls = None
+    if "tool_call" in text:
+        try:
+            start = text.find("{")
+            end = text.rfind("}") + 1
+            if start >= 0 and end > start:
+                parsed = json.loads(text[start:end])
+                if "tool_call" in parsed:
+                    tc = parsed["tool_call"]
+                    function_calls = [{
+                        "name": tc.get("name"),
+                        "args": tc.get("arguments", {})
+                    }]
+        except:
+            pass
+            
+    return {"text": text, "function_calls": function_calls}
+
+class LLMChatRouter:
+    def __init__(self, model_name, system_instruction=None, tools=None):
+        self.model_name = model_name
+        self.system_instruction = system_instruction
+        self.tools = tools
+        self.contents = []
+        self.provider = get_provider_from_model(model_name)
+        self.native_chat = None
+        
+    def start_chat(self, enable_automatic_function_calling=False):
+        if self.provider == "gemini":
+            _init_genai()
+            if self.tools:
+                model = genai.GenerativeModel(model_name=self.model_name, tools=self.tools)
+            else:
+                model = genai.GenerativeModel(model_name=self.model_name)
+            self.native_chat = model.start_chat(enable_automatic_function_calling=enable_automatic_function_calling)
+        return self
+        
+    def send_message(self, message):
+        if self.provider == "gemini":
+            return self.native_chat.send_message(message)
+            
+        if isinstance(message, list):
+            parts = []
+            for part in message:
+                if hasattr(part, "function_response"):
+                    parts.append({
+                        "functionResponse": {
+                            "name": part.function_response.name,
+                            "response": json.loads(part.function_response.response.get("result", "{}"))
+                        }
+                    })
+                elif isinstance(part, dict) and "functionResponse" in part:
+                    parts.append(part)
+                else:
+                    parts.append(str(part))
+            self.contents.append({"role": "user", "parts": parts})
+        else:
+            self.contents.append({"role": "user", "parts": [{"text": str(message)}]})
+            
+        messages = map_contents_to_messages(self.contents, self.tools)
+        if self.system_instruction:
+            messages.insert(0, {"role": "system", "content": self.system_instruction})
+            
+        res = call_rest_provider(self.provider, self.model_name, messages)
+        
+        model_parts = []
+        if res.get("function_calls"):
+            fc = res["function_calls"][0]
+            class MockFunctionCall:
+                def __init__(self, name, args):
+                    self.name = name
+                    self.args = args
+            class MockPart:
+                def __init__(self, name, args):
+                    self.function_call = MockFunctionCall(name, args)
+            model_parts = [MockPart(fc["name"], fc["args"])]
+        else:
+            class MockPart:
+                def __init__(self, text):
+                    self.text = text
+                    self.function_call = None
+            model_parts = [MockPart(res["text"])]
+            
+        self.contents.append({"role": "model", "parts": model_parts})
+        
+        class MockCandidate:
+            def __init__(self, parts):
+                class MockContent:
+                    def __init__(self, pts):
+                        self.parts = pts
+                self.content = MockContent(parts)
+
+        class MockResponse:
+            def __init__(self, text, parts):
+                self.text = text
+                self.parts = parts
+                self.candidates = [MockCandidate(parts)]
+                    
+        return MockResponse(res["text"], model_parts)
+
+    def generate_content(self, prompt, generation_config=None):
+        if self.provider == "gemini":
+            _init_genai()
+            model = genai.GenerativeModel(model_name=self.model_name, system_instruction=self.system_instruction, tools=self.tools)
+            return model.generate_content(prompt, generation_config=generation_config)
+            
+        messages = [{"role": "user", "content": prompt}]
+        if self.system_instruction:
+            messages.insert(0, {"role": "system", "content": self.system_instruction})
+            
+        res = call_rest_provider(self.provider, self.model_name, messages)
+        
+        class MockResponse:
+            def __init__(self, text):
+                self.text = text
+        return MockResponse(res["text"])
+
+class LLMRouter:
+    @staticmethod
+    def get_model(model_name, system_instruction=None, tools=None):
+        provider = get_provider_from_model(model_name)
+        if provider == "gemini":
+            _init_genai()
+            if system_instruction:
+                return genai.GenerativeModel(model_name=model_name, system_instruction=system_instruction, tools=tools)
+            return genai.GenerativeModel(model_name=model_name, tools=tools)
+        else:
+            return LLMChatRouter(model_name, system_instruction=system_instruction, tools=tools)
 
 
 
@@ -935,7 +1229,7 @@ def run_agent_a(niche: str, model_name: str, simulate: bool = False, topic: str 
         return topics
 
     if topic:
-        model = genai.GenerativeModel(model_name=model_name)
+        model = LLMRouter.get_model(model_name=model_name)
         scout_prompt = f"""You are Agent A (The Trend Scout), an autonomous AI research agent.
 Your mission for this pipeline run:
 1. Analyze the user-specified technical topic: "{topic}".
@@ -949,7 +1243,7 @@ Respond with a JSON array of exactly 3 to 5 objects (do NOT call any tools):
   ...
 ]"""
     else:
-        model = genai.GenerativeModel(model_name=model_name, tools=[
+        model = LLMRouter.get_model(model_name=model_name, tools=[
             HN_TOOL_DECLARATION,
             TC_TOOL_DECLARATION,
             GOOGLE_TOOL_DECLARATION,
@@ -1195,7 +1489,7 @@ As we move deeper into this development cycle, separation of concerns is being e
         return draft
 
     # Configure the model with system instruction and the check_past_issues tool
-    model = genai.GenerativeModel(
+    model = LLMRouter.get_model(
         model_name=model_name,
         tools=[MEMORY_TOOL_DECLARATION],
         system_instruction=(
@@ -1408,7 +1702,7 @@ def run_agent_c(niche: str, draft: str, model_name: str, simulate: bool = False)
             "notes": "Good technical depth and layout structure."
         }
 
-    model = genai.GenerativeModel(model_name=model_name)
+    model = LLMRouter.get_model(model_name=model_name)
 
     # Only send the first 4000 chars to keep token usage reasonable
     draft_preview = draft[:4000] + ("\n...[truncated]" if len(draft) > 4000 else "")
