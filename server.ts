@@ -50,6 +50,227 @@ function getGeminiClient(customApiKey?: string) {
   });
 }
 
+function getProviderFromModel(model: string): string {
+  const m = model.toLowerCase();
+  if (m.startsWith("gemini-")) return "gemini";
+  if (m.startsWith("gpt-")) return "openai";
+  if (m.startsWith("claude-")) return "anthropic";
+  if (m.startsWith("ollama-")) return "ollama";
+  if (m.includes("llama-3") || m.includes("mixtral") || m.includes("gemma2")) return "groq";
+  return "gemini";
+}
+
+function selectBestProvider(requestedModel: string, keys: any) {
+  const provider = getProviderFromModel(requestedModel);
+  if (provider === "gemini" && keys.gemini) return { provider, model: requestedModel };
+  if (provider === "openai" && keys.openai) return { provider, model: requestedModel };
+  if (provider === "anthropic" && keys.anthropic) return { provider, model: requestedModel };
+  if (provider === "groq" && keys.groq) return { provider, model: requestedModel };
+  if (provider === "ollama") return { provider, model: requestedModel.replace("ollama-", "") };
+
+  // Fallbacks: find first active provider
+  if (keys.openai) return { provider: "openai", model: "gpt-4o-mini" };
+  if (keys.anthropic) return { provider: "anthropic", model: "claude-3-5-haiku" };
+  if (keys.groq) return { provider: "groq", model: "llama-3.3-70b-versatile" };
+  if (keys.gemini) return { provider: "gemini", model: "gemini-2.5-flash" };
+
+  return { provider: "gemini", model: "gemini-2.5-flash" };
+}
+
+function mapContentsToMessages(contents: any[], tools?: any[]): { role: string; content: string }[] {
+  const messages: { role: string; content: string }[] = [];
+
+  if (tools && tools.length > 0) {
+    const toolsDesc = tools.map((t: any) => {
+      const fn = t.functionDeclarations?.[0] || t;
+      return `- **${fn.name}**: ${fn.description || ""}. Params: ${JSON.stringify(fn.parameters || {})}`;
+    }).join("\n");
+
+    messages.push({
+      role: "system",
+      content: `You have access to the following tools:\n\n${toolsDesc}\n\nTo use a tool, you MUST respond ONLY with a JSON object in this format:\n{\n  "tool_call": {\n    "name": "tool_name",\n    "arguments": {\n      "arg_name": "value"\n    }\n  }\n}\n\nDo not add any other conversational text if you are calling a tool.`
+    });
+  }
+
+  for (const turn of contents) {
+    const role = turn.role === "model" ? "assistant" : "user";
+    let textContent = "";
+
+    if (turn.parts) {
+      for (const part of turn.parts) {
+        if (part.text) {
+          textContent += part.text;
+        } else if (part.functionCall) {
+          textContent += `\nCalling tool: ${part.functionCall.name} with args: ${JSON.stringify(part.functionCall.args)}`;
+        } else if (part.functionResponse) {
+          textContent += `\nTool result for ${part.functionResponse.name}: ${JSON.stringify(part.functionResponse.response)}`;
+        }
+      }
+    }
+
+    if (textContent.trim()) {
+      messages.push({ role, content: textContent });
+    }
+  }
+
+  return messages;
+}
+
+async function callRESTProvider(
+  provider: string,
+  model: string,
+  messages: { role: string; content: string }[],
+  keys: any,
+  responseSchema?: any
+): Promise<{ text: string; functionCalls?: any[] }> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  let url = "";
+  let body: any = {};
+
+  if (provider === "openai" || provider === "groq" || provider === "ollama") {
+    if (provider === "openai") {
+      url = "https://api.openai.com/v1/chat/completions";
+      headers["Authorization"] = `Bearer ${keys.openai}`;
+    } else if (provider === "groq") {
+      url = "https://api.groq.com/openai/v1/chat/completions";
+      headers["Authorization"] = `Bearer ${keys.groq}`;
+    } else {
+      const host = keys.ollamaHost || "http://localhost:11434";
+      url = `${host}/v1/chat/completions`;
+    }
+
+    body = {
+      model: model,
+      messages: messages,
+      temperature: 0.2,
+    };
+
+    if (responseSchema) {
+      body.response_format = { type: "json_object" };
+    }
+  } else if (provider === "anthropic") {
+    url = "https://api.anthropic.com/v1/messages";
+    headers["x-api-key"] = keys.anthropic || "";
+    headers["anthropic-version"] = "2023-06-01";
+
+    body = {
+      model: model,
+      max_tokens: 4000,
+      messages: messages,
+      temperature: 0.2,
+    };
+  }
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: headers,
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`LLM Provider ${provider} API error: ${res.status} - ${errorText}`);
+  }
+
+  const data = await res.json();
+  let text = "";
+
+  if (provider === "openai" || provider === "groq" || provider === "ollama") {
+    text = data.choices?.[0]?.message?.content || "";
+  } else if (provider === "anthropic") {
+    text = data.content?.[0]?.text || "";
+  }
+
+  // Parse custom tool calls from text response if present
+  let functionCalls: any[] | undefined = undefined;
+  if (text.includes("tool_call")) {
+    try {
+      const match = /\{[\s\S]*"tool_call"[\s\S]*\}/.exec(text);
+      if (match) {
+        const parsed = JSON.parse(match[0]);
+        if (parsed.tool_call) {
+          functionCalls = [{
+            name: parsed.tool_call.name,
+            args: parsed.tool_call.arguments || {}
+          }];
+        }
+      }
+    } catch (_) {}
+  }
+
+  return { text, functionCalls };
+}
+
+async function routeLLMRequest(params: {
+  model: string;
+  contents: any[];
+  config?: any;
+  keys: {
+    gemini?: string;
+    openai?: string;
+    anthropic?: string;
+    groq?: string;
+    ollamaHost?: string;
+  };
+}): Promise<{ text: string; functionCalls?: any[]; candidates?: any[] }> {
+  // 1. Select the best provider
+  const { provider, model } = selectBestProvider(params.model, params.keys);
+
+  // 2. Route the request
+  if (provider === "gemini") {
+    const ai = getGeminiClient(params.keys.gemini);
+    if (!ai) {
+      throw new Error("Gemini client initialization failed. Please check your API Key.");
+    }
+    const res = await ai.models.generateContent({
+      model: model,
+      contents: params.contents,
+      config: params.config,
+    });
+    return {
+      text: res.text,
+      functionCalls: res.functionCalls,
+      candidates: res.candidates,
+    };
+  } else {
+    // OpenAI, Anthropic, Groq, Ollama
+    const messages = mapContentsToMessages(params.contents, params.config?.tools);
+    
+    // Inject system instructions if present
+    if (params.config?.systemInstruction) {
+      messages.unshift({ role: "system", content: params.config.systemInstruction });
+    }
+
+    // Inject response schema if present
+    if (params.config?.responseSchema) {
+      const lastMsg = messages[messages.length - 1];
+      if (lastMsg) {
+        lastMsg.content += `\n\nReturn ONLY a JSON object matching this schema:\n${JSON.stringify(params.config.responseSchema)}`;
+      }
+    }
+
+    const res = await callRESTProvider(provider, model, messages, params.keys, params.config?.responseSchema);
+    
+    // Format response to look like Gemini response
+    return {
+      text: res.text,
+      functionCalls: res.functionCalls,
+      candidates: [
+        {
+          content: {
+            parts: res.functionCalls
+              ? [{ functionCall: res.functionCalls[0] }]
+              : [{ text: res.text }]
+          }
+        }
+      ]
+    };
+  }
+}
+
 // In-memory audit metrics to add realism and state
 let stats = {
   totalIssuesGenerated: 0,
@@ -507,16 +728,72 @@ function evaluateDraftSecurityAndQuality(draft: string): { passed: boolean; viol
   };
 }
 
+// Helper to persistently update .env file
+function updateEnvFile(key: string, value: string) {
+  try {
+    const envPath = path.join(process.cwd(), ".env");
+    let content = "";
+    if (fs.existsSync(envPath)) {
+      content = fs.readFileSync(envPath, "utf-8");
+    }
+    const regex = new RegExp(`^${key}=.*$`, "m");
+    if (regex.test(content)) {
+      content = content.replace(regex, `${key}=${value}`);
+    } else {
+      content += `\n${key}=${value}\n`;
+    }
+    fs.writeFileSync(envPath, content.trim() + "\n", "utf-8");
+    process.env[key] = value;
+  } catch (err) {
+    console.error("Error updating .env file:", err);
+  }
+}
+
 // API Route: Trigger Multi-Agent Workflow
 app.post("/api/generate", async (req, res) => {
-  const { niche, customApiKey, customHNFeed } = req.body;
+  const {
+    niche,
+    customApiKey,
+    customGeminiApiKey,
+    customOpenAIApiKey,
+    customAnthropicApiKey,
+    customGroqApiKey,
+    customOllamaHost,
+    customHNFeed,
+    topic,
+    model
+  } = req.body;
   const targetNiche = niche || "AI & Agentic Frameworks";
+  const selectedModel = model || "gemini-2.5-flash";
 
-  console.log(`Starting Autonomous multi-agent pipeline for niche: ${targetNiche}`);
+  console.log(`Starting Autonomous multi-agent pipeline for niche: ${targetNiche}${topic ? ` (Topic: ${topic})` : ""}${model ? ` (Model: ${model})` : ""}`);
 
-  // Determine key
-  const apiKey = customApiKey || process.env.GEMINI_API_KEY;
-  const ai = getGeminiClient(customApiKey);
+  // Persist keys if passed
+  if (customGeminiApiKey && customGeminiApiKey.trim() !== "") {
+    updateEnvFile("GEMINI_API_KEY", customGeminiApiKey.trim());
+  }
+  if (customOpenAIApiKey && customOpenAIApiKey.trim() !== "") {
+    updateEnvFile("OPENAI_API_KEY", customOpenAIApiKey.trim());
+  }
+  if (customAnthropicApiKey && customAnthropicApiKey.trim() !== "") {
+    updateEnvFile("ANTHROPIC_API_KEY", customAnthropicApiKey.trim());
+  }
+  if (customGroqApiKey && customGroqApiKey.trim() !== "") {
+    updateEnvFile("GROQ_API_KEY", customGroqApiKey.trim());
+  }
+  if (customOllamaHost && customOllamaHost.trim() !== "") {
+    updateEnvFile("OLLAMA_HOST", customOllamaHost.trim());
+  }
+
+  const keys = {
+    gemini: customGeminiApiKey || customApiKey || process.env.GEMINI_API_KEY,
+    openai: customOpenAIApiKey || process.env.OPENAI_API_KEY,
+    anthropic: customAnthropicApiKey || process.env.ANTHROPIC_API_KEY,
+    groq: customGroqApiKey || process.env.GROQ_API_KEY,
+    ollamaHost: customOllamaHost || process.env.OLLAMA_HOST || "http://localhost:11434"
+  };
+
+  const hasValidKey = !!(keys.gemini || keys.openai || keys.anthropic || keys.groq || keys.ollamaHost);
 
   // Initialize a log array representing live agent activities
   const logs: { agent: string; message: string; timestamp: string }[] = [];
@@ -537,9 +814,52 @@ app.post("/api/generate", async (req, res) => {
 
     let trendingTopics: { title: string; description: string; points: number }[] = [];
 
-    if (ai) {
-      // ── Define the HackerNews RSS Tool for Gemini ──
-      const hnToolDeclaration = {
+    if (hasValidKey) {
+      if (topic) {
+        addLog("Trend Scout", `Waking up Scout. Mission: Research and deconstruct the custom topic "${topic}".`);
+        try {
+          const deconstructPrompt = `You are Agent A (The Trend Scout), an expert research agent.
+Your task is to take the user-defined topic: "${topic}"
+and deconstruct it into 3 structured sub-topic breakdowns.
+For each sub-topic:
+1. Write a clear, highly technical title.
+2. Write a 1-2 sentence detailed technical description explaining the key concept.
+3. Assign an engagement/relevance score between 100 and 600 points.
+
+You MUST respond ONLY with a JSON object in this exact format:
+{
+  "topics": [
+    {
+      "title": "Sub-topic Title",
+      "description": "Sub-topic Description...",
+      "points": 450
+    },
+    ...
+  ]
+}`;
+          const turn1 = await routeLLMRequest({
+            model: selectedModel,
+            contents: [{ role: "user", parts: [{ text: deconstructPrompt }] }],
+            config: {
+              responseMimeType: "application/json",
+            },
+            keys,
+          });
+          const parsed = JSON.parse(turn1.text || "{}");
+          if (parsed.topics && Array.isArray(parsed.topics) && parsed.topics.length > 0) {
+            trendingTopics = parsed.topics;
+            addLog(
+              "Trend Scout",
+              `Successfully deconstructed custom topic "${topic}" into ${trendingTopics.length} technical sub-topics.`
+            );
+          }
+        } catch (err: any) {
+          console.error("[Agent A] Custom topic deconstruction error:", err);
+          addLog("Trend Scout", `⚠️ Deconstruction error: ${err.message}. Fallback to simulated deconstruction.`);
+        }
+      } else {
+        // ── Define the HackerNews RSS Tool for Gemini ──
+        const hnToolDeclaration = {
         functionDeclarations: [
           {
             name: "fetch_hackernews_headlines",
@@ -721,8 +1041,8 @@ Your mission:
 
       try {
         // ── Turn 1: Agent A reasons about its mission and calls the tool ──
-        const turn1 = await ai.models.generateContent({
-          model: "gemini-3.5-flash",
+        const turn1 = await routeLLMRequest({
+          model: selectedModel,
           contents: [{ role: "user", parts: [{ text: scoutMissionPrompt }] }],
           config: {
             tools: [
@@ -736,6 +1056,7 @@ Your mission:
               awsToolDeclaration,
             ],
           },
+          keys,
         });
 
         const fnCalls = turn1.functionCalls;
@@ -777,8 +1098,8 @@ Your mission:
           );
 
           // ── Turn 2: Feed tool results back → Agent A filters & returns structured JSON ──
-          const turn2 = await ai.models.generateContent({
-            model: "gemini-3.5-flash",
+          const turn2 = await routeLLMRequest({
+            model: selectedModel,
             contents: [
               { role: "user", parts: [{ text: scoutMissionPrompt }] },
               { role: "model", parts: turn1.candidates![0].content.parts },
@@ -815,6 +1136,7 @@ Your mission:
                 required: ["topics"],
               },
             },
+            keys,
           });
 
           const parsed = JSON.parse(turn2.text || "{}");
@@ -836,11 +1158,32 @@ Your mission:
         console.error("[Agent A] Tool-calling error:", toolErr);
         addLog("Trend Scout", `⚠️ Tool error: ${toolErr.message}. Switching to niche-matched simulation mode.`);
       }
+      }
     }
 
     // ── Fallback: Niche-matched simulated topics (no key / tool failure) ──
     if (trendingTopics.length === 0) {
-      addLog("Trend Scout", "Offline mode active. Emulating HackerNews scrapers with niche-matched templates...");
+      if (topic) {
+        addLog("Trend Scout", `Offline mode: Emulating custom topic deconstruction for "${topic}"...`);
+        trendingTopics = [
+          {
+            title: `Deep Dive: Architecture of ${topic}`,
+            description: `An in-depth analysis of the system designs, core protocols, and technical patterns underlying ${topic}.`,
+            points: 450,
+          },
+          {
+            title: `Performance Tuning & Optimization for ${topic}`,
+            description: `Exploring key bottlenecks, caching strategies, and best practices for scaling ${topic} in production environments.`,
+            points: 380,
+          },
+          {
+            title: `Common Pitfalls and Anti-patterns in ${topic} Implementations`,
+            description: `A critical review of architectural mistakes, security vulnerabilities, and deployment failures when integrating ${topic}.`,
+            points: 290,
+          },
+        ];
+      } else {
+        addLog("Trend Scout", "Offline mode active. Emulating HackerNews scrapers with niche-matched templates...");
       if (targetNiche.toLowerCase().includes("web3") || targetNiche.toLowerCase().includes("crypto")) {
         trendingTopics = [
           {
@@ -931,6 +1274,7 @@ Your mission:
         ];
       }
     }
+  }
 
     trendingTopics.forEach((t, idx) => {
       addLog("Trend Scout", `[Topic #${idx + 1}] Found: "${t.title}" (Score: ${t.points} points)`);
@@ -954,7 +1298,7 @@ Your mission:
       }
 
       if (ai && !runSimulation) {
-        addLog("Writer", "Streaming memory verification request to Gemini model 'gemini-3.5-flash'...");
+        addLog("Writer", `Streaming memory verification request to Gemini model '${selectedModel}'...`);
 
         const memoryToolDeclaration = {
           functionDeclarations: [
@@ -1010,14 +1354,15 @@ Please rewrite the entire newsletter draft from scratch, addressing and fixing e
         }
 
         try {
-          const turn1 = await ai.models.generateContent({
-            model: "gemini-3.5-flash",
+          const turn1 = await routeLLMRequest({
+            model: selectedModel,
             contents: [{ role: "user", parts: [{ text: writerPrompt }] }],
             config: {
               systemInstruction: "You are an elite, highly esteemed engineering newsletter author and principal technical architect.",
               tools: [memoryToolDeclaration],
               temperature: 0.8,
             },
+            keys,
           });
 
           const fnCalls = turn1.functionCalls;
@@ -1041,8 +1386,8 @@ Please rewrite the entire newsletter draft from scratch, addressing and fixing e
 
             // Turn 2: Send tool output back to Writer to generate the newsletter draft
             addLog("Writer", "Generating newsletter draft with remaining uncovered topics...");
-            const turn2 = await ai.models.generateContent({
-              model: "gemini-3.5-flash",
+            const turn2 = await routeLLMRequest({
+              model: selectedModel,
               contents: [
                 { role: "user", parts: [{ text: writerPrompt }] },
                 { role: "model", parts: turn1.candidates![0].content.parts },
@@ -1061,7 +1406,8 @@ Please rewrite the entire newsletter draft from scratch, addressing and fixing e
               config: {
                 systemInstruction: "You are an elite, highly esteemed engineering newsletter author and principal technical architect.",
                 temperature: 0.8,
-              }
+              },
+              keys,
             });
 
             draftContent = turn2.text || "";
@@ -1221,6 +1567,23 @@ ${draftContent}`;
     addLog("Evaluator", "Pre-flight approval complete. Newsletter draft validated as READY for publication.");
     addLog("System", "Autonomous Pipeline successfully finished.");
 
+    // Save to newsletters/ subdirectory
+    try {
+      const newslettersDir = path.join(process.cwd(), "newsletters");
+      if (!fs.existsSync(newslettersDir)) {
+        fs.mkdirSync(newslettersDir, { recursive: true });
+      }
+      const sanitizedNiche = targetNiche.toLowerCase().replace(/[^a-z0-9]+/g, "_");
+      const timestamp = new Date().toISOString().replace(/[-:.]/g, "").slice(0, 15);
+      const filename = `newsletter_${sanitizedNiche}_${timestamp}.md`;
+      const filePath = path.join(newslettersDir, filename);
+      fs.writeFileSync(filePath, polishedNewsletter, "utf-8");
+      addLog("System", `Archived campaign draft to disk: newsletters/${filename}`);
+    } catch (saveErr: any) {
+      console.error("Failed to archive newsletter to disk:", saveErr);
+      addLog("System", `⚠️ Archive warning: ${saveErr.message}`);
+    }
+
     // Update past issues memory database
     try {
       const pastIssues = getPastIssues();
@@ -1268,6 +1631,91 @@ ${draftContent}`;
       logs,
     });
   }
+});
+
+// GET /api/history - Return multi-agent runs telemetry history
+app.get("/api/history", (req, res) => {
+  try {
+    const historyPath = path.join(process.cwd(), "run_history.json");
+    if (fs.existsSync(historyPath)) {
+      const data = JSON.parse(fs.readFileSync(historyPath, "utf-8"));
+      return res.json(data);
+    }
+  } catch (err) {
+    console.error("Error reading run_history.json:", err);
+  }
+  res.json([]);
+});
+
+// GET /api/interactions - Return agent-to-agent chat interactions
+app.get("/api/interactions", (req, res) => {
+  try {
+    const filePath = path.join(process.cwd(), "agent_interactions.json");
+    if (fs.existsSync(filePath)) {
+      const data = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+      return res.json(data);
+    }
+  } catch (err) {
+    console.error("Error reading agent_interactions.json:", err);
+  }
+  res.json([]);
+});
+
+// GET /api/worker-status - Return background worker status
+app.get("/api/worker-status", (req, res) => {
+  try {
+    const filePath = path.join(process.cwd(), "background_worker_status.json");
+    if (fs.existsSync(filePath)) {
+      const data = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+      return res.json(data);
+    }
+  } catch (err) {
+    console.error("Error reading background_worker_status.json:", err);
+  }
+  res.json(null);
+});
+
+// GET /api/drafts - Return list of generated markdown newsletters
+app.get("/api/drafts", (req, res) => {
+  try {
+    const draftsDir = path.join(process.cwd(), "newsletters");
+    if (fs.existsSync(draftsDir)) {
+      const files = fs.readdirSync(draftsDir);
+      const mdFiles = files.filter(f => f.startsWith("newsletter_") && f.endsWith(".md"));
+      
+      // Sort by mtime descending
+      const fileInfos = mdFiles.map(file => {
+        const filePath = path.join(draftsDir, file);
+        const stat = fs.statSync(filePath);
+        return { name: file, mtime: stat.mtimeMs };
+      });
+      fileInfos.sort((a, b) => b.mtime - a.mtime);
+      
+      return res.json(fileInfos.map(f => f.name));
+    }
+  } catch (err) {
+    console.error("Error reading newsletters directory:", err);
+  }
+  res.json([]);
+});
+
+// GET /api/drafts/:filename - Return content of specific archived newsletter
+app.get("/api/drafts/:filename", (req, res) => {
+  try {
+    const { filename } = req.params;
+    // Path traversal check
+    if (filename.includes("..") || filename.includes("/") || filename.includes("\\")) {
+      return res.status(400).json({ error: "Invalid filename" });
+    }
+    const filePath = path.join(process.cwd(), "newsletters", filename);
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, "utf-8");
+      return res.send(content);
+    }
+  } catch (err) {
+    console.error("Error reading draft file:", err);
+  }
+  res.status(404).send("File not found");
 });
 
 // Serve Vite app based on Environment
