@@ -10,3 +10,8 @@ coverage/
 # Ignore Day-4 contents except README
 Day-4/*
 !Day-4/README.md
+
+# Python cache and temporary runtime outputs
+__pycache__/
+newsletter_*.md
+background_worker_status.json

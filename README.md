@@ -67,9 +67,10 @@ A full-featured **Streamlit** interactive web dashboard launched at `http://loca
 - **Sidebar** — Select niche, model, toggle simulation mode, trigger a Force Manual Run (executes the full pipeline on demand).
 - **Background Worker Status** — Polls `background_worker_status.json` to display current state and time to next wakeup.
 - **4 Metric Cards** — Last Agent A wakeup time, Total fleet cycles run, Accumulated token count, Compliance success rate.
-- **Tab 1: Fleet Transaction Logs** — Expandable run history; each entry shows Agent A headlines, Agent B token stats and violations, Agent C score and notes.
-- **Tab 2: Newsletter Archive** — Dropdown file selector to browse and read any saved `.md` draft in the project directory.
-- **Tab 3: Token & Quality Metrics** — Line charts tracking token consumption and evaluator score trends over time.
+- **Tab 1: Live Agent Cooperation** — Real-time conversational timeline showing slack-style agent-to-agent cooperation messages (e.g. Scout dispatching headlines, Writer querying memory, Guardrails rejecting/accepting drafts, Critic auditing).
+- **Tab 2: Fleet Transaction Logs** — Expandable run history; each entry shows Agent A headlines, Agent B token stats and violations, Agent C score and notes.
+- **Tab 3: Newsletter Archive** — Dropdown file selector to browse and read any saved `.md` draft in the project directory.
+- **Tab 4: Token & Quality Metrics** — Line charts tracking token consumption and evaluator score trends over time.
 - **To launch:** `python -m streamlit run dashboard.py`
 
 ---

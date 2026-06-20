@@ -144,6 +144,33 @@ def save_telemetry(niche: str, model_name: str, status: str, error_message: str 
         print(f"  [Telemetry] Error writing telemetry history: {exc}")
 
 
+def log_agent_interaction(sender: str, receiver: str, message: str):
+    """Logs the conversational interaction between agents to a JSON file for real-time UI streaming."""
+    log_path = os.path.join(os.path.dirname(__file__), "agent_interactions.json")
+    
+    logs = []
+    if os.path.exists(log_path):
+        try:
+            with open(log_path, "r", encoding="utf-8") as f:
+                logs = json.load(f)
+        except Exception:
+            logs = []
+            
+    logs.append({
+        "timestamp": datetime.now().strftime("%H:%M:%S"),
+        "sender": sender,
+        "receiver": receiver,
+        "message": message
+    })
+    
+    try:
+        with open(log_path, "w", encoding="utf-8") as f:
+            json.dump(logs, f, indent=2)
+    except Exception as e:
+        print(f"  [Telemetry] Failed to write agent interaction log: {e}")
+
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Agent Tool: HackerNews RSS Live Feed Fetcher
 # ──────────────────────────────────────────────────────────────────────────────
@@ -885,6 +912,14 @@ def run_agent_a(niche: str, model_name: str, simulate: bool = False) -> list[dic
             print(f"         Score: {t.get('points')} pts")
         execution_telemetry["agent_a"]["last_wake"] = datetime.now().isoformat() + "Z"
         execution_telemetry["agent_a"]["headlines_pulled"] = [t.get("title", "") for t in topics]
+        
+        # Log agent-to-agent interaction
+        log_agent_interaction(
+            "Agent A (Trend Scout)",
+            "Agent B (Writer)",
+            f"Handing over {len(topics)} curated technology headlines from RSS feeds for writing. Sourced topics include: "
+            + ", ".join(f"'{t.get('title')[:40]}...'" for t in topics)
+        )
         return topics
 
     model = genai.GenerativeModel(model_name=model_name, tools=[
@@ -970,6 +1005,14 @@ Respond with a JSON array of exactly 5 objects:
                 print(f"         Score: {t.get('points', '?')} pts")
             execution_telemetry["agent_a"]["last_wake"] = datetime.now().isoformat() + "Z"
             execution_telemetry["agent_a"]["headlines_pulled"] = [t.get("title", "") for t in topics]
+            
+            # Log agent-to-agent interaction
+            log_agent_interaction(
+                "Agent A (Trend Scout)",
+                "Agent B (Writer)",
+                f"Handing over {len(topics)} live technology headlines sourced from HN/Tech blogs. Selected titles: "
+                + ", ".join(f"'{t.get('title')[:40]}...'" for t in topics)
+            )
             return topics
         except json.JSONDecodeError as exc:
             print(f"  [Agent A] ⚠️  JSON decode error: {exc}")
@@ -1001,6 +1044,14 @@ def run_agent_b(niche: str, topics: list[dict], model_name: str, simulate: bool 
     if simulate:
         print("  [Agent B] Offline simulation mode active. Calling memory check_past_issues...")
         titles = [t.get("title", "") for t in topics]
+        
+        log_agent_interaction(
+            "Agent B (Writer)",
+            "System Memory Layer",
+            f"Checking memory to verify if any topics are already covered: "
+            + ", ".join(f"'{title[:30]}...'" for title in titles)
+        )
+        
         result = check_past_issues(titles)
         covered = result.get("covered_titles", [])
 
@@ -1008,8 +1059,18 @@ def run_agent_b(niche: str, topics: list[dict], model_name: str, simulate: bool 
             print(f"  [Agent B] Memory skill result: Covered topics found -> {covered}")
             print(f"  [Agent B] Autonomously rejecting covered topic(s): {covered}")
             print("  [Agent B] Autonomously selected alternative topics from Trend Scout list.")
+            log_agent_interaction(
+                "System Memory Layer",
+                "Agent B (Writer)",
+                f"Deduplication alert! The following topics are already covered in past issues and were rejected: {covered}. Use alternative stories."
+            )
         else:
             print("  [Agent B] Memory skill result: No covered topics found in current list.")
+            log_agent_interaction(
+                "System Memory Layer",
+                "Agent B (Writer)",
+                "Deduplication complete. All candidate topics are fresh and ready for writing!"
+            )
 
         uncovered_topics = [t for t in topics if t.get("title") not in covered]
         if not uncovered_topics:
@@ -1090,8 +1151,18 @@ As we move deeper into this development cycle, separation of concerns is being e
         if not feedback:
             print("  [Agent B] (Simulated First Attempt) Intentionally injecting an unclosed code block to trigger feedback loop...")
             draft += "\n\n```rust\n// Unclosed code block simulated to test quality controls and safety feedback loop."
+            log_agent_interaction(
+                "Agent B (Writer)",
+                "Evaluation Guardrail",
+                f"Draft completed (Attempt 1). Dispatching {len(draft)} characters for automated security & quality checks."
+            )
         else:
             print("  [Agent B] (Simulated Revision Attempt) Successfully corrected formatting errors based on feedback.")
+            log_agent_interaction(
+                "Agent B (Writer)",
+                "Evaluation Guardrail",
+                f"Draft revision completed (Attempt 2). Submitting corrected version ({len(draft)} characters) for validation."
+            )
 
         print(f"  [Agent B] ✅ Draft complete ({len(draft):,} characters).")
         execution_telemetry["agent_b"]["prompt_tokens"] += 1450
@@ -1180,7 +1251,21 @@ Please rewrite the entire newsletter draft from scratch, addressing and fixing e
         tool_response_parts = []
         for fc in tool_calls:
             print(f"  [Agent B] 🔧 Autonomously calling tool: {fc.name}({dict(fc.args)})")
+            if fc.name == "check_past_issues":
+                log_agent_interaction(
+                    "Agent B (Writer)",
+                    "System Memory Layer",
+                    f"Verifying topics against past issue database: {fc.args.get('titles', [])}"
+                )
+                
             tool_result = dispatch_tool(fc.name, dict(fc.args))
+
+            if fc.name == "check_past_issues":
+                log_agent_interaction(
+                    "System Memory Layer",
+                    "Agent B (Writer)",
+                    f"Deduplication completed. Found covered topics: {tool_result.get('covered_titles', [])}"
+                )
 
             tool_response_parts.append(
                 genai.protos.Part(
@@ -1197,6 +1282,12 @@ Please rewrite the entire newsletter draft from scratch, addressing and fixing e
 
     draft = response.text or ""
     print(f"  [Agent B] ✅ Draft complete ({len(draft):,} characters, ~{len(draft.split()):,} words).")
+    
+    log_agent_interaction(
+        "Agent B (Writer)",
+        "Evaluation Guardrail",
+        f"Drafting complete ({len(draft)} characters). Handing over to automated compliance guardrails."
+    )
     
     if hasattr(response, "usage_metadata") and response.usage_metadata:
         execution_telemetry["agent_b"]["prompt_tokens"] += getattr(response.usage_metadata, "prompt_token_count", 0)
@@ -1272,6 +1363,12 @@ def run_agent_c(niche: str, draft: str, model_name: str, simulate: bool = False)
         execution_telemetry["agent_c"]["score"] = 95
         execution_telemetry["agent_c"]["notes"] = "Good technical depth and layout structure."
         execution_telemetry["agent_c"]["passed"] = True
+        
+        log_agent_interaction(
+            "Agent C (Evaluator)",
+            "Orchestrator",
+            "Audit complete. Verdict: APPROVED (Score: 95/100). Checklist: 7/7 requirements satisfied."
+        )
         return {
             "passed": True,
             "score": 95,
@@ -1344,6 +1441,14 @@ Draft to evaluate:
             execution_telemetry["agent_c"]["score"] = result.get("score", 85)
             execution_telemetry["agent_c"]["notes"] = result.get("notes", "")
             execution_telemetry["agent_c"]["passed"] = result.get("passed", False)
+            
+            verdict = "APPROVED" if result.get("passed") else "REVIEW NEEDED"
+            log_agent_interaction(
+                "Agent C (Evaluator)",
+                "Orchestrator",
+                f"Audit complete. Verdict: {verdict} (Score: {result.get('score', 85)}/100). "
+                f"Checklist requirements passed: {checks_passed}/{checks_total}. Notes: {result.get('notes', '')}"
+            )
             return result
         except json.JSONDecodeError:
             pass
@@ -1441,6 +1546,14 @@ def run_pipeline(niche: str = "AI & Agentic Frameworks", model_name: str = "gemi
         }
     }
 
+    # Clear previous agent interactions log
+    log_path = os.path.join(os.path.dirname(__file__), "agent_interactions.json")
+    if os.path.exists(log_path):
+        try:
+            os.remove(log_path)
+        except Exception:
+            pass
+
     started_at = datetime.now()
 
     print("\n" + "═" * 64)
@@ -1458,6 +1571,12 @@ def run_pipeline(niche: str = "AI & Agentic Frameworks", model_name: str = "gemi
         _init_genai()
 
     try:
+        log_agent_interaction(
+            "Orchestrator",
+            "Agent A (Trend Scout)",
+            f"Waking up Scout. Mission: Source and filter top headlines for target niche '{niche}' using live tools."
+        )
+        
         # ── Agent A: Scout with live HN tool ──
         topics = run_agent_a(niche=niche, model_name=model_name, simulate=simulate)
         if not topics:
@@ -1492,6 +1611,11 @@ def run_pipeline(niche: str = "AI & Agentic Frameworks", model_name: str = "gemi
             
             if guardrail_result["passed"]:
                 print("🛡️  [Security & Quality] ✅ Check passed. No security or formatting violations found.")
+                log_agent_interaction(
+                    "Evaluation Guardrail",
+                    "Agent C (Evaluator)",
+                    "PASSED security and formatting checks. Handing over to Evaluator for structured quality review."
+                )
                 break
             else:
                 violations_text = "\n".join(f"- {v}" for v in guardrail_result["violations"])
@@ -1501,8 +1625,19 @@ def run_pipeline(niche: str = "AI & Agentic Frameworks", model_name: str = "gemi
                 if attempt < max_attempts:
                     print(f"🔄  Feedback Loop: Directing Agent B to rewrite draft to fix violations.")
                     feedback = violations_text
+                    log_agent_interaction(
+                        "Evaluation Guardrail",
+                        "Agent B (Writer)",
+                        f"REJECTED. The draft contains syntax/formatting violations: {violations_text}. "
+                        "Please perform a complete rewrite to correct these issues."
+                    )
                 else:
                     print("🛡️  [Security & Quality] ⚠️ Maximum correction attempts reached. Proceeding to final audit.")
+                    log_agent_interaction(
+                        "Evaluation Guardrail",
+                        "Agent C (Evaluator)",
+                        "WARNING: Security/formatting violations remain, but retry limit reached. Forcing handoff to Critic."
+                    )
 
         # ── Agent C: Evaluator ──
         evaluation = run_agent_c(niche=niche, draft=draft, model_name=model_name, simulate=simulate)
@@ -1548,6 +1683,12 @@ Duration     : {elapsed}s
         print(f"✅  Pipeline complete in {elapsed}s!")
         print(f"📄  Newsletter saved → {filename}")
         print("═" * 64)
+
+        log_agent_interaction(
+            "Orchestrator",
+            "Streamlit Portal",
+            f"Pipeline complete! Output saved to: '{filename}'. Ready for distribution."
+        )
 
         save_telemetry(niche, model_name, "success")
         return final

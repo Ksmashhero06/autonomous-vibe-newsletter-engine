@@ -171,6 +171,16 @@ def get_drafts():
     drafts.sort(key=os.path.getmtime, reverse=True)
     return [os.path.basename(d) for d in drafts]
 
+def load_interactions():
+    path = os.path.join(PROJECT_DIR, "agent_interactions.json")
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return []
+    return []
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Sidebar
 # ──────────────────────────────────────────────────────────────────────────────
@@ -322,11 +332,59 @@ st.markdown("")
 # ──────────────────────────────────────────────────────────────────────────────
 # Tabs
 # ──────────────────────────────────────────────────────────────────────────────
-tab_logs, tab_drafts, tab_charts = st.tabs([
+tab_interactions, tab_logs, tab_drafts, tab_charts = st.tabs([
+    "💬 Live Agent Cooperation",
     "📋 Fleet Transaction Logs",
     "📰 Newsletter Archive",
     "📈 Metrics & Analytics"
 ])
+
+# ── Tab 0: Live Agent Cooperation ──
+with tab_interactions:
+    st.markdown('<div class="section-header">Agent-to-Agent Interactive Chat & Cooperation</div>', unsafe_allow_html=True)
+    interactions = load_interactions()
+    if not interactions:
+        st.info("No active agent communications recorded. Click **Force Manual Run** in the sidebar to start a new execution cycle.")
+    else:
+        st.markdown(f"**{len(interactions)} messages exchanged** during the last execution cycle.")
+        for msg in interactions:
+            sender = msg.get("sender", "Agent")
+            receiver = msg.get("receiver", "Agent")
+            time_str = msg.get("timestamp", "")
+            text = msg.get("message", "")
+            
+            # Custom styling based on sender/agent
+            border_color = "#3b82f6"  # default blue
+            sender_color = "#38bdf8"
+            
+            if "Scout" in sender or "Agent A" in sender:
+                border_color = "#a855f7" # purple
+                sender_color = "#c084fc"
+            elif "Writer" in sender or "Agent B" in sender:
+                border_color = "#eab308" # yellow
+                sender_color = "#fde047"
+            elif "Guardrail" in sender:
+                border_color = "#ef4444" # red
+                sender_color = "#fca5a5"
+            elif "Evaluator" in sender or "Agent C" in sender:
+                border_color = "#22c55e" # green
+                sender_color = "#86efac"
+            elif "Memory" in sender:
+                border_color = "#06b6d4" # cyan
+                sender_color = "#67e8f9"
+                
+            st.markdown(f"""
+            <div style="padding: 0.8rem 1.2rem; margin-bottom: 0.8rem; border-radius: 8px; background: #0b0f19; border: 1px solid #1e293b; border-left: 4px solid {border_color};">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
+                    <div>
+                        <span style="font-weight: 700; color: {sender_color}; font-size: 0.9rem;">{sender}</span>
+                        <span style="color: #64748b; font-size: 0.75rem; font-weight: 600; margin-left: 0.5rem;">➔ to {receiver}</span>
+                    </div>
+                    <span style="color: #475569; font-size: 0.75rem; font-family: monospace;">{time_str}</span>
+                </div>
+                <div style="color: #e2e8f0; font-size: 0.88rem; line-height: 1.4; white-space: pre-wrap;">{text}</div>
+            </div>
+            """, unsafe_allow_html=True)
 
 # ── Tab 1: Transaction Logs ──
 with tab_logs:
