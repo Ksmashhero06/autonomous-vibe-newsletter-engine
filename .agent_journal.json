@@ -61,6 +61,11 @@
       "step_number": 12,
       "action": "Updated Streamlit dashboard sidebar to support optional Custom Subject Topic input",
       "finding": "Added topic text field and propagated the value to run_pipeline. Tested successfully in simulation mode, verifying that the Live Agent Cooperation chat logs update dynamically."
+    },
+    {
+      "step_number": 13,
+      "action": "Created 'newsletters/' subdirectory and moved all newsletter Markdown drafts into it, refactoring agent_pipeline.py and dashboard.py to load and save to it.",
+      "finding": "All output files are now organized in a dedicated newsletters/ subfolder, keeping the root directory clean. Dashboard verified to display archive items from this folder."
     }
   ],
 
@@ -74,5 +79,5 @@
     ".agent_code_map.md"
   ],
 
-  "next_step": "Run /commit-milestone workflow to commit the changes."
+  "next_step": "Awaiting further user requests."
 }
