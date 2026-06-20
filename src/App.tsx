@@ -30,7 +30,8 @@ import {
   Calendar,
   Sun,
   Moon,
-  Monitor
+  Monitor,
+  Activity
 } from "lucide-react";
 import { pythonStreamlitCode } from "./python_template";
 
@@ -153,7 +154,8 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<"dashboard" | "code">("dashboard");
 
   // Streamlit Dashboard Merged States
-  const [activeSubTab, setActiveSubTab] = useState<"workspace" | "cooperation" | "logs" | "archive" | "analytics">("workspace");
+  const [activeSubTab, setActiveSubTab] = useState<"workspace" | "cooperation" | "logs" | "archive" | "analytics" | "observability">("workspace");
+  const [selectedObsRunId, setSelectedObsRunId] = useState<number | null>(null);
   const [serverHistory, setServerHistory] = useState<any[]>([]);
   const [interactions, setInteractions] = useState<any[]>([]);
   const [workerStatus, setWorkerStatus] = useState<any>(null);
@@ -1094,6 +1096,20 @@ export default function App() {
               <Sliders className="h-4 w-4" />
               <span>📈 Metrics & Analytics</span>
             </button>
+            <button
+              onClick={() => {
+                setActiveSubTab("observability");
+                fetchDashboardTelemetry();
+              }}
+              className={`px-4 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer ${
+                activeSubTab === "observability"
+                  ? "bg-[#1D63ED] text-white shadow-md shadow-blue-500/10"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+              }`}
+            >
+              <Activity className="h-4 w-4" />
+              <span>🔍 Observability Traces</span>
+            </button>
           </div>
         )}
 
@@ -1915,7 +1931,7 @@ export default function App() {
                 </div>
               )}
             </div>
-          ) : (
+          ) : activeSubTab === "analytics" ? (
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 md:p-8 space-y-6 shadow-xs transition-colors duration-200">
               <div>
                 <h2 className="text-md font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
@@ -2075,6 +2091,281 @@ export default function App() {
                   </div>
                 </div>
               )}
+            </div>
+          ) : (
+            <div className="space-y-6 animate-fadeIn">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 md:p-8 space-y-4 shadow-xs transition-colors duration-200">
+                <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-800 flex-wrap gap-2">
+                  <div>
+                    <h2 className="text-md font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
+                      <Activity className="h-5 w-5 text-blue-500" />
+                      Agent Observability & OpenTelemetry Spans
+                    </h2>
+                    <p className="text-xs text-slate-500 dark:text-slate-450 mt-1">
+                      Trace pipeline executions, token cost allocations, latency distribution, and guardrail failure analytics.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => fetchDashboardTelemetry()}
+                    className="bg-white dark:bg-slate-950 hover:bg-slate-50 dark:hover:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-705 dark:text-slate-300 font-bold text-xs px-3 py-1.5 rounded-xl transition-all cursor-pointer"
+                  >
+                    Refresh Telemetry
+                  </button>
+                </div>
+
+                {serverHistory.length === 0 ? (
+                  <div className="text-center py-12 text-slate-400">
+                    <p className="text-xs text-slate-550">Run the newsletter pipeline to generate OpenTelemetry trace logs.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    {/* Left Column: Trace List */}
+                    <div className="lg:col-span-4 space-y-2 border-r border-slate-100 dark:border-slate-800 pr-4 max-h-[600px] overflow-y-auto">
+                      <p className="text-[10px] font-bold text-slate-400 dark:text-slate-505 uppercase tracking-wider font-mono mb-2">Execution Logs ({serverHistory.length})</p>
+                      {[...serverHistory].reverse().map((run: any, idx: number) => {
+                        const runIdx = serverHistory.indexOf(run);
+                        const isSelected = selectedObsRunId === null ? runIdx === serverHistory.length - 1 : selectedObsRunId === runIdx;
+                        const duration = run.telemetry?.total_duration_ms ? (run.telemetry.total_duration_ms / 1000).toFixed(2) : "N/A";
+                        const cost = run.telemetry?.total_cost_usd !== undefined ? run.telemetry.total_cost_usd : "0.00";
+                        const isSuccess = run.status === "success";
+
+                        return (
+                          <div
+                            key={runIdx}
+                            onClick={() => setSelectedObsRunId(runIdx)}
+                            className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                              isSelected
+                                ? "bg-blue-50/60 border-blue-500/60 text-[#1D63ED] dark:bg-blue-950/20 dark:border-blue-500/50 dark:text-blue-400 shadow-xs font-bold"
+                                : "bg-[#F8FAFC] border-slate-200/80 hover:bg-slate-50 text-slate-600 dark:bg-slate-800/30 dark:border-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                            }`}
+                          >
+                            <div className="flex justify-between items-center gap-1">
+                              <span className="text-[11px] font-mono">Run #{runIdx + 1}</span>
+                              <span className={`text-[9px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                                isSuccess
+                                  ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-450"
+                                  : "bg-rose-50 text-rose-600 dark:bg-rose-950/30 dark:text-rose-450"
+                              }`}>
+                                {isSuccess ? "Success" : "Failed"}
+                              </span>
+                            </div>
+                            <div className="text-[10px] text-slate-500 mt-1 font-mono flex justify-between">
+                              <span>{run.model || "Unknown model"}</span>
+                              <span>{duration}s</span>
+                            </div>
+                            <div className="text-[9px] text-slate-400 mt-0.5 flex justify-between font-mono">
+                              <span>{new Date(run.timestamp).toLocaleTimeString()}</span>
+                              <span>${cost}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Right Column: Observability Detail */}
+                    <div className="lg:col-span-8 space-y-6 max-h-[600px] overflow-y-auto pl-2">
+                      {(() => {
+                        const runIdx = selectedObsRunId === null ? serverHistory.length - 1 : selectedObsRunId;
+                        const run = serverHistory[runIdx];
+                        if (!run) return <p className="text-xs text-slate-400">Select an execution run to view spans</p>;
+
+                        const tel = run.telemetry || {};
+                        const spans = tel.spans || [];
+                        const duration = tel.total_duration_ms ? (tel.total_duration_ms / 1000).toFixed(2) : "N/A";
+                        const cost = tel.total_cost_usd !== undefined ? tel.total_cost_usd : "0.00";
+                        
+                        // Parse agent details
+                        const agentADur = tel.agent_a_duration_ms ? (tel.agent_a_duration_ms / 1000).toFixed(2) : "0.00";
+                        const agentBDur = tel.agent_b_duration_ms ? (tel.agent_b_duration_ms / 1000).toFixed(2) : "0.00";
+                        const agentCDur = tel.agent_c_duration_ms ? (tel.agent_c_duration_ms / 1000).toFixed(2) : "0.00";
+
+                        const fail = tel.failures || {};
+                        const violations = fail.violations_count || 0;
+                        const attempts = fail.attempts_count || 1;
+                        const apiErrors = fail.api_errors_count || 0;
+
+                        return (
+                          <div className="space-y-6">
+                            {/* Overview Cards */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                              <div className="border border-slate-100 dark:border-slate-800 p-3 rounded-xl bg-slate-50/50 dark:bg-slate-900/40">
+                                <span className="text-[9px] uppercase tracking-wider text-slate-450 block font-mono">Total Latency</span>
+                                <strong className="text-sm text-slate-800 dark:text-slate-200 font-mono">{duration}s</strong>
+                              </div>
+                              <div className="border border-slate-100 dark:border-slate-800 p-3 rounded-xl bg-slate-50/50 dark:bg-slate-900/40">
+                                <span className="text-[9px] uppercase tracking-wider text-slate-450 block font-mono">Token Cost</span>
+                                <strong className="text-sm text-slate-800 dark:text-slate-200 font-mono">${cost}</strong>
+                              </div>
+                              <div className="border border-slate-100 dark:border-slate-800 p-3 rounded-xl bg-slate-50/50 dark:bg-slate-900/40">
+                                <span className="text-[9px] uppercase tracking-wider text-slate-450 block font-mono">OTel Spans</span>
+                                <strong className="text-sm text-slate-800 dark:text-slate-200 font-mono">{spans.length} spans</strong>
+                              </div>
+                              <div className="border border-slate-100 dark:border-slate-800 p-3 rounded-xl bg-slate-50/50 dark:bg-slate-900/40">
+                                <span className="text-[9px] uppercase tracking-wider text-slate-450 block font-mono">Model Target</span>
+                                <strong className="text-xs text-slate-800 dark:text-slate-200 font-mono truncate block" title={run.model}>{run.model || "Router"}</strong>
+                              </div>
+                            </div>
+
+                            {/* Agent Execution Timeline Chart */}
+                            <div className="border border-slate-150 dark:border-slate-800 p-4 rounded-2xl bg-[#F8FAFC]/40 dark:bg-slate-900/20 space-y-4">
+                              <div className="flex justify-between items-center">
+                                <h4 className="font-bold text-xs text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                                  <Clock className="h-3.5 w-3.5 text-blue-500" />
+                                  Agent Execution Timeline (OTel Spans)
+                                </h4>
+                                <span className="text-[9px] font-mono text-slate-400">Trace ID: {spans[0]?.context?.traceId || "N/A"}</span>
+                              </div>
+
+                              <div className="space-y-3.5 pt-2">
+                                {/* Agent A Bar */}
+                                <div className="space-y-1">
+                                  <div className="flex justify-between text-[10px] text-slate-500">
+                                    <span className="font-semibold text-slate-750 dark:text-slate-300">Agent A (Trend Scout)</span>
+                                    <span className="font-mono text-slate-700 dark:text-slate-350">{agentADur}s</span>
+                                  </div>
+                                  <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden relative">
+                                    <div
+                                      style={{
+                                        width: `${Math.max(10, (tel.agent_a_duration_ms / (tel.total_duration_ms || 1)) * 100)}%`,
+                                        marginLeft: "0%"
+                                      }}
+                                      className="h-full bg-gradient-to-r from-blue-500 to-sky-400 rounded-full flex items-center px-2 text-[8px] text-white font-bold font-mono"
+                                    >
+                                      Trend Scout
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Agent B Bar */}
+                                <div className="space-y-1">
+                                  <div className="flex justify-between text-[10px] text-slate-500">
+                                    <span className="font-semibold text-slate-750 dark:text-slate-300">Agent B (Writer)</span>
+                                    <span className="font-mono text-slate-700 dark:text-slate-350">{agentBDur}s</span>
+                                  </div>
+                                  <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden relative">
+                                    <div
+                                      style={{
+                                        width: `${Math.max(10, (tel.agent_b_duration_ms / (tel.total_duration_ms || 1)) * 100)}%`,
+                                        marginLeft: `${(tel.agent_a_duration_ms / (tel.total_duration_ms || 1)) * 100}%`
+                                      }}
+                                      className="h-full bg-gradient-to-r from-indigo-500 to-purple-550 rounded-full flex items-center px-2 text-[8px] text-white font-bold font-mono"
+                                    >
+                                      Writer
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Agent C Bar */}
+                                <div className="space-y-1">
+                                  <div className="flex justify-between text-[10px] text-slate-500">
+                                    <span className="font-semibold text-slate-750 dark:text-slate-300">Agent C (Evaluator)</span>
+                                    <span className="font-mono text-slate-700 dark:text-slate-350">{agentCDur}s</span>
+                                  </div>
+                                  <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden relative">
+                                    <div
+                                      style={{
+                                        width: `${Math.max(10, (tel.agent_c_duration_ms / (tel.total_duration_ms || 1)) * 100)}%`,
+                                        marginLeft: `${((tel.agent_a_duration_ms + tel.agent_b_duration_ms) / (tel.total_duration_ms || 1)) * 100}%`
+                                      }}
+                                      className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full flex items-center px-2 text-[8px] text-white font-bold font-mono"
+                                    >
+                                      Evaluator
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Failure Analytics & Token Costs Grid */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {/* Failure Analytics */}
+                              <div className="border border-slate-150 dark:border-slate-800 p-4 rounded-xl bg-slate-50/30 dark:bg-slate-900/10 space-y-3">
+                                <h4 className="font-bold text-xs text-slate-850 dark:text-slate-200 flex items-center gap-1.5">
+                                  <ShieldAlert className="h-3.5 w-3.5 text-rose-500" />
+                                  Guardrail & Failure Analytics
+                                </h4>
+                                <div className="space-y-2 pt-1">
+                                  <div className="flex justify-between text-[11px]">
+                                    <span className="text-slate-500">Compliance Violations Caught</span>
+                                    <strong className="font-mono text-amber-600 dark:text-amber-450">{violations}</strong>
+                                  </div>
+                                  <div className="flex justify-between text-[11px]">
+                                    <span className="text-slate-500">Rewrite Loop Attempts</span>
+                                    <strong className="font-mono text-indigo-600 dark:text-indigo-400">{attempts}</strong>
+                                  </div>
+                                  <div className="flex justify-between text-[11px]">
+                                    <span className="text-slate-500">API Gateway Handshake Errors</span>
+                                    <strong className="font-mono text-rose-600 dark:text-rose-450">{apiErrors}</strong>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Token cost tracking */}
+                              <div className="border border-slate-150 dark:border-slate-800 p-4 rounded-xl bg-slate-50/30 dark:bg-slate-900/10 space-y-3">
+                                <h4 className="font-bold text-xs text-slate-850 dark:text-slate-200 flex items-center gap-1.5">
+                                  <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
+                                  Token Cost Breakdown
+                                </h4>
+                                <div className="space-y-2 pt-1">
+                                  <div className="flex justify-between text-[11px]">
+                                    <span className="text-slate-500">Agent A Tokens</span>
+                                    <strong className="font-mono text-slate-700 dark:text-slate-350">
+                                      {(run.agent_a?.headlines_pulled?.length || 0) * 150} tokens
+                                    </strong>
+                                  </div>
+                                  <div className="flex justify-between text-[11px]">
+                                    <span className="text-slate-500">Agent B Tokens</span>
+                                    <strong className="font-mono text-slate-700 dark:text-slate-350">
+                                      {(run.agent_b?.total_tokens || 0).toLocaleString()} tokens
+                                    </strong>
+                                  </div>
+                                  <div className="flex justify-between text-[11px]">
+                                    <span className="text-slate-500">Agent C Tokens</span>
+                                    <strong className="font-mono text-slate-700 dark:text-slate-350">
+                                      1,200 tokens
+                                    </strong>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* OTel Span Tree list */}
+                            <div className="border border-slate-150 dark:border-slate-800 p-4 rounded-2xl bg-slate-50/40 dark:bg-slate-900/30 space-y-4">
+                              <h4 className="font-bold text-xs text-slate-850 dark:text-slate-200">
+                                🌲 Hierarchical OpenTelemetry Span Tree
+                              </h4>
+                              <div className="space-y-2.5 pt-1 font-mono text-[10px]">
+                                {spans.map((span: any, sIdx: number) => {
+                                  const depth = span.parent_span_id ? 1 : 0;
+                                  return (
+                                    <div
+                                      key={sIdx}
+                                      style={{ paddingLeft: `${depth * 16}px` }}
+                                      className="border-l-2 border-blue-500/20 pl-2 space-y-1"
+                                    >
+                                      <div className="flex justify-between items-center bg-slate-100/50 dark:bg-slate-950/40 p-2 rounded-lg border border-slate-200/50 dark:border-slate-850">
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="text-blue-600 dark:text-blue-400">❖</span>
+                                          <strong className="text-slate-800 dark:text-slate-300">{span.name}</strong>
+                                        </div>
+                                        <span className="text-slate-450 font-semibold">{span.duration_ms}ms</span>
+                                      </div>
+                                      <div className="bg-slate-100/20 dark:bg-slate-950/20 p-2 rounded-lg text-[9px] text-slate-500 overflow-x-auto whitespace-pre-wrap max-w-full">
+                                        <strong>Span ID:</strong> {span.context?.spanId} | <strong>Parent:</strong> {span.parent_span_id || "null"}<br/>
+                                        <strong>Attributes:</strong> {JSON.stringify(span.attributes, null, 2)}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )
         ) : (
