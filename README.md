@@ -1,6 +1,6 @@
 # The Autonomous Vibe Newsletter Engine 🤖📰
 
-> **v5.0.0 — Production-Grade Multi-Agent Fleet**
+> **v6.0.0 — Enterprise-Grade Evidence-Based RAG Platform**
 > Built during the Kaggle intensive course: **"5-Day AI Agents: Intensive Vibe Coding Course With Google"**
 
 An autonomous multi-agent editorial production system. It researches live tech news, writes full technical newsletters, enforces quality with guardrails, and stores everything — with zero human involvement after you press the button.
@@ -503,7 +503,7 @@ npm run lint     # TypeScript type check
 
 ---
 
-## 🧭 5-Day Agent Progression
+## 🧭 Agent Progression & Evolution
 
 | Day | Topic | What was built |
 |---|---|---|
@@ -512,6 +512,7 @@ npm run lint     # TypeScript type check
 | **Day 3** | Agent Skills, Context & Memory | `past_issues.json` memory DB; `check_past_issues` tool for Agent B; autonomous deduplication |
 | **Day 4** | Security & Evaluation | Programmatic guardrails (injection, code blocks); LLM-as-judge Agent C; rewrite feedback loop |
 | **Day 5** | Production Fleet & Observability | 8-source RSS registry; background worker; execution telemetry; multi-model support; custom topic mode; unified React dashboard |
+| **Day 6** | Evidence-Based RAG & Fact Checker | Crawls URLs, vectorizes with `text-embedding-004`, cosine similarity retrieval, post-draft claims audit (Agent D), 5-span telemetry timeline |
 
 ---
 

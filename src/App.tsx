@@ -2167,9 +2167,7 @@ export default function App() {
                       {(() => {
                         const runIdx = selectedObsRunId === null ? serverHistory.length - 1 : selectedObsRunId;
                         const run = serverHistory[runIdx];
-                        if (!run) return <p className="text-xs text-slate-400">Select an execution run to view spans</p>;
-
-                        const tel = run.telemetry || {};
+                                const tel = run.telemetry || {};
                         const spans = tel.spans || [];
                         const duration = tel.total_duration_ms ? (tel.total_duration_ms / 1000).toFixed(2) : "N/A";
                         const cost = tel.total_cost_usd !== undefined ? tel.total_cost_usd : "0.00";
@@ -2178,6 +2176,18 @@ export default function App() {
                         const agentADur = tel.agent_a_duration_ms ? (tel.agent_a_duration_ms / 1000).toFixed(2) : "0.00";
                         const agentBDur = tel.agent_b_duration_ms ? (tel.agent_b_duration_ms / 1000).toFixed(2) : "0.00";
                         const agentCDur = tel.agent_c_duration_ms ? (tel.agent_c_duration_ms / 1000).toFixed(2) : "0.00";
+
+                        const ragMs = spans.find((s: any) => s.name === "rag_fetcher")?.duration_ms || 0;
+                        const ragDur = (ragMs / 1000).toFixed(2);
+                        const agentDMs = tel.agent_d_duration_ms || 0;
+                        const agentDDur = (agentDMs / 1000).toFixed(2);
+
+                        const totalMs = tel.total_duration_ms || 1;
+                        const pctA = ((tel.agent_a_duration_ms || 0) / totalMs) * 100;
+                        const pctRag = (ragMs / totalMs) * 100;
+                        const pctB = ((tel.agent_b_duration_ms || 0) / totalMs) * 100;
+                        const pctC = ((tel.agent_c_duration_ms || 0) / totalMs) * 100;
+                        const pctD = (agentDMs / totalMs) * 100;
 
                         const fail = tel.failures || {};
                         const violations = fail.violations_count || 0;
@@ -2219,14 +2229,14 @@ export default function App() {
                               <div className="space-y-3.5 pt-2">
                                 {/* Agent A Bar */}
                                 <div className="space-y-1">
-                                  <div className="flex justify-between text-[10px] text-slate-500">
+                                  <div className="flex justify-between text-[10px] text-slate-505">
                                     <span className="font-semibold text-slate-750 dark:text-slate-300">Agent A (Trend Scout)</span>
                                     <span className="font-mono text-slate-700 dark:text-slate-350">{agentADur}s</span>
                                   </div>
                                   <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden relative">
                                     <div
                                       style={{
-                                        width: `${Math.max(10, (tel.agent_a_duration_ms / (tel.total_duration_ms || 1)) * 100)}%`,
+                                        width: `${Math.max(10, pctA)}%`,
                                         marginLeft: "0%"
                                       }}
                                       className="h-full bg-gradient-to-r from-blue-500 to-sky-400 rounded-full flex items-center px-2 text-[8px] text-white font-bold font-mono"
@@ -2236,17 +2246,36 @@ export default function App() {
                                   </div>
                                 </div>
 
+                                {/* RAG Fetcher Bar */}
+                                <div className="space-y-1">
+                                  <div className="flex justify-between text-[10px] text-slate-505">
+                                    <span className="font-semibold text-slate-750 dark:text-slate-300">RAG Fetcher (Full-Article Vectorization)</span>
+                                    <span className="font-mono text-slate-700 dark:text-slate-350">{ragDur}s</span>
+                                  </div>
+                                  <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden relative">
+                                    <div
+                                      style={{
+                                        width: `${Math.max(10, pctRag)}%`,
+                                        marginLeft: `${pctA}%`
+                                      }}
+                                      className="h-full bg-gradient-to-r from-cyan-500 to-blue-400 rounded-full flex items-center px-2 text-[8px] text-white font-bold font-mono"
+                                    >
+                                      RAG Fetcher
+                                    </div>
+                                  </div>
+                                </div>
+
                                 {/* Agent B Bar */}
                                 <div className="space-y-1">
-                                  <div className="flex justify-between text-[10px] text-slate-500">
+                                  <div className="flex justify-between text-[10px] text-slate-505">
                                     <span className="font-semibold text-slate-750 dark:text-slate-300">Agent B (Writer)</span>
                                     <span className="font-mono text-slate-700 dark:text-slate-350">{agentBDur}s</span>
                                   </div>
                                   <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden relative">
                                     <div
                                       style={{
-                                        width: `${Math.max(10, (tel.agent_b_duration_ms / (tel.total_duration_ms || 1)) * 100)}%`,
-                                        marginLeft: `${(tel.agent_a_duration_ms / (tel.total_duration_ms || 1)) * 100}%`
+                                        width: `${Math.max(10, pctB)}%`,
+                                        marginLeft: `${pctA + pctRag}%`
                                       }}
                                       className="h-full bg-gradient-to-r from-indigo-500 to-purple-550 rounded-full flex items-center px-2 text-[8px] text-white font-bold font-mono"
                                     >
@@ -2257,15 +2286,15 @@ export default function App() {
 
                                 {/* Agent C Bar */}
                                 <div className="space-y-1">
-                                  <div className="flex justify-between text-[10px] text-slate-500">
+                                  <div className="flex justify-between text-[10px] text-slate-505">
                                     <span className="font-semibold text-slate-750 dark:text-slate-300">Agent C (Evaluator)</span>
                                     <span className="font-mono text-slate-700 dark:text-slate-350">{agentCDur}s</span>
                                   </div>
                                   <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden relative">
                                     <div
                                       style={{
-                                        width: `${Math.max(10, (tel.agent_c_duration_ms / (tel.total_duration_ms || 1)) * 100)}%`,
-                                        marginLeft: `${((tel.agent_a_duration_ms + tel.agent_b_duration_ms) / (tel.total_duration_ms || 1)) * 100}%`
+                                        width: `${Math.max(10, pctC)}%`,
+                                        marginLeft: `${pctA + pctRag + pctB}%`
                                       }}
                                       className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full flex items-center px-2 text-[8px] text-white font-bold font-mono"
                                     >
@@ -2273,29 +2302,76 @@ export default function App() {
                                     </div>
                                   </div>
                                 </div>
+
+                                {/* Agent D Bar */}
+                                <div className="space-y-1">
+                                  <div className="flex justify-between text-[10px] text-slate-505">
+                                    <span className="font-semibold text-slate-750 dark:text-slate-300">Agent D (Fact Checker)</span>
+                                    <span className="font-mono text-slate-700 dark:text-slate-350">{agentDDur}s</span>
+                                  </div>
+                                  <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden relative">
+                                    <div
+                                      style={{
+                                        width: `${Math.max(10, pctD)}%`,
+                                        marginLeft: `${pctA + pctRag + pctB + pctC}%`
+                                      }}
+                                      className="h-full bg-gradient-to-r from-rose-500 to-orange-400 rounded-full flex items-center px-2 text-[8px] text-white font-bold font-mono"
+                                    >
+                                      Fact Checker
+                                    </div>
+                                  </div>
+                                </div>
                               </div>
                             </div>
 
                             {/* Failure Analytics & Token Costs Grid */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                               {/* Failure Analytics */}
                               <div className="border border-slate-150 dark:border-slate-800 p-4 rounded-xl bg-slate-50/30 dark:bg-slate-900/10 space-y-3">
                                 <h4 className="font-bold text-xs text-slate-850 dark:text-slate-200 flex items-center gap-1.5">
                                   <ShieldAlert className="h-3.5 w-3.5 text-rose-500" />
-                                  Guardrail & Failure Analytics
+                                  Guardrail Analytics
                                 </h4>
-                                <div className="space-y-2 pt-1">
-                                  <div className="flex justify-between text-[11px]">
-                                    <span className="text-slate-500">Compliance Violations Caught</span>
+                                <div className="space-y-2 pt-1 text-[11px]">
+                                  <div className="flex justify-between">
+                                    <span className="text-slate-500">Violations Caught</span>
                                     <strong className="font-mono text-amber-600 dark:text-amber-450">{violations}</strong>
                                   </div>
-                                  <div className="flex justify-between text-[11px]">
-                                    <span className="text-slate-500">Rewrite Loop Attempts</span>
+                                  <div className="flex justify-between">
+                                    <span className="text-slate-500">Rewrite Attempts</span>
                                     <strong className="font-mono text-indigo-600 dark:text-indigo-400">{attempts}</strong>
                                   </div>
-                                  <div className="flex justify-between text-[11px]">
-                                    <span className="text-slate-500">API Gateway Handshake Errors</span>
+                                  <div className="flex justify-between">
+                                    <span className="text-slate-500">Gateway Errors</span>
                                     <strong className="font-mono text-rose-600 dark:text-rose-450">{apiErrors}</strong>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* RAG & Fact Checker Analytics */}
+                              <div className="border border-slate-150 dark:border-slate-800 p-4 rounded-xl bg-slate-50/30 dark:bg-slate-900/10 space-y-3">
+                                <h4 className="font-bold text-xs text-slate-850 dark:text-slate-200 flex items-center gap-1.5">
+                                  <Sparkles className="h-3.5 w-3.5 text-blue-500" />
+                                  RAG & Fact Checker
+                                </h4>
+                                <div className="space-y-2 pt-1 text-[11px]">
+                                  <div className="flex justify-between">
+                                    <span className="text-slate-500">Source Coverage</span>
+                                    <strong className="font-mono text-blue-600 dark:text-blue-450">
+                                      {run.agent_d?.score !== undefined ? `${run.agent_d.score}%` : "100%"}
+                                    </strong>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-slate-500">Claims Verified</span>
+                                    <strong className="font-mono text-emerald-600 dark:text-emerald-400">
+                                      {run.agent_d?.verified !== undefined ? `${run.agent_d.verified}/${run.agent_d.total}` : "N/A"}
+                                    </strong>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-slate-500">Audit Verdict</span>
+                                    <strong className={`font-mono ${run.agent_d?.passed === false ? "text-rose-500" : "text-emerald-500"}`}>
+                                      {run.agent_d?.passed === false ? "FLAGGED ⚠️" : "PASSED ✅"}
+                                    </strong>
                                   </div>
                                 </div>
                               </div>
@@ -2306,23 +2382,23 @@ export default function App() {
                                   <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
                                   Token Cost Breakdown
                                 </h4>
-                                <div className="space-y-2 pt-1">
-                                  <div className="flex justify-between text-[11px]">
+                                <div className="space-y-2 pt-1 text-[11px]">
+                                  <div className="flex justify-between">
                                     <span className="text-slate-500">Agent A Tokens</span>
                                     <strong className="font-mono text-slate-700 dark:text-slate-350">
                                       {(run.agent_a?.headlines_pulled?.length || 0) * 150} tokens
                                     </strong>
                                   </div>
-                                  <div className="flex justify-between text-[11px]">
+                                  <div className="flex justify-between">
                                     <span className="text-slate-500">Agent B Tokens</span>
                                     <strong className="font-mono text-slate-700 dark:text-slate-350">
                                       {(run.agent_b?.total_tokens || 0).toLocaleString()} tokens
                                     </strong>
                                   </div>
-                                  <div className="flex justify-between text-[11px]">
-                                    <span className="text-slate-500">Agent C Tokens</span>
+                                  <div className="flex justify-between">
+                                    <span className="text-slate-500">Agent C/D Tokens</span>
                                     <strong className="font-mono text-slate-700 dark:text-slate-350">
-                                      1,200 tokens
+                                      2,100 tokens
                                     </strong>
                                   </div>
                                 </div>
