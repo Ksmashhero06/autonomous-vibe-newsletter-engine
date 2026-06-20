@@ -60,6 +60,8 @@ interface SavedNewsletter {
   timestamp: string;
   content: string;
   logs: LogEntry[];
+  topic?: string;
+  model?: string;
 }
 
 export default function App() {
@@ -103,7 +105,43 @@ export default function App() {
 
   // Input Config state
   const [apiKey, setApiKey] = useState("");
+  const [openaiApiKey, setOpenaiApiKey] = useState("");
+  const [anthropicApiKey, setAnthropicApiKey] = useState("");
+  const [groqApiKey, setGroqApiKey] = useState("");
+  const [ollamaHost, setOllamaHost] = useState("http://localhost:11434");
   const [niche, setNiche] = useState("AI & Agentic Frameworks");
+  const [topic, setTopic] = useState("");
+  const [modelName, setModelName] = useState("gemini-2.5-flash");
+
+  // Load from localStorage
+  useEffect(() => {
+    setApiKey(localStorage.getItem("newsroom_gemini_api_key") || "");
+    setOpenaiApiKey(localStorage.getItem("newsroom_openai_api_key") || "");
+    setAnthropicApiKey(localStorage.getItem("newsroom_anthropic_api_key") || "");
+    setGroqApiKey(localStorage.getItem("newsroom_groq_api_key") || "");
+    setOllamaHost(localStorage.getItem("newsroom_ollama_host") || "http://localhost:11434");
+  }, []);
+
+  const updateApiKey = (val: string) => {
+    setApiKey(val);
+    localStorage.setItem("newsroom_gemini_api_key", val);
+  };
+  const updateOpenaiApiKey = (val: string) => {
+    setOpenaiApiKey(val);
+    localStorage.setItem("newsroom_openai_api_key", val);
+  };
+  const updateAnthropicApiKey = (val: string) => {
+    setAnthropicApiKey(val);
+    localStorage.setItem("newsroom_anthropic_api_key", val);
+  };
+  const updateGroqApiKey = (val: string) => {
+    setGroqApiKey(val);
+    localStorage.setItem("newsroom_groq_api_key", val);
+  };
+  const updateOllamaHost = (val: string) => {
+    setOllamaHost(val);
+    localStorage.setItem("newsroom_ollama_host", val);
+  };
 
   // Dashboard state
   const [stats, setStats] = useState<BackendStats>({
@@ -113,6 +151,15 @@ export default function App() {
   });
   const [hasServerKey, setHasServerKey] = useState(false);
   const [activeTab, setActiveTab] = useState<"dashboard" | "code">("dashboard");
+
+  // Streamlit Dashboard Merged States
+  const [activeSubTab, setActiveSubTab] = useState<"workspace" | "cooperation" | "logs" | "archive" | "analytics">("workspace");
+  const [serverHistory, setServerHistory] = useState<any[]>([]);
+  const [interactions, setInteractions] = useState<any[]>([]);
+  const [workerStatus, setWorkerStatus] = useState<any>(null);
+  const [serverDrafts, setServerDrafts] = useState<string[]>([]);
+  const [selectedDraftName, setSelectedDraftName] = useState<string>("");
+  const [selectedDraftContent, setSelectedDraftContent] = useState<string>("");
   const [previewMode, setPreviewMode] = useState<"preview" | "raw">("preview");
 
   // Output states
@@ -137,6 +184,83 @@ export default function App() {
 
   const logsEndRef = useRef<HTMLDivElement>(null);
 
+  // Streamlit Dashboard Telemetry Fetchers
+  const fetchDashboardTelemetry = async (autoLoadLatestDraft = false) => {
+    try {
+      const historyRes = await fetch("/api/history");
+      const historyData = await historyRes.json();
+      setServerHistory(historyData);
+
+      const interactionsRes = await fetch("/api/interactions");
+      const interactionsData = await interactionsRes.json();
+      setInteractions(interactionsData);
+
+      const workerRes = await fetch("/api/worker-status");
+      const workerData = await workerRes.json();
+      setWorkerStatus(workerData);
+
+      const draftsRes = await fetch("/api/drafts");
+      const draftsData = await draftsRes.json();
+      setServerDrafts(draftsData);
+      if (draftsData.length > 0 && !selectedDraftName) {
+        setSelectedDraftName(draftsData[0]);
+      }
+
+      // Auto-load the latest server draft into the editorial sheet on initial mount
+      if (autoLoadLatestDraft && draftsData.length > 0) {
+        try {
+          const latestDraftRes = await fetch(`/api/drafts/${encodeURIComponent(draftsData[0])}`);
+          if (latestDraftRes.ok) {
+            const latestContent = await latestDraftRes.text();
+            setNewsletter((prev) => prev || latestContent);
+          }
+        } catch (draftErr) {
+          console.error("Error auto-loading latest draft:", draftErr);
+        }
+      }
+
+      // Seed Snapshots Vault with server history if local history is empty
+      if (historyData.length > 0) {
+        setHistoryList((prev) => {
+          if (prev.length > 0) return prev;
+          const serverItems: SavedNewsletter[] = historyData.slice(0, 10).map((run: any, idx: number) => ({
+            id: `server_${idx}_${Date.now()}`,
+            niche: run.niche || "Unknown",
+            timestamp: run.timestamp || new Date().toISOString(),
+            content: "",
+            logs: (run.agent_a?.headlines_pulled || []).map((h: string) => ({
+              agent: "Trend Scout",
+              message: `Pulled: ${h}`,
+              timestamp: run.timestamp || "",
+            })),
+            topic: run.topic,
+            model: run.model || "gemini-2.5-flash",
+          }));
+          return serverItems;
+        });
+      }
+    } catch (err) {
+      console.error("Error fetching dashboard telemetry:", err);
+    }
+  };
+
+  const fetchDraftContent = async (name: string) => {
+    if (!name) return;
+    try {
+      const res = await fetch(`/api/drafts/${encodeURIComponent(name)}`);
+      if (res.ok) {
+        const text = await res.text();
+        setSelectedDraftContent(text);
+      }
+    } catch (err) {
+      console.error("Error fetching draft content:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchDraftContent(selectedDraftName);
+  }, [selectedDraftName]);
+
   // Fetch initial system status
   const fetchStatus = async () => {
     try {
@@ -153,6 +277,7 @@ export default function App() {
 
   useEffect(() => {
     fetchStatus();
+    fetchDashboardTelemetry(true);
     // Load local history from browser localStorage
     try {
       const stored = localStorage.getItem("autonomous_newsletter_history");
@@ -182,7 +307,14 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           niche,
-          customApiKey: apiKey.trim() || undefined
+          customApiKey: apiKey.trim() || undefined,
+          customGeminiApiKey: apiKey.trim() || undefined,
+          customOpenAIApiKey: openaiApiKey.trim() || undefined,
+          customAnthropicApiKey: anthropicApiKey.trim() || undefined,
+          customGroqApiKey: groqApiKey.trim() || undefined,
+          customOllamaHost: ollamaHost.trim() || undefined,
+          topic: topic.trim() || undefined,
+          model: modelName
         }),
       });
 
@@ -210,12 +342,15 @@ export default function App() {
             setStats(data.stats);
           }
           setIsGenerating(false);
+          fetchDashboardTelemetry();
 
           // Save completed pipeline run into browser local history
           if (draftText) {
             const newRecord: SavedNewsletter = {
               id: Date.now().toString(),
               niche: niche,
+              topic: topic.trim() || undefined,
+              model: modelName,
               timestamp: new Date().toISOString(),
               content: draftText,
               logs: fullLogs
@@ -240,11 +375,29 @@ export default function App() {
   };
 
   // Load an existing history draft snapshot
-  const loadHistoryItem = (item: SavedNewsletter) => {
+  const loadHistoryItem = async (item: SavedNewsletter) => {
     if (isGenerating) return;
     setSelectedHistoryId(item.id);
     setNiche(item.niche);
-    setNewsletter(item.content);
+    setTopic(item.topic || "");
+    setModelName(item.model || "gemini-2.5-flash");
+
+    // If this is a server-seeded item with empty content, try to load matching draft from server
+    if (!item.content && serverDrafts.length > 0) {
+      const nicheSlug = item.niche.toLowerCase().replace(/[^a-z0-9]+/g, "_");
+      const matchingDraft = serverDrafts.find(d => d.includes(nicheSlug));
+      if (matchingDraft) {
+        try {
+          const res = await fetch(`/api/drafts/${encodeURIComponent(matchingDraft)}`);
+          if (res.ok) {
+            const content = await res.text();
+            setNewsletter(content);
+          }
+        } catch (_) {}
+      }
+    } else {
+      setNewsletter(item.content);
+    }
 
     // Pour history logs back into terminal stream instantly
     if (item.logs && item.logs.length > 0) {
@@ -283,7 +436,16 @@ export default function App() {
     }
   };
 
-  // Save changes from editing screen back to active local history item
+  const getProviderFromModel = (model: string) => {
+    const m = model.toLowerCase();
+    if (m.startsWith("gemini-")) return "gemini";
+    if (m.startsWith("gpt-")) return "openai";
+    if (m.startsWith("claude-")) return "anthropic";
+    if (m.startsWith("ollama-")) return "ollama";
+    if (m.includes("llama-3") || m.includes("mixtral") || m.includes("gemma2")) return "groq";
+    return "gemini";
+  };
+
   const saveNewsletterChanges = () => {
     if (!newsletter) return;
 
@@ -403,18 +565,42 @@ export default function App() {
   });
 
   // Filter out logs per agent for structured grid checklists
+  // Compute analytics metrics from server telemetry
+  const totalRuns = serverHistory.length;
+  const successRuns = serverHistory.filter((r) => r.status === "success").length;
+  const totalTokens = serverHistory.reduce((acc, r) => acc + (r.agent_b?.total_tokens || 0), 0);
+  const avgQualityScore = totalRuns > 0 ? Math.round(serverHistory.reduce((acc, r) => acc + (r.agent_c?.score || 0), 0) / totalRuns) : 0;
+  const complianceRate = totalRuns > 0 ? Math.round((successRuns / totalRuns) * 100) : 100;
+
+  let lastWakeStr = "Never";
+  let lastWakeAgo = "No runs yet";
+  if (serverHistory.length > 0) {
+    const lastRun = serverHistory[serverHistory.length - 1];
+    if (lastRun.timestamp) {
+      const lastDt = new Date(lastRun.timestamp);
+      lastWakeStr = lastDt.toLocaleDateString(undefined, { month: "short", day: "numeric" }) + ", " + lastDt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const diffMin = Math.floor((Date.now() - lastDt.getTime()) / 60000);
+      lastWakeAgo = diffMin < 60 ? `${diffMin}m ago` : `${Math.floor(diffMin / 60)}h ago`;
+    }
+  }
+
+  // Filter out logs per agent for structured grid checklists
   const agentScoutLogs = visibleLogs.filter(log => log.agent === "Trend Scout");
   const agentWriterLogs = visibleLogs.filter(log => log.agent === "Writer");
   const agentEditorLogs = visibleLogs.filter(log => log.agent === "Evaluator" || log.agent === "System");
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans selection:bg-blue-500/10 dark:selection:bg-blue-600/20 selection:text-blue-700 dark:selection:text-blue-400 transition-colors duration-200">
+    <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans selection:bg-blue-500/10 dark:selection:bg-blue-600/20 selection:text-blue-700 dark:selection:text-blue-400 transition-colors duration-200 relative overflow-hidden tech-grid-bg">
+
+      {/* Ambient glassmorphic glowing design blobs */}
+      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-blue-400/10 dark:bg-blue-600/5 blur-[100px] pointer-events-none animate-float" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-indigo-400/10 dark:bg-indigo-600/5 blur-[100px] pointer-events-none animate-float" style={{ animationDelay: "-3s" }} />
 
       {/* 2. Professional Header (Navigation Bar Simulation) */}
-      <header className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 sticky top-0 z-40 px-4 sm:px-6 py-4 flex flex-col lg:flex-row justify-between items-center gap-4 shadow-xs transition-colors duration-200">
+      <header className="border-b border-slate-200/50 dark:border-slate-800/40 glass-effect sticky top-0 z-40 px-4 sm:px-6 py-3.5 flex flex-col lg:flex-row justify-between items-center gap-4 shadow-sm transition-all duration-300">
         <div className="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-start">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl overflow-hidden shadow-md shrink-0 border border-slate-100 dark:border-slate-800 bg-[#1D63ED]">
+            <div className="h-10 w-10 rounded-xl overflow-hidden shadow-md shrink-0 border border-slate-100 dark:border-slate-800 bg-[#1D63ED] hover:scale-105 transition-transform duration-300">
               <img
                 src="/src/assets/images/newsletter_logo_1781618675903.jpg"
                 alt="Logo"
@@ -424,42 +610,42 @@ export default function App() {
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-sm font-extrabold font-display tracking-tight text-slate-900 dark:text-slate-100 uppercase">
+                <h1 className="text-sm font-extrabold font-display tracking-tight text-slate-900 dark:text-slate-50 uppercase">
                   Autonomous Newsletter Deck
                 </h1>
-                <span className="text-[10px] bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full border border-blue-100 dark:border-blue-800/40 font-semibold font-mono whitespace-nowrap">
+                <span className="text-[10px] bg-blue-50 dark:bg-blue-900/35 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full border border-blue-100/80 dark:border-blue-800/40 font-bold font-mono whitespace-nowrap">
                   v3.0 Secure
                 </span>
               </div>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium tracking-wide uppercase">ORGANIZATIONAL DISPATCH NETWORK</p>
+              <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold tracking-widest uppercase font-mono">ORGANIZATIONAL DISPATCH NETWORK</p>
             </div>
           </div>
 
-          <div className="flex lg:hidden items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-[10px] px-2.5 py-1 rounded-full border border-emerald-200 dark:border-emerald-900/40 font-semibold">
+          <div className="flex lg:hidden items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 text-[10px] px-2.5 py-1 rounded-full border border-emerald-250 dark:border-emerald-900/30 font-bold">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
           </div>
         </div>
 
         {/* Navigation / Language Status Indicators / Theme selector */}
         <div className="flex flex-wrap items-center justify-center lg:justify-end gap-3 w-full lg:w-auto">
-          <div className="hidden md:flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-xs px-3 py-1 rounded-full border border-emerald-200 dark:border-emerald-900/40 font-semibold">
+          <div className="hidden md:flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/25 text-emerald-700 dark:text-emerald-400 text-xs px-3 py-1 rounded-full border border-emerald-200 dark:border-emerald-900/30 font-bold shadow-3xs">
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse inline-block" />
             Live Pipeline Online
           </div>
 
-          <div className="text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 flex items-center gap-1">
+          <div className="text-xs text-slate-500 dark:text-slate-450 bg-white/50 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-800/60 rounded-xl px-2.5 py-1 flex items-center gap-1">
             <span>Region:</span>
-            <span className="font-bold text-slate-900 dark:text-slate-200">EN-Global (A1)</span>
+            <span className="font-bold text-slate-800 dark:text-slate-200">EN-Global (A1)</span>
           </div>
 
           {/* Control Switch Mode Tabs */}
-          <div className="flex gap-1 bg-slate-50 dark:bg-slate-800/50 p-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-3xs">
+          <div className="flex gap-1 bg-slate-100/80 dark:bg-slate-900/80 p-1 rounded-xl border border-slate-200/50 dark:border-slate-800/60 shadow-3xs">
             <button
               onClick={() => setActiveTab("dashboard")}
-              className={`px-2.5 sm:px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all duration-200 flex items-center gap-1.5 cursor-pointer ${
                 activeTab === "dashboard"
-                  ? "bg-[#1D63ED] text-white shadow-md shadow-blue-500/10"
-                  : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                  ? "bg-[#1D63ED] text-white shadow-sm shadow-blue-500/10"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
               }`}
             >
               <Sliders className="h-3.5 w-3.5" />
@@ -468,10 +654,10 @@ export default function App() {
             </button>
             <button
               onClick={() => setActiveTab("code")}
-              className={`px-2.5 sm:px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all duration-200 flex items-center gap-1.5 cursor-pointer ${
                 activeTab === "code"
-                  ? "bg-[#1D63ED] text-white shadow-md shadow-blue-500/10"
-                  : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                  ? "bg-[#1D63ED] text-white shadow-sm shadow-blue-500/10"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
               }`}
             >
               <FileCode className="h-3.5 w-3.5" />
@@ -481,13 +667,13 @@ export default function App() {
           </div>
 
           {/* Premium Theme Selector */}
-          <div className="flex gap-0.5 bg-slate-50 dark:bg-slate-800/50 p-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-3xs">
+          <div className="flex gap-0.5 bg-slate-100/80 dark:bg-slate-900/80 p-1 rounded-xl border border-slate-200/50 dark:border-slate-800/60 shadow-3xs">
             <button
               onClick={() => setTheme("light")}
               className={`p-1.5 rounded-lg transition-all cursor-pointer ${
                 theme === "light"
                   ? "bg-white dark:bg-slate-700 text-amber-500 shadow-3xs"
-                  : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                  : "text-slate-400 dark:text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
               }`}
               title="Light Mode"
             >
@@ -498,7 +684,7 @@ export default function App() {
               className={`p-1.5 rounded-lg transition-all cursor-pointer ${
                 theme === "dark"
                   ? "bg-white dark:bg-slate-700 text-indigo-500 dark:text-indigo-400 shadow-3xs"
-                  : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                  : "text-slate-400 dark:text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
               }`}
               title="Dark Mode"
             >
@@ -509,7 +695,7 @@ export default function App() {
               className={`p-1.5 rounded-lg transition-all cursor-pointer ${
                 theme === "system"
                   ? "bg-white dark:bg-slate-700 text-[#1D63ED] dark:text-blue-400 shadow-3xs"
-                  : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                  : "text-slate-400 dark:text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
               }`}
               title="System Default"
             >
@@ -522,35 +708,98 @@ export default function App() {
       {/* Main Structural workspace */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
+        {/* 4. Streamlit Merged Metrics Cards */}
+        {activeTab === "dashboard" && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-fadeIn">
+            {/* Card 1: Last Wake */}
+            <div className="relative overflow-hidden group card-bg-scout border border-slate-200/80 dark:border-slate-800/60 rounded-2xl p-5 shadow-md flex flex-col justify-between min-h-[112px] hover:border-blue-500/50 hover:shadow-[0_0_20px_rgba(59,130,246,0.15)] transition-all duration-300">
+              <div className="absolute top-0 right-0 p-3.5 opacity-10 group-hover:opacity-20 group-hover:scale-110 transition-all duration-300">
+                <Clock className="h-10 w-10 text-blue-500 dark:text-blue-400" />
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+                <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest font-mono">Agent A Last Wake</span>
+              </div>
+              <h3 className="text-xl font-bold font-sans mt-2 tracking-tight text-slate-900 dark:text-slate-100">{lastWakeStr}</h3>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono mt-1 flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-slate-600 dark:bg-slate-400" />
+                {lastWakeAgo}
+              </span>
+            </div>
+
+            {/* Card 2: Fleet Cycles */}
+            <div className="relative overflow-hidden group card-bg-writer border border-slate-200/80 dark:border-slate-800/60 rounded-2xl p-5 shadow-md flex flex-col justify-between min-h-[112px] hover:border-emerald-500/50 hover:shadow-[0_0_20px_rgba(16,185,129,0.15)] transition-all duration-300">
+              <div className="absolute top-0 right-0 p-3.5 opacity-10 group-hover:opacity-20 group-hover:scale-110 transition-all duration-300">
+                <Cpu className="h-10 w-10 text-emerald-500 dark:text-emerald-400" />
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest font-mono">Total Fleet Cycles</span>
+              </div>
+              <h3 className="text-xl font-bold font-sans mt-2 tracking-tight text-slate-900 dark:text-slate-100">{totalRuns}</h3>
+              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono mt-1 flex items-center gap-1">
+                <span className="h-1 w-1 bg-emerald-500 rounded-full inline-block" />
+                {successRuns} successful runs
+              </span>
+            </div>
+
+            {/* Card 3: Total Tokens */}
+            <div className="relative overflow-hidden group card-bg-hero border border-slate-200/80 dark:border-slate-800/60 rounded-2xl p-5 shadow-md flex flex-col justify-between min-h-[112px] hover:border-purple-500/50 hover:shadow-[0_0_20px_rgba(168,85,247,0.15)] transition-all duration-300">
+              <div className="absolute top-0 right-0 p-3.5 opacity-10 group-hover:opacity-20 group-hover:scale-110 transition-all duration-300">
+                <TrendingUp className="h-10 w-10 text-purple-500 dark:text-purple-400" />
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-purple-500 animate-pulse" />
+                <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest font-mono">Total Tokens Used</span>
+              </div>
+              <h3 className="text-xl font-bold font-sans mt-2 tracking-tight text-slate-900 dark:text-slate-100">{totalTokens.toLocaleString()}</h3>
+              <span className="text-[10px] text-purple-600 dark:text-purple-400 font-mono mt-1">across all agent runs</span>
+            </div>
+
+            {/* Card 4: Avg Quality Score */}
+            <div className="relative overflow-hidden group card-bg-logo border border-slate-200/80 dark:border-slate-800/60 rounded-2xl p-5 shadow-md flex flex-col justify-between min-h-[112px] hover:border-amber-500/50 hover:shadow-[0_0_20px_rgba(245,158,11,0.15)] transition-all duration-300">
+              <div className="absolute top-0 right-0 p-3.5 opacity-10 group-hover:opacity-20 group-hover:scale-110 transition-all duration-300">
+                <Sparkles className="h-10 w-10 text-amber-500 dark:text-amber-400" />
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest font-mono">Avg Quality Score</span>
+              </div>
+              <h3 className="text-xl font-bold font-sans mt-2 tracking-tight text-slate-900 dark:text-slate-100">{avgQualityScore}/100</h3>
+              <span className="text-[10px] text-amber-600 dark:text-amber-400 font-mono mt-1">{complianceRate}% compliance rate</span>
+            </div>
+          </div>
+        )}
+
         {/* 3. Hero Section & Configuration (Inspired by Split Cards) */}
         {activeTab === "dashboard" && (
-          <section className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden grid grid-cols-1 lg:grid-cols-12 gap-0 animate-fadeIn transition-colors duration-200">
+          <section className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/60 dark:border-slate-800/70 shadow-sm overflow-hidden grid grid-cols-1 lg:grid-cols-12 gap-0 animate-fadeIn transition-all duration-300 glass-effect">
 
             {/* Left Column: Visual Status representation */}
-            <div className="lg:col-span-5 bg-slate-50 dark:bg-slate-900/40 p-6 md:p-8 border-b lg:border-b-0 lg:border-r border-slate-200 dark:border-slate-800 flex flex-col justify-between">
+            <div className="lg:col-span-5 bg-slate-50/50 dark:bg-slate-900/20 p-6 md:p-8 border-b lg:border-b-0 lg:border-r border-slate-200/60 dark:border-slate-800/60 flex flex-col justify-between">
               <div className="space-y-4">
-                <span className="inline-flex bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-[10px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider border border-blue-100 dark:border-blue-800/40">
+                <span className="inline-flex bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 text-[10px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider border border-blue-100 dark:border-blue-800/40">
                   Instrument Panel
                 </span>
-                <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 uppercase tracking-tight">Active Campaign Metrics</h3>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 uppercase tracking-tight font-display">Active Campaign Metrics</h3>
 
                 {/* Clean inline data summary card list */}
-                <div className="space-y-3 pt-2">
-                  <div className="flex justify-between items-center bg-white dark:bg-slate-850 p-3 rounded-xl border border-slate-200 dark:border-slate-800/65 shadow-3xs">
+                <div className="space-y-2.5 pt-2">
+                  <div className="flex justify-between items-center bg-white/70 dark:bg-slate-950/40 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800/60 shadow-3xs hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
                     <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Topic Focus:</span>
-                    <strong className="text-xs text-slate-900 dark:text-slate-200 font-mono">{niche || "Custom Targeted"}</strong>
+                    <strong className="text-xs text-slate-850 dark:text-slate-200 font-mono">{niche || "Custom Targeted"}</strong>
                   </div>
-                  <div className="flex justify-between items-center bg-white dark:bg-slate-850 p-3 rounded-xl border border-slate-200 dark:border-slate-800/65 shadow-3xs">
+                  <div className="flex justify-between items-center bg-white/70 dark:bg-slate-950/40 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800/60 shadow-3xs hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
                     <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Total Compiled:</span>
-                    <strong className="text-sm text-slate-900 dark:text-slate-200">{stats.totalIssuesGenerated} issues</strong>
+                    <strong className="text-sm text-slate-850 dark:text-slate-200">{stats.totalIssuesGenerated} issues</strong>
                   </div>
-                  <div className="flex justify-between items-center bg-white dark:bg-slate-850 p-3 rounded-xl border border-slate-200 dark:border-slate-800/65 shadow-3xs">
+                  <div className="flex justify-between items-center bg-white/70 dark:bg-slate-950/40 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800/60 shadow-3xs hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
                     <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Saved Snapshots:</span>
-                    <strong className="text-sm text-slate-900 dark:text-slate-200">{historyList.length} items</strong>
+                    <strong className="text-sm text-slate-850 dark:text-slate-200">{historyList.length} items</strong>
                   </div>
-                  <div className="flex justify-between items-center bg-white dark:bg-slate-850 p-3 rounded-xl border border-slate-200 dark:border-slate-800/65 shadow-3xs">
+                  <div className="flex justify-between items-center bg-white/70 dark:bg-slate-950/40 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800/60 shadow-3xs hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
                     <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Latest Run Sync:</span>
-                    <strong className="text-xs text-slate-900 dark:text-slate-200 font-mono font-bold text-[#1D63ED] dark:text-blue-400">
+                    <strong className="text-xs text-slate-850 dark:text-slate-200 font-mono font-bold text-[#1D63ED] dark:text-blue-400">
                       {stats.lastSyncTime === "Never"
                         ? "Never"
                         : new Date(stats.lastSyncTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -560,11 +809,11 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="pt-6 border-t border-slate-200 dark:border-slate-800 text-[10px] space-y-1 text-slate-400 dark:text-slate-505 font-mono tracking-wide mt-4">
+              <div className="pt-6 border-t border-slate-200/60 dark:border-slate-800/60 text-[9.5px] space-y-1 text-slate-400 dark:text-slate-500 font-mono tracking-wider mt-4">
                 <p>COCKPIT PLATFORM RUNNING SAFE • PORT: 3000</p>
                 <div className="flex items-center gap-1">
                   <span>Current Mode:</span>
-                  <span className={`font-bold ${apiKey || hasServerKey ? "text-emerald-600 dark:text-emerald-400" : "text-amber-500 dark:text-amber-450"}`}>
+                  <span className={`font-bold ${apiKey || hasServerKey ? "text-emerald-500 dark:text-emerald-450" : "text-amber-500 dark:text-amber-450"}`}>
                     {apiKey || hasServerKey ? "API (DIRECT BRAIN)" : "LOCAL SIMULATOR READY"}
                   </span>
                 </div>
@@ -574,7 +823,7 @@ export default function App() {
             {/* Right Column: Mission Editorial Typography & Quick form configurations */}
             <div className="lg:col-span-7 p-6 md:p-8 flex flex-col justify-between space-y-6">
               <div>
-                <h2 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-slate-100 leading-tight uppercase font-display select-none">
+                <h2 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-slate-50 leading-tight uppercase font-display select-none">
                   Automated Tech Journalism,<br />
                   <span className="text-[#1D63ED] dark:text-blue-400">Made Effortless</span>
                 </h2>
@@ -582,29 +831,102 @@ export default function App() {
                   Designate custom niches, input secure Gemini standard models API keys, and launch or archive multi-agent press workflows. Use full offline simulation or connect model endpoints instantaneously.
                 </p>
               </div>
-
               {/* High density clean input cards inside split layout */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-450 uppercase tracking-wider font-mono">
-                    Google AI Studio API Key
-                  </label>
-                  <input
-                    type="password"
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    placeholder={hasServerKey ? "Loaded from server variables ••••" : "Optional: Enter custom API key..."}
-                    className="w-full bg-white dark:bg-slate-800 border border-slate-250 dark:border-slate-700 focus:border-[#1D63ED] dark:focus:border-blue-500 focus:ring-2 focus:ring-[#1D63ED]/15 dark:focus:ring-blue-500/15 rounded-xl px-3 py-2.5 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none transition-all shadow-sm"
-                  />
-                  <p className="text-[9.5px] text-slate-500 dark:text-slate-450">
-                    {hasServerKey
-                      ? "✓ Safe backend key connection available."
-                      : "💡 Runs local simulations if API Key is empty."}
-                  </p>
-                </div>
+                {getProviderFromModel(modelName) === "gemini" && (
+                  <div className="space-y-1.5 animate-fadeIn">
+                    <label className="block text-[10.5px] font-bold text-slate-500 dark:text-slate-450 uppercase tracking-wider font-mono">
+                      Google AI Studio API Key
+                    </label>
+                    <input
+                      type="password"
+                      value={apiKey}
+                      onChange={(e) => updateApiKey(e.target.value)}
+                      placeholder={hasServerKey ? "Loaded from server variables ••••" : "Optional: Enter Gemini API key..."}
+                      className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-[#1D63ED] dark:focus:border-blue-500 focus:ring-2 focus:ring-[#1D63ED]/15 dark:focus:ring-blue-500/15 rounded-xl px-3 py-2.5 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-550 focus:outline-none transition-all shadow-3xs"
+                    />
+                    <p className="text-[9.5px] text-slate-450 dark:text-slate-500">
+                      {hasServerKey
+                        ? "✓ Safe backend key connection available."
+                        : "💡 Runs local simulations if API Key is empty."}
+                    </p>
+                  </div>
+                )}
+
+                {getProviderFromModel(modelName) === "openai" && (
+                  <div className="space-y-1.5 animate-fadeIn">
+                    <label className="block text-[10.5px] font-bold text-slate-500 dark:text-slate-450 uppercase tracking-wider font-mono">
+                      OpenAI API Key
+                    </label>
+                    <input
+                      type="password"
+                      value={openaiApiKey}
+                      onChange={(e) => updateOpenaiApiKey(e.target.value)}
+                      placeholder="Enter OpenAI API key (sk-...)"
+                      className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-[#1D63ED] dark:focus:border-blue-500 focus:ring-2 focus:ring-[#1D63ED]/15 dark:focus:ring-blue-500/15 rounded-xl px-3 py-2.5 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-550 focus:outline-none transition-all shadow-3xs"
+                    />
+                    <p className="text-[9.5px] text-slate-450 dark:text-slate-500">
+                      💡 Uses simulation mode if API Key is empty.
+                    </p>
+                  </div>
+                )}
+
+                {getProviderFromModel(modelName) === "anthropic" && (
+                  <div className="space-y-1.5 animate-fadeIn">
+                    <label className="block text-[10.5px] font-bold text-slate-500 dark:text-slate-450 uppercase tracking-wider font-mono">
+                      Anthropic Claude API Key
+                    </label>
+                    <input
+                      type="password"
+                      value={anthropicApiKey}
+                      onChange={(e) => updateAnthropicApiKey(e.target.value)}
+                      placeholder="Enter Anthropic API key (sk-ant-...)"
+                      className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-[#1D63ED] dark:focus:border-blue-500 focus:ring-2 focus:ring-[#1D63ED]/15 dark:focus:ring-blue-500/15 rounded-xl px-3 py-2.5 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-550 focus:outline-none transition-all shadow-3xs"
+                    />
+                    <p className="text-[9.5px] text-slate-450 dark:text-slate-500">
+                      💡 Uses simulation mode if API Key is empty.
+                    </p>
+                  </div>
+                )}
+
+                {getProviderFromModel(modelName) === "groq" && (
+                  <div className="space-y-1.5 animate-fadeIn">
+                    <label className="block text-[10.5px] font-bold text-slate-500 dark:text-slate-450 uppercase tracking-wider font-mono">
+                      Groq Cloud API Key
+                    </label>
+                    <input
+                      type="password"
+                      value={groqApiKey}
+                      onChange={(e) => updateGroqApiKey(e.target.value)}
+                      placeholder="Enter Groq API key (gsk-...)"
+                      className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-[#1D63ED] dark:focus:border-blue-500 focus:ring-2 focus:ring-[#1D63ED]/15 dark:focus:ring-blue-500/15 rounded-xl px-3 py-2.5 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-550 focus:outline-none transition-all shadow-3xs"
+                    />
+                    <p className="text-[9.5px] text-slate-450 dark:text-slate-500">
+                      💡 Uses simulation mode if API Key is empty.
+                    </p>
+                  </div>
+                )}
+
+                {getProviderFromModel(modelName) === "ollama" && (
+                  <div className="space-y-1.5 animate-fadeIn">
+                    <label className="block text-[10.5px] font-bold text-slate-500 dark:text-slate-450 uppercase tracking-wider font-mono">
+                      Ollama Host Endpoint
+                    </label>
+                    <input
+                      type="text"
+                      value={ollamaHost}
+                      onChange={(e) => updateOllamaHost(e.target.value)}
+                      placeholder="e.g. http://localhost:11434"
+                      className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-[#1D63ED] dark:focus:border-blue-500 focus:ring-2 focus:ring-[#1D63ED]/15 dark:focus:ring-blue-500/15 rounded-xl px-3 py-2.5 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-550 focus:outline-none transition-all shadow-3xs"
+                    />
+                    <p className="text-[9.5px] text-slate-450 dark:text-slate-500">
+                      💡 Assumes a local Ollama instance running.
+                    </p>
+                  </div>
+                )}
 
                 <div className="space-y-1.5">
-                  <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-450 uppercase tracking-wider font-mono">
+                  <label className="block text-[10.5px] font-bold text-slate-500 dark:text-slate-455 uppercase tracking-wider font-mono">
                     Target Technical Niche Topic
                   </label>
                   <input
@@ -613,10 +935,69 @@ export default function App() {
                     onChange={(e) => setNiche(e.target.value)}
                     disabled={isGenerating}
                     placeholder="e.g. Edge AI & Distributed Compute"
-                    className="w-full bg-white dark:bg-slate-800 border border-slate-250 dark:border-slate-700 focus:border-[#1D63ED] dark:focus:border-blue-500 focus:ring-2 focus:ring-[#1D63ED]/15 dark:focus:ring-blue-500/15 rounded-xl px-3 py-2.5 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none transition-all shadow-sm disabled:opacity-55"
+                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-[#1D63ED] dark:focus:border-blue-500 focus:ring-2 focus:ring-[#1D63ED]/15 dark:focus:ring-blue-500/15 rounded-xl px-3 py-2.5 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-550 focus:outline-none transition-all shadow-3xs disabled:opacity-55"
                   />
-                  <p className="text-[9.5px] text-slate-500 dark:text-slate-450">
+                  <p className="text-[9.5px] text-slate-455 dark:text-slate-500 font-mono">
                     Change campaign focus to customize technical prompts.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-[10.5px] font-bold text-slate-500 dark:text-slate-455 uppercase tracking-wider font-mono">
+                    Custom Subject Topic (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={topic}
+                    onChange={(e) => setTopic(e.target.value)}
+                    disabled={isGenerating}
+                    placeholder="e.g. Model-Context Protocol (MCP) details"
+                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-[#1D63ED] dark:focus:border-blue-500 focus:ring-2 focus:ring-[#1D63ED]/15 dark:focus:ring-blue-500/15 rounded-xl px-3 py-2.5 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-555 focus:outline-none transition-all shadow-3xs disabled:opacity-55"
+                  />
+                  <p className="text-[9.5px] text-slate-455 dark:text-slate-500 font-mono">
+                    Bypasses standard feeds for targeted deep-dive research.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-[10.5px] font-bold text-slate-500 dark:text-slate-455 uppercase tracking-wider font-mono">
+                    Selected LLM Router Endpoint
+                  </label>
+                  <select
+                    value={modelName}
+                    onChange={(e) => setModelName(e.target.value)}
+                    disabled={isGenerating}
+                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-[#1D63ED] dark:focus:border-blue-500 focus:ring-2 focus:ring-[#1D63ED]/15 dark:focus:ring-blue-500/15 rounded-xl px-3 py-2.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none transition-all shadow-3xs disabled:opacity-55 font-mono cursor-pointer"
+                  >
+                    <optgroup label="Google Gemini">
+                      <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+                      <option value="gemini-2.5-pro">gemini-2.5-pro</option>
+                      <option value="gemini-1.5-flash">gemini-1.5-flash</option>
+                      <option value="gemini-1.5-pro">gemini-1.5-pro</option>
+                    </optgroup>
+                    <optgroup label="OpenAI">
+                      <option value="gpt-4o">gpt-4o</option>
+                      <option value="gpt-4o-mini">gpt-4o-mini</option>
+                      <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
+                    </optgroup>
+                    <optgroup label="Anthropic">
+                      <option value="claude-3-5-sonnet">claude-3-5-sonnet</option>
+                      <option value="claude-3-opus">claude-3-opus</option>
+                      <option value="claude-3-5-haiku">claude-3-5-haiku</option>
+                    </optgroup>
+                    <optgroup label="Groq Cloud">
+                      <option value="llama-3.3-70b-versatile">llama-3.3-70b-versatile</option>
+                      <option value="mixtral-8x7b-32768">mixtral-8x7b-32768</option>
+                      <option value="gemma2-9b-it">gemma2-9b-it</option>
+                    </optgroup>
+                    <optgroup label="Ollama (Local)">
+                      <option value="ollama-llama3">ollama-llama3</option>
+                      <option value="ollama-mistral">ollama-mistral</option>
+                      <option value="ollama-phi3">ollama-phi3</option>
+                    </optgroup>
+                  </select>
+                  <p className="text-[9.5px] text-slate-455 dark:text-slate-500 font-mono">
+                    Routing selects best provider available.
                   </p>
                 </div>
               </div>
@@ -626,14 +1007,15 @@ export default function App() {
                 <button
                   onClick={runAgentPipeline}
                   disabled={isGenerating || !niche.trim()}
-                  className={`w-full py-3 px-6 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 border shadow-md cursor-pointer ${
+                  className={`w-full py-3.5 px-6 rounded-xl font-bold text-xs uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-2 border shadow-md cursor-pointer ${
                     isGenerating
                       ? "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed"
-                      : "bg-[#1D63ED] hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white border-[#1D63ED] dark:border-blue-600 shadow-blue-500/15 dark:shadow-blue-500/5 font-bold"
+                      : "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-600 hover:from-blue-700 hover:to-indigo-700 text-white border-blue-550 dark:border-blue-600 shadow-blue-500/10 hover:shadow-blue-500/20 hover:scale-[1.01] active:scale-[0.99] relative overflow-hidden group font-display"
                   }`}
                 >
-                  <Sparkles className={`h-4.5 w-4.5 ${isGenerating ? "animate-spin text-slate-400" : "text-white"}`} />
-                  {isGenerating ? "Processing Campaign Run..." : "WAKE UP MULTI-AGENT NEWSROOM"}
+                  <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                  <Sparkles className={`h-4.5 w-4.5 ${isGenerating ? "animate-spin text-slate-400" : "text-white animate-pulse"}`} />
+                  <span>{isGenerating ? "Processing Campaign Run..." : "WAKE UP MULTI-AGENT NEWSROOM"}</span>
                 </button>
               </div>
 
@@ -642,9 +1024,83 @@ export default function App() {
           </section>
         )}
 
+        {/* Streamlit Merged Sub-Tabs Menu */}
+        {activeTab === "dashboard" && (
+          <div className="flex flex-wrap gap-1 bg-white dark:bg-slate-900 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-3xs animate-fadeIn">
+            <button
+              onClick={() => setActiveSubTab("workspace")}
+              className={`px-4 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer ${
+                activeSubTab === "workspace"
+                  ? "bg-[#1D63ED] text-white shadow-md shadow-blue-500/10"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+              }`}
+            >
+              <Bot className="h-4 w-4" />
+              <span>💻 Active Workstation</span>
+            </button>
+            <button
+              onClick={() => {
+                setActiveSubTab("cooperation");
+                fetchDashboardTelemetry();
+              }}
+              className={`px-4 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer ${
+                activeSubTab === "cooperation"
+                  ? "bg-[#1D63ED] text-white shadow-md shadow-blue-500/10"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+              }`}
+            >
+              <Sparkles className="h-4 w-4" />
+              <span>💬 Live Agent Cooperation</span>
+            </button>
+            <button
+              onClick={() => {
+                setActiveSubTab("logs");
+                fetchDashboardTelemetry();
+              }}
+              className={`px-4 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer ${
+                activeSubTab === "logs"
+                  ? "bg-[#1D63ED] text-white shadow-md shadow-blue-500/10"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+              }`}
+            >
+              <History className="h-4 w-4" />
+              <span>📋 Fleet Transaction Logs</span>
+            </button>
+            <button
+              onClick={() => {
+                setActiveSubTab("archive");
+                fetchDashboardTelemetry();
+              }}
+              className={`px-4 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer ${
+                activeSubTab === "archive"
+                  ? "bg-[#1D63ED] text-white shadow-md shadow-blue-500/10"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+              }`}
+            >
+              <Archive className="h-4 w-4" />
+              <span>📰 Server Archive</span>
+            </button>
+            <button
+              onClick={() => {
+                setActiveSubTab("analytics");
+                fetchDashboardTelemetry();
+              }}
+              className={`px-4 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer ${
+                activeSubTab === "analytics"
+                  ? "bg-[#1D63ED] text-white shadow-md shadow-blue-500/10"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+              }`}
+            >
+              <Sliders className="h-4 w-4" />
+              <span>📈 Metrics & Analytics</span>
+            </button>
+          </div>
+        )}
+
         {/* Real-time Workstation Grid */}
         {activeTab === "dashboard" ? (
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          activeSubTab === "workspace" ? (
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
 
             {/* Left Sidebar presets & snapshot archives */}
             <aside className="lg:col-span-1 space-y-6">
@@ -778,23 +1234,27 @@ export default function App() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
 
                   {/* Card 1: Trend Scout Agent */}
-                  <div className={`p-5 rounded-2xl border transition-all flex flex-col justify-between bg-white dark:bg-slate-900 min-h-[300px] ${
+                  <div className={`p-5 rounded-2xl border transition-all duration-300 flex flex-col justify-between bg-white dark:bg-slate-900 min-h-[300px] glow-card ${
                     activeAgentIndex === 0
-                      ? "border-[#1D63ED] dark:border-blue-500 shadow-md shadow-blue-500/5 ring-1 ring-[#1D63ED]/10 dark:ring-blue-500/10"
+                      ? "border-purple-500/70 dark:border-purple-500/50 shadow-[0_0_25px_rgba(168,85,247,0.15)] ring-1 ring-purple-500/10 dark:ring-purple-500/20"
                       : "border-slate-200 dark:border-slate-800"
                   }`}>
                     <div>
                       {/* Clean badge & icon */}
                       <div className="flex justify-between items-center mb-4">
-                        <span className="bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold px-2.5 py-0.5 rounded uppercase font-mono tracking-wider">
+                        <span className="bg-purple-50 dark:bg-purple-950/20 text-purple-700 dark:text-purple-400 text-[10px] font-bold px-2.5 py-0.5 rounded uppercase font-mono tracking-wider">
                           Officer Alpha
                         </span>
-                        <Search className="h-4.5 w-4.5 text-[#1D63ED] dark:text-blue-400" />
+                        <Search className="h-4.5 w-4.5 text-purple-500" />
                       </div>
 
                       {/* Agent avatar profile block */}
                       <div className="flex items-center gap-3 mb-4">
-                        <div className="h-11 w-11 rounded-full overflow-hidden bg-slate-150 dark:bg-slate-800 border border-slate-250 dark:border-slate-700 shrink-0">
+                        <div className={`h-11 w-11 rounded-full overflow-hidden bg-slate-150 dark:bg-slate-800 border shrink-0 transition-all duration-300 ${
+                          activeAgentIndex === 0
+                            ? "border-purple-500 shadow-[0_0_12px_rgba(168,85,247,0.4)] scale-105"
+                            : "border-slate-250 dark:border-slate-700"
+                        }`}>
                           <img
                             src="/src/assets/images/trend_scout_agent_1781615884593.jpg"
                             alt="Scout AI"
@@ -808,19 +1268,19 @@ export default function App() {
                         </div>
                       </div>
 
-                      <p className="text-[11px] text-slate-505 dark:text-slate-400 leading-relaxed mb-4">
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mb-4">
                         Scrapes HackerNews global listings, GitHub activity logs, and technical developer discussion feeds.
                       </p>
 
                       {/* Filtered realtime logs represented as bullet checklists */}
-                      <div className="space-y-2 border-t border-slate-100 dark:border-slate-800 pt-3.5">
-                        <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider font-mono">Live Logs Feed</p>
-                        <div className="max-h-[140px] overflow-y-auto space-y-1.5">
+                      <div className="space-y-2 border-t border-slate-100 dark:border-slate-800/80 pt-3.5">
+                        <p className="text-[9.5px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider font-mono">Live Logs Feed</p>
+                        <div className="max-h-[140px] overflow-y-auto space-y-1.5 scrollbar-thin">
                           {agentScoutLogs.length === 0 ? (
-                            <p className="text-[10.5px] text-slate-400 dark:text-slate-500 italic">Standby. Awaiting telemetry triggers...</p>
+                            <p className="text-[10.5px] text-slate-400 dark:text-slate-500 italic">Standby. Awaiting HN metrics feed...</p>
                           ) : (
                             agentScoutLogs.slice(-3).map((log, index) => (
-                              <div key={index} className="text-[10.5px] text-slate-600 dark:text-slate-350 leading-normal pl-2 border-l-2 border-emerald-500/40 font-mono">
+                              <div key={index} className="text-[10px] text-slate-600 dark:text-slate-350 leading-normal pl-2.5 border-l-2 border-purple-500/40 font-mono">
                                 {log.message}
                               </div>
                             ))
@@ -830,12 +1290,13 @@ export default function App() {
                     </div>
 
                     <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                      <span className={`text-[10px] font-mono font-bold ${activeAgentIndex === 0 ? "text-emerald-500" : "text-slate-400 dark:text-slate-500"}`}>
-                        {activeAgentIndex === 0 ? "● LOGGING" : "✓ IDLE"}
+                      <span className={`text-[10px] font-mono font-bold flex items-center gap-1 ${activeAgentIndex === 0 ? "text-purple-500" : "text-slate-400 dark:text-slate-500"}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${activeAgentIndex === 0 ? "bg-purple-500 animate-pulse" : "bg-slate-400 dark:bg-slate-600"}`} />
+                        {activeAgentIndex === 0 ? "SCANNING" : "STANDBY"}
                       </span>
                       <button
                         onClick={() => setActiveLogModal("scout")}
-                        className="text-[11px] text-[#1D63ED] dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-350 font-bold tracking-tight cursor-pointer flex items-center gap-0.5"
+                        className="text-[11px] text-purple-650 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300 font-bold tracking-tight cursor-pointer flex items-center gap-0.5 transition-colors"
                       >
                         View Full Logs →
                       </button>
@@ -843,23 +1304,27 @@ export default function App() {
                   </div>
 
                   {/* Card 2: Synthesizer Writer Agent */}
-                  <div className={`p-5 rounded-2xl border transition-all flex flex-col justify-between bg-white dark:bg-slate-900 min-h-[300px] ${
+                  <div className={`p-5 rounded-2xl border transition-all duration-300 flex flex-col justify-between bg-white dark:bg-slate-900 min-h-[300px] glow-card ${
                     activeAgentIndex === 1
-                      ? "border-[#1D63ED] dark:border-blue-500 shadow-md shadow-blue-500/5 ring-1 ring-[#1D63ED]/10 dark:ring-blue-500/10"
+                      ? "border-blue-500/70 dark:border-blue-500/50 shadow-[0_0_25px_rgba(59,130,246,0.15)] ring-1 ring-blue-500/10 dark:ring-blue-500/20"
                       : "border-slate-200 dark:border-slate-800"
                   }`}>
                     <div>
                       {/* Clean badge & icon */}
                       <div className="flex justify-between items-center mb-4">
-                        <span className="bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 text-[10px] font-bold px-2.5 py-0.5 rounded uppercase font-mono tracking-wider">
+                        <span className="bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-400 text-[10px] font-bold px-2.5 py-0.5 rounded uppercase font-mono tracking-wider">
                           Officer Beta
                         </span>
-                        <Edit className="h-4.5 w-4.5 text-[#1D63ED] dark:text-blue-400" />
+                        <Edit className="h-4.5 w-4.5 text-blue-500" />
                       </div>
 
                       {/* Agent avatar profile block */}
                       <div className="flex items-center gap-3 mb-4">
-                        <div className="h-11 w-11 rounded-full overflow-hidden bg-slate-150 dark:bg-slate-800 border border-slate-250 dark:border-slate-700 shrink-0">
+                        <div className={`h-11 w-11 rounded-full overflow-hidden bg-slate-150 dark:bg-slate-800 border shrink-0 transition-all duration-300 ${
+                          activeAgentIndex === 1
+                            ? "border-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.4)] scale-105"
+                            : "border-slate-250 dark:border-slate-700"
+                        }`}>
                           <img
                             src="/src/assets/images/writer_agent_1781615902469.jpg"
                             alt="Writer AI"
@@ -873,19 +1338,19 @@ export default function App() {
                         </div>
                       </div>
 
-                      <p className="text-[11px] text-slate-505 dark:text-slate-400 leading-relaxed mb-4">
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mb-4">
                         Converts trend points into pristine structured prose, charts, markdown metrics, and code parameters.
                       </p>
 
                       {/* Filtered realtime logs */}
-                      <div className="space-y-2 border-t border-slate-100 dark:border-slate-800 pt-3.5">
-                        <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider font-mono">Live Logs Feed</p>
-                        <div className="max-h-[140px] overflow-y-auto space-y-1.5">
+                      <div className="space-y-2 border-t border-slate-100 dark:border-slate-800/80 pt-3.5">
+                        <p className="text-[9.5px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider font-mono">Live Logs Feed</p>
+                        <div className="max-h-[140px] overflow-y-auto space-y-1.5 scrollbar-thin">
                           {agentWriterLogs.length === 0 ? (
-                            <p className="text-[10.5px] text-slate-400 dark:text-slate-500 italic">Standby. Awaiting payloads...</p>
+                            <p className="text-[10.5px] text-slate-400 dark:text-slate-500 italic">Standby. Awaiting Scout inputs...</p>
                           ) : (
                             agentWriterLogs.slice(-3).map((log, index) => (
-                              <div key={index} className="text-[10.5px] text-slate-600 dark:text-slate-350 leading-normal pl-2 border-l-2 border-blue-500/40 font-mono">
+                              <div key={index} className="text-[10px] text-slate-600 dark:text-slate-350 leading-normal pl-2.5 border-l-2 border-blue-500/40 font-mono">
                                 {log.message}
                               </div>
                             ))
@@ -895,12 +1360,13 @@ export default function App() {
                     </div>
 
                     <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                      <span className={`text-[10px] font-mono font-bold ${activeAgentIndex === 1 ? "text-[#1D63ED] dark:text-blue-400" : "text-slate-400 dark:text-slate-500"}`}>
-                        {activeAgentIndex === 1 ? "● GENERATING" : "✓ IDLE"}
+                      <span className={`text-[10px] font-mono font-bold flex items-center gap-1 ${activeAgentIndex === 1 ? "text-blue-500" : "text-slate-400 dark:text-slate-500"}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${activeAgentIndex === 1 ? "bg-blue-500 animate-pulse" : "bg-slate-400 dark:bg-slate-600"}`} />
+                        {activeAgentIndex === 1 ? "DRAFTING" : "STANDBY"}
                       </span>
                       <button
                         onClick={() => setActiveLogModal("writer")}
-                        className="text-[11px] text-[#1D63ED] dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-350 font-bold tracking-tight cursor-pointer flex items-center gap-0.5"
+                        className="text-[11px] text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-bold tracking-tight cursor-pointer flex items-center gap-0.5 transition-colors"
                       >
                         View Full Logs →
                       </button>
@@ -908,24 +1374,33 @@ export default function App() {
                   </div>
 
                   {/* Card 3: Evaluator Critic Agent */}
-                  <div className={`p-5 rounded-2xl border transition-all flex flex-col justify-between bg-white dark:bg-slate-900 min-h-[300px] ${
+                  <div className={`p-5 rounded-2xl border transition-all duration-300 flex flex-col justify-between bg-white dark:bg-slate-900 min-h-[300px] glow-card ${
                     activeAgentIndex === 2
-                      ? "border-[#1D63ED] dark:border-blue-500 shadow-md shadow-blue-500/5 ring-1 ring-[#1D63ED]/10 dark:ring-blue-500/10"
+                      ? "border-emerald-500/70 dark:border-emerald-500/50 shadow-[0_0_25px_rgba(16,185,129,0.15)] ring-1 ring-emerald-500/10 dark:ring-emerald-500/20"
                       : "border-slate-200 dark:border-slate-800"
                   }`}>
                     <div>
                       {/* Clean badge & icon */}
                       <div className="flex justify-between items-center mb-4">
-                        <span className="bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 text-[10px] font-bold px-2.5 py-0.5 rounded uppercase font-mono tracking-wider">
+                        <span className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold px-2.5 py-0.5 rounded uppercase font-mono tracking-wider">
                           Officer Gamma
                         </span>
-                        <CheckCircle2 className="h-4.5 w-4.5 text-[#1D63ED] dark:text-blue-400" />
+                        <CheckCircle2 className="h-4.5 w-4.5 text-emerald-500" />
                       </div>
 
                       {/* Agent avatar profile */}
                       <div className="flex items-center gap-3 mb-4">
-                        <div className="h-11 w-11 rounded-full overflow-hidden bg-slate-150 dark:bg-slate-800 border border-slate-250 dark:border-slate-700 shrink-0 bg-gradient-to-tr from-amber-500/10 to-blue-500/10 flex items-center justify-center">
-                          <Bot className="h-6 w-6 text-[#1D63ED] dark:text-blue-400" />
+                        <div className={`h-11 w-11 rounded-full overflow-hidden bg-slate-150 dark:bg-slate-800 border shrink-0 transition-all duration-300 ${
+                          activeAgentIndex === 2
+                            ? "border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.4)] scale-105"
+                            : "border-slate-250 dark:border-slate-700"
+                        }`}>
+                          <img
+                            src="/src/assets/images/newsletter_hero_banner_1781615861452.jpg"
+                            alt="Critic AI"
+                            className="w-full h-full object-cover shrink-0 select-none cursor-default"
+                            referrerPolicy="no-referrer"
+                          />
                         </div>
                         <div>
                           <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100">Reviewer-Gamma</h4>
@@ -933,19 +1408,19 @@ export default function App() {
                         </div>
                       </div>
 
-                      <p className="text-[11px] text-slate-505 dark:text-slate-400 leading-relaxed mb-4">
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mb-4">
                         Performs rule validation audits, checking margins, structuring markdown, and stamping verified releases.
                       </p>
 
                       {/* Filtered realtime logs */}
-                      <div className="space-y-2 border-t border-slate-100 dark:border-slate-800 pt-3.5">
-                        <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider font-mono">Live Logs Feed</p>
-                        <div className="max-h-[140px] overflow-y-auto space-y-1.5">
+                      <div className="space-y-2 border-t border-slate-100 dark:border-slate-800/80 pt-3.5">
+                        <p className="text-[9.5px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider font-mono">Live Logs Feed</p>
+                        <div className="max-h-[140px] overflow-y-auto space-y-1.5 scrollbar-thin">
                           {agentEditorLogs.length === 0 ? (
-                            <p className="text-[10.5px] text-slate-400 dark:text-slate-500 italic">Standby. Ready to stamp compiled text...</p>
+                            <p className="text-[10.5px] text-slate-400 dark:text-slate-500 italic">Standby. Ready to check compliance...</p>
                           ) : (
                             agentEditorLogs.slice(-3).map((log, index) => (
-                              <div key={index} className="text-[10.5px] text-slate-600 dark:text-slate-350 leading-normal pl-2 border-l-2 border-amber-500/40 font-mono">
+                              <div key={index} className="text-[10px] text-slate-600 dark:text-slate-350 leading-normal pl-2.5 border-l-2 border-emerald-500/40 font-mono">
                                 {log.message}
                               </div>
                             ))
@@ -955,12 +1430,13 @@ export default function App() {
                     </div>
 
                     <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                      <span className={`text-[10px] font-mono font-bold ${activeAgentIndex === 2 ? "text-amber-500 dark:text-amber-400" : "text-slate-400 dark:text-slate-500"}`}>
-                        {activeAgentIndex === 2 ? "● EVALUATING" : "✓ IDLE"}
+                      <span className={`text-[10px] font-mono font-bold flex items-center gap-1 ${activeAgentIndex === 2 ? "text-emerald-500" : "text-slate-400 dark:text-slate-500"}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${activeAgentIndex === 2 ? "bg-emerald-500 animate-pulse" : "bg-slate-400 dark:bg-slate-600"}`} />
+                        {activeAgentIndex === 2 ? "AUDITING" : "STANDBY"}
                       </span>
                       <button
                         onClick={() => setActiveLogModal("editor")}
-                        className="text-[11px] text-[#1D63ED] dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-350 font-bold tracking-tight cursor-pointer flex items-center gap-0.5"
+                        className="text-[11px] text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-350 font-bold tracking-tight cursor-pointer flex items-center gap-0.5 transition-colors"
                       >
                         View Full Logs →
                       </button>
@@ -1042,7 +1518,7 @@ export default function App() {
                               THE DISPATCH CHRONICLE
                             </h2>
                             <div className="flex items-center justify-between text-[8px] font-mono text-slate-400 dark:text-slate-505 border-t border-dashed border-slate-200 dark:border-slate-850 pt-2 px-1 mt-3">
-                              <span>PUB SNAP: #{selectedHistoryId ? selectedHistoryId.slice(-6) : "PENDING"}</span>
+                              <span>PUB SNAP: #{selectedHistoryId ? String(selectedHistoryId).slice(-6) : "PENDING"}</span>
                               <span className="font-bold text-[#1D63ED] dark:text-blue-400 uppercase">COHORT: {niche}</span>
                               <span>STAMPED: 2026-EN</span>
                             </div>
@@ -1166,7 +1642,443 @@ export default function App() {
             </main>
 
           </div>
+          ) : activeSubTab === "cooperation" ? (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 md:p-8 space-y-6 shadow-xs transition-colors duration-200">
+              <div className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-slate-800 flex-wrap gap-2">
+                <div>
+                  <h2 className="text-md font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-purple-500" />
+                    Agent-to-Agent Interactive Chat & Cooperation
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    Live feed of communications exchanged during the last execution cycle.
+                  </p>
+                </div>
+                <button
+                  onClick={fetchDashboardTelemetry}
+                  className="bg-white dark:bg-slate-950 hover:bg-slate-50 dark:hover:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-705 dark:text-slate-300 font-bold text-xs px-3 py-1.5 rounded-xl transition-all cursor-pointer"
+                >
+                  Sync Feed
+                </button>
+              </div>
+
+              {interactions.length === 0 ? (
+                <div className="text-center py-12 text-slate-400 space-y-2">
+                  <Bot className="h-10 w-10 mx-auto text-slate-300 dark:text-slate-700 animate-pulse" />
+                  <p className="text-xs text-slate-500">No active agent communications recorded. Wake up the newsroom to start a new cycle.</p>
+                </div>
+              ) : (
+                <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
+                  {interactions.map((msg: any, idx: number) => {
+                    const sender = msg.sender || "Agent";
+                    const receiver = msg.receiver || "Agent";
+                    const timeStr = msg.timestamp || "";
+                    const text = msg.message || "";
+
+                    let borderColor = "border-blue-500";
+                    let senderColor = "text-blue-500 dark:text-blue-400";
+                    let bgColor = "bg-blue-50/10 dark:bg-blue-950/10";
+                    
+                    if (sender.includes("Scout") || sender.includes("Agent A")) {
+                      borderColor = "border-purple-500";
+                      senderColor = "text-purple-600 dark:text-purple-400";
+                      bgColor = "bg-purple-50/10 dark:bg-purple-950/10";
+                    } else if (sender.includes("Writer") || sender.includes("Agent B")) {
+                      borderColor = "border-amber-500";
+                      senderColor = "text-amber-600 dark:text-amber-400";
+                      bgColor = "bg-amber-50/10 dark:bg-amber-950/10";
+                    } else if (sender.includes("Guardrail")) {
+                      borderColor = "border-red-500";
+                      senderColor = "text-red-600 dark:text-red-400";
+                      bgColor = "bg-red-50/10 dark:bg-red-950/10";
+                    } else if (sender.includes("Evaluator") || sender.includes("Agent C")) {
+                      borderColor = "border-emerald-500";
+                      senderColor = "text-emerald-600 dark:text-emerald-400";
+                      bgColor = "bg-emerald-50/10 dark:bg-emerald-950/10";
+                    } else if (sender.includes("Memory")) {
+                      borderColor = "border-cyan-500";
+                      senderColor = "text-cyan-600 dark:text-cyan-400";
+                      bgColor = "bg-cyan-50/10 dark:bg-cyan-950/10";
+                    }
+
+                    return (
+                      <div
+                        key={idx}
+                        className={`p-4 rounded-2xl border-l-4 border-y border-r border-slate-200 dark:border-slate-800 ${bgColor} ${borderColor} transition-all`}
+                      >
+                        <div className="flex justify-between items-center mb-1 flex-wrap gap-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`font-extrabold text-xs tracking-tight ${senderColor}`}>{sender}</span>
+                            <span className="text-slate-400 dark:text-slate-500 text-[10px]">➔ to {receiver}</span>
+                          </div>
+                          <span className="text-slate-400 dark:text-slate-500 text-[10px] font-mono">{timeStr}</span>
+                        </div>
+                        <p className="text-xs text-slate-700 dark:text-slate-350 leading-relaxed font-sans whitespace-pre-wrap">{text}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ) : activeSubTab === "logs" ? (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 md:p-8 space-y-6 shadow-xs transition-colors duration-200">
+              <div className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-slate-800 flex-wrap gap-2">
+                <div>
+                  <h2 className="text-md font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
+                    <History className="h-5 w-5 text-blue-500" />
+                    Live Agent Execution History (Server Logs)
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    Telemetry records of past multi-agent execution runs stored on the server.
+                  </p>
+                </div>
+                <button
+                  onClick={fetchDashboardTelemetry}
+                  className="bg-white dark:bg-slate-950 hover:bg-slate-50 dark:hover:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-705 dark:text-slate-300 font-bold text-xs px-3 py-1.5 rounded-xl transition-all cursor-pointer"
+                >
+                  Reload Logs
+                </button>
+              </div>
+
+              {serverHistory.length === 0 ? (
+                <div className="text-center py-12 text-slate-400">
+                  <p className="text-xs text-slate-500">No runs recorded on the server yet. Trigger a manual run to generate logs.</p>
+                </div>
+              ) : (
+                <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
+                  {[...serverHistory].reverse().map((run: any, idx: number) => {
+                    const runTime = run.timestamp ? new Date(run.timestamp).toLocaleString() : "Unknown Time";
+                    const isSuccess = run.status === "success";
+                    const score = run.agent_c?.score || 0;
+                    const nicheLabel = run.niche || "General Niche";
+
+                    return (
+                      <details
+                        key={idx}
+                        className="group border border-slate-200 dark:border-slate-800 rounded-2xl bg-[#F8FAFC]/55 dark:bg-slate-900/40 overflow-hidden transition-all text-slate-800 dark:text-slate-100"
+                        open={idx === 0}
+                      >
+                        <summary className="flex justify-between items-center p-4 cursor-pointer font-bold text-xs hover:bg-slate-100 dark:hover:bg-slate-800/40 select-none">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`h-2 w-2 rounded-full ${isSuccess ? "bg-emerald-500" : "bg-red-500"}`} />
+                            <span className="text-slate-800 dark:text-slate-200 font-mono text-[10px]">{runTime}</span>
+                            <span className="bg-blue-50 dark:bg-blue-900/20 text-[#1D63ED] dark:text-blue-400 px-2 py-0.5 rounded text-[9.5px] uppercase font-mono font-bold">{nicheLabel}</span>
+                          </div>
+                          <span className="text-slate-900 dark:text-slate-150 font-bold text-xs">Quality: {score}/100</span>
+                        </summary>
+                        
+                        <div className="p-5 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 space-y-4 text-xs">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                              <h4 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 border-b border-slate-100 dark:border-slate-800/60 pb-1.5">
+                                <Search className="h-3.5 w-3.5 text-purple-500" />
+                                Agent A — Trend Scout
+                              </h4>
+                              <p className="text-[10px] text-slate-400">Source: <code className="font-mono bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded text-[9.5px] text-slate-600 dark:text-slate-350">{run.agent_a?.source || "N/A"}</code></p>
+                              <div className="space-y-1 pl-1">
+                                {run.agent_a?.headlines_pulled?.length > 0 ? (
+                                  run.agent_a.headlines_pulled.map((h: string, hIdx: number) => (
+                                    <div key={hIdx} className="text-[10.5px] text-slate-655 dark:text-slate-400 pl-2.5 border-l border-slate-200 dark:border-slate-800 leading-relaxed">• {h}</div>
+                                  ))
+                                ) : (
+                                  <p className="italic text-[10px] text-slate-400">No headlines recorded.</p>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              <h4 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 border-b border-slate-100 dark:border-slate-800/60 pb-1.5">
+                                <FileCode className="h-3.5 w-3.5 text-amber-500" />
+                                Agent B — Writer Telemetry
+                              </h4>
+                              <div className="grid grid-cols-2 gap-2 text-[10.5px]">
+                                <div className="bg-slate-50 dark:bg-slate-900 p-2 rounded-lg"><span className="text-slate-450">Attempts:</span> <strong className="float-right text-slate-800 dark:text-slate-200">{run.agent_b?.attempts || 1}</strong></div>
+                                <div className="bg-slate-50 dark:bg-slate-900 p-2 rounded-lg"><span className="text-slate-450">Total Tokens:</span> <strong className="float-right text-slate-800 dark:text-slate-200">{run.agent_b?.total_tokens?.toLocaleString() || 0}</strong></div>
+                                <div className="bg-slate-50 dark:bg-slate-900 p-2 rounded-lg"><span className="text-slate-455">Prompt Tokens:</span> <strong className="float-right text-slate-800 dark:text-slate-200">{run.agent_b?.prompt_tokens?.toLocaleString() || 0}</strong></div>
+                                <div className="bg-slate-50 dark:bg-slate-900 p-2 rounded-lg"><span className="text-slate-455">Output Tokens:</span> <strong className="float-right text-slate-800 dark:text-slate-200">{run.agent_b?.output_tokens?.toLocaleString() || 0}</strong></div>
+                              </div>
+                              {run.agent_b?.violations?.length > 0 && (
+                                <div className="space-y-1.5 mt-2 bg-amber-500/5 border border-amber-500/20 p-2.5 rounded-xl">
+                                  <div className="font-bold text-amber-600 dark:text-amber-500 text-[10px] uppercase font-mono tracking-wide">Fixed Guardrail Violations:</div>
+                                  {run.agent_b.violations.map((v: string, vIdx: number) => (
+                                    <div key={vIdx} className="text-[10px] text-amber-700 dark:text-amber-400 leading-relaxed">• {v}</div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-1.5 bg-[#F8FAFC]/30 dark:bg-slate-900/20 p-3 rounded-xl border border-slate-200/50 dark:border-slate-800/40">
+                            <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                              Agent C Verdict: <span className={run.agent_c?.passed ? "text-emerald-500" : "text-red-500"}>{run.agent_c?.passed ? "APPROVED" : "REVIEW NEEDED"}</span>
+                            </div>
+                            {run.agent_c?.notes && <p className="text-slate-500 dark:text-slate-400 italic text-[11px] leading-relaxed">"{run.agent_c.notes}"</p>}
+                          </div>
+                          
+                          {run.error && (
+                            <div className="bg-red-500/5 border border-red-500/20 p-3 rounded-xl text-red-600 dark:text-red-400 font-mono text-[10px] whitespace-pre-wrap">
+                              Error: {run.error}
+                            </div>
+                          )}
+                        </div>
+                      </details>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ) : activeSubTab === "archive" ? (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 md:p-8 space-y-6 shadow-xs transition-colors duration-200">
+              <div className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-slate-800 flex-wrap gap-2">
+                <div>
+                  <h2 className="text-md font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
+                    <Archive className="h-5 w-5 text-blue-500" />
+                    Server Newsletter Drafts Archive
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-450 mt-1">
+                    Browse completed issues saved automatically to the server's <code className="font-mono bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded text-[10px]">newsletters/</code> directory.
+                  </p>
+                </div>
+                <button
+                  onClick={fetchDashboardTelemetry}
+                  className="bg-white dark:bg-slate-950 hover:bg-slate-50 dark:hover:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-705 dark:text-slate-300 font-bold text-xs px-3 py-1.5 rounded-xl transition-all cursor-pointer"
+                >
+                  Scan Directory
+                </button>
+              </div>
+
+              {serverDrafts.length === 0 ? (
+                <div className="text-center py-12 text-slate-400">
+                  <p className="text-xs text-slate-500">No archived drafts found in the newsletters/ directory yet.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[500px]">
+                  <div className="lg:col-span-4 space-y-2 border-r border-slate-100 dark:border-slate-800 pr-4 max-h-[500px] overflow-y-auto">
+                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider font-mono mb-2">Available Drafts ({serverDrafts.length})</p>
+                    {serverDrafts.map((dName) => {
+                      const isActive = selectedDraftName === dName;
+                      return (
+                        <div
+                          key={dName}
+                          onClick={() => setSelectedDraftName(dName)}
+                          className={`p-3 rounded-xl border text-[11px] font-mono cursor-pointer transition-all truncate ${
+                            isActive
+                              ? "bg-blue-50/60 border-blue-500/60 text-[#1D63ED] dark:bg-blue-950/20 dark:border-blue-500/50 dark:text-blue-400 shadow-xs font-bold"
+                              : "bg-[#F8FAFC] border-slate-200/80 hover:bg-slate-50 text-slate-600 dark:bg-slate-800/30 dark:border-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                          }`}
+                          title={dName}
+                        >
+                          📄 {dName}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="lg:col-span-8 space-y-4 max-h-[500px] overflow-y-auto pl-2">
+                    {selectedDraftContent ? (
+                      <div className="space-y-4 text-slate-800 dark:text-slate-200">
+                        {(() => {
+                          const parts = selectedDraftContent.split("---\n\n");
+                          if (parts.length >= 2 && selectedDraftContent.startsWith("---")) {
+                            const metaBlock = parts[0];
+                            const bodyText = parts.slice(1).join("---\n\n");
+                            return (
+                              <>
+                                <details className="border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-900/65 overflow-hidden">
+                                  <summary className="p-3 font-bold text-[10px] font-mono uppercase tracking-wider cursor-pointer select-none">
+                                    📋 Engine Metadata (YAML)
+                                  </summary>
+                                  <pre className="p-4 text-[10px] text-slate-600 dark:text-slate-350 font-mono bg-slate-100 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-850 overflow-x-auto whitespace-pre-wrap">
+                                    {metaBlock.replace(/---/g, "").trim()}
+                                  </pre>
+                                </details>
+                                <div className="prose dark:prose-invert max-w-none text-xs leading-relaxed text-slate-700 dark:text-slate-300 whitespace-pre-wrap font-sans bg-slate-50 dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-850 shadow-inner">
+                                  {bodyText}
+                                </div>
+                              </>
+                            );
+                          }
+                          return (
+                            <div className="prose dark:prose-invert max-w-none text-xs leading-relaxed text-slate-700 dark:text-slate-300 whitespace-pre-wrap font-sans bg-slate-50 dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-850 shadow-inner">
+                              {selectedDraftContent}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    ) : (
+                      <div className="text-center py-12 text-slate-400">
+                        <p className="text-xs">Loading content...</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 md:p-8 space-y-6 shadow-xs transition-colors duration-200">
+              <div>
+                <h2 className="text-md font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
+                  <Sliders className="h-5 w-5 text-blue-500" />
+                  Analytics & Token Cost Insights
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-450 mt-1">
+                  Visualization of token consumption, rewrite cycles, and quality score telemetry trends.
+                </p>
+              </div>
+
+              {serverHistory.length === 0 ? (
+                <div className="text-center py-12 text-slate-400">
+                  <p className="text-xs text-slate-550">Run the pipeline at least once to see analytics data.</p>
+                </div>
+              ) : (
+                <div className="space-y-8 animate-fadeIn">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="border border-slate-100 dark:border-slate-800 p-5 rounded-2xl bg-[#F8FAFC]/55 dark:bg-slate-900/35 space-y-3">
+                      <h4 className="font-bold text-xs text-slate-850 dark:text-slate-200">📊 Token Consumption per Run</h4>
+                      {(() => {
+                        const runs = serverHistory.slice(-10);
+                        const maxTokens = Math.max(...runs.map((r) => r.agent_b?.total_tokens || 100), 1000);
+                        return (
+                          <div className="h-48 flex items-end justify-between gap-1 pt-4 border-b border-l border-slate-250 dark:border-slate-850 px-2">
+                            {runs.map((r: any, idx: number) => {
+                              const prompt = r.agent_b?.prompt_tokens || 0;
+                              const output = r.agent_b?.output_tokens || 0;
+                              const total = prompt + output;
+                              const promptPct = (prompt / maxTokens) * 100;
+                              const outputPct = (output / maxTokens) * 100;
+                              return (
+                                <div key={idx} className="flex-1 flex flex-col items-center group relative h-full justify-end">
+                                  <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 bg-slate-900 text-white text-[9.5px] p-2 rounded-lg shadow-md font-mono pointer-events-none transition-all z-20 w-28 text-center">
+                                    Prompt: {prompt.toLocaleString()}<br/>
+                                    Output: {output.toLocaleString()}<br/>
+                                    Total: {total.toLocaleString()}
+                                  </div>
+                                  <div style={{ height: `${outputPct}%` }} className="w-4 bg-blue-500 rounded-t-xs transition-all duration-500" />
+                                  <div style={{ height: `${promptPct}%` }} className="w-4 bg-sky-300 dark:bg-sky-500/60 rounded-b-xs transition-all duration-500" />
+                                  <span className="text-[8px] text-slate-400 dark:text-slate-500 mt-2 font-mono truncate max-w-[32px]">#{idx + 1}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                      <div className="flex justify-center gap-4 text-[10px] text-slate-550 dark:text-slate-400 mt-1">
+                        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-sky-300 dark:bg-sky-500/60" /> Prompt Tokens</span>
+                        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-blue-500" /> Output Tokens</span>
+                      </div>
+                    </div>
+
+                    <div className="border border-slate-100 dark:border-slate-800 p-5 rounded-2xl bg-[#F8FAFC]/55 dark:bg-slate-900/35 space-y-3">
+                      <h4 className="font-bold text-xs text-slate-850 dark:text-slate-200">🏆 Agent C Quality Score Trend</h4>
+                      {(() => {
+                        const runs = serverHistory.slice(-10);
+                        const points = runs.map((r: any, idx: number) => {
+                          const score = r.agent_c?.score || 0;
+                          const x = (idx / (runs.length - 1 || 1)) * 100;
+                          const y = 100 - score;
+                          return `${x},${y}`;
+                        }).join(" ");
+                        
+                        return (
+                          <div className="relative h-48 border-b border-l border-slate-250 dark:border-slate-850 px-2 pt-4">
+                            <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                              <line x1="0" y1="20" x2="100" y2="20" stroke="currentColor" className="text-slate-100 dark:text-slate-850" strokeWidth="0.5" />
+                              <line x1="0" y1="50" x2="100" y2="50" stroke="currentColor" className="text-slate-100 dark:text-slate-850" strokeWidth="0.5" />
+                              <line x1="0" y1="80" x2="100" y2="80" stroke="currentColor" className="text-slate-100 dark:text-slate-850" strokeWidth="0.5" />
+                              
+                              {runs.length > 1 && (
+                                <polyline
+                                  fill="none"
+                                  stroke="#3b82f6"
+                                  strokeWidth="2.5"
+                                  points={points}
+                                  className="transition-all duration-1000"
+                                />
+                              )}
+                              
+                              {runs.map((r: any, idx: number) => {
+                                const score = r.agent_c?.score || 0;
+                                const x = (idx / (runs.length - 1 || 1)) * 100;
+                                const y = 100 - score;
+                                return (
+                                  <circle
+                                    key={idx}
+                                    cx={x}
+                                    cy={y}
+                                    r="2.5"
+                                    fill="#1D63ED"
+                                    className="cursor-pointer hover:r-4 transition-all duration-200"
+                                    title={`Run #${idx+1}: ${score}/100`}
+                                  />
+                                );
+                              })}
+                            </svg>
+                            <span className="absolute top-1 left-1 text-[8px] text-slate-400 font-mono">100</span>
+                            <span className="absolute top-1/2 left-1 -translate-y-1/2 text-[8px] text-slate-400 font-mono">50</span>
+                            <span className="absolute bottom-1 left-1 text-[8px] text-slate-400 font-mono">0</span>
+                          </div>
+                        );
+                      })()}
+                      <p className="text-[10px] text-slate-400 text-center italic mt-1">Shows quality score out of 100 over the last 10 execution runs.</p>
+                    </div>
+                  </div>
+
+                  <div className="border border-slate-100 dark:border-slate-800 p-5 rounded-2xl bg-[#F8FAFC]/55 dark:bg-slate-900/35 space-y-3">
+                    <h4 className="font-bold text-xs text-slate-850 dark:text-slate-200">📈 System Aggregated Stats</h4>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs text-slate-505 dark:text-slate-400 border-collapse">
+                        <thead>
+                          <tr className="border-b border-slate-200 dark:border-slate-800 text-[10px] uppercase font-mono text-slate-400">
+                            <th className="py-2.5 px-3">Metric Variable</th>
+                            <th className="py-2.5 px-3 text-right">Average Value</th>
+                            <th className="py-2.5 px-3 text-right">Maximum Recorded</th>
+                            <th className="py-2.5 px-3 text-right">Minimum Recorded</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-150 dark:divide-slate-800">
+                          {(() => {
+                            const scores = serverHistory.map((r) => r.agent_c?.score || 0);
+                            const tokens = serverHistory.map((r) => r.agent_b?.total_tokens || 0);
+                            const attempts = serverHistory.map((r) => r.agent_b?.attempts || 1);
+
+                            const avg = (arr: number[]) => arr.length > 0 ? Math.round(arr.reduce((a,b)=>a+b, 0) / arr.length) : 0;
+                            const max = (arr: number[]) => arr.length > 0 ? Math.max(...arr) : 0;
+                            const min = (arr: number[]) => arr.length > 0 ? Math.min(...arr) : 0;
+
+                            return (
+                              <>
+                                <tr>
+                                  <td className="py-2.5 px-3 font-semibold text-slate-700 dark:text-slate-300">Agent C Quality Score</td>
+                                  <td className="py-2.5 px-3 text-right text-slate-800 dark:text-slate-200 font-mono">{avg(scores)}/100</td>
+                                  <td className="py-2.5 px-3 text-right text-slate-800 dark:text-slate-200 font-mono">{max(scores)}/100</td>
+                                  <td className="py-2.5 px-3 text-right text-slate-800 dark:text-slate-200 font-mono">{min(scores)}/100</td>
+                                </tr>
+                                <tr>
+                                  <td className="py-2.5 px-3 font-semibold text-slate-700 dark:text-slate-300">Token Consumption per Run</td>
+                                  <td className="py-2.5 px-3 text-right text-slate-800 dark:text-slate-200 font-mono">{avg(tokens).toLocaleString()}</td>
+                                  <td className="py-2.5 px-3 text-right text-slate-800 dark:text-slate-200 font-mono">{max(tokens).toLocaleString()}</td>
+                                  <td className="py-2.5 px-3 text-right text-slate-800 dark:text-slate-200 font-mono">{min(tokens).toLocaleString()}</td>
+                                </tr>
+                                <tr>
+                                  <td className="py-2.5 px-3 font-semibold text-slate-700 dark:text-slate-300">Agent B Rewrite Attempts</td>
+                                  <td className="py-2.5 px-3 text-right text-slate-800 dark:text-slate-200 font-mono">{avg(attempts).toFixed(1)}</td>
+                                  <td className="py-2.5 px-3 text-right text-slate-800 dark:text-slate-200 font-mono">{max(attempts)}</td>
+                                  <td className="py-2.5 px-3 text-right text-slate-800 dark:text-slate-200 font-mono">{min(attempts)}</td>
+                                </tr>
+                              </>
+                            );
+                          })()}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )
         ) : (
+
           /* Python Exporters code segment tab screen */
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6 shadow-xs relative transition-colors duration-200">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-5">
