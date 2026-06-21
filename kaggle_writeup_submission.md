@@ -89,123 +89,193 @@ The **Autonomous Vibe Newsletter Engine (v6.0)** solves these challenges through
 
 ---
 
-## Detailed Component Walkthrough
-
-### 1. Agent A — Trend Scout
-Equipped with **8 live RSS tool declarations** registered with Gemini Function Calling. Autonomously chooses which RSS feed matches the user's niche (Hacker News, TechCrunch, Google, OpenAI, Zoho, Meta, Netflix, AWS), retrieves structured headlines, filters the top stories, and checks against past issue memory.
-
-### 2. RAG Fetcher (Critique-Driven Loop)
-Crawls raw HTML from the top selected article URLs, strips HTML boilerplate, and chunks text. Uses a dynamic configuration:
-- **Normal Mode:** Fetches 3 articles, 800-token chunks, minimal overlap.
-- **Feedback Mode (Score < 80):** Triggered by the Evaluator/Fact Checker. Expands search to 5 articles, extracts deeper paragraphs, uses dense overlaps, and fetches more context to solve data deficiencies.
-
-### 3. Agent B — The Writer (Vector Memory)
-Checks proposed topics using the `check_past_issues` tool. The tool uses a local vectorized memory:
-```python
-# Cosine similarity check in Python memory-skill
-dot_prod = sum(a * b for a, b in zip(embedding1, embedding2))
-similarity = dot_prod / (norm1 * norm2)
-if similarity > 0.82:  # Reject conceptually similar topics
-    covered_titles.append(title)
-```
-Agent B writes a structured Markdown newsletter, using *only* retrieved evidence chunks to prevent hallucinated details.
-
-### 4. Agent C — The Evaluator
-A two-stage review layer:
-1. **Programmatic Security Guardrail:** Scans for prompt injection attacks and validates markdown formatting (unclosed code blocks).
-2. **LLM-as-Judge:** Scores the newsletter from 0 to 100 based on a 7-point checklist (expert tone, structured sections, benchmarks, no fillers).
-
-### 5. Agent D — Fact Checker
-Extracts claims made in Agent B's draft and audits them against the raw RAG vector database. Compares keywords and vector embeddings to compute a **Source Coverage Percentage**. If score < 80%, triggers the critique-driven loopback.
-
----
-
-## Key Concepts Demonstrated
+## Technical Specifications: The Two Core Innovations
 
 ### 1. Vectorized Memory Database (`text-embedding-004`)
-Replaced basic string filtering with semantic cosine similarity comparisons. Embeddings are generated using Gemini's embedding API and cached locally in `past_issues.json` to prevent duplicate API calls. Autonomously rejects topics too conceptually close to previously published issues.
 
-### 2. Critique-Driven Feedback Loops
-Implements a self-correcting feedback mechanism. When a draft gets a score below 80, a structured rewrite command with specific critiques is passed back to the RAG Fetcher, expanding the search horizon and pulling deeper context from the web to correct the deficiency.
+Naive automation checks for exact title matches (e.g., `"Intro to LangChain"`), which fails if the topic is written as `"Getting Started with LangChain"` next week. 
 
-### 3. Security Guardrails
-Programmatic sanitization blocks prompt injections (e.g., "ignore previous instructions") and structural errors (unbalanced code blocks) before calling LLM evaluation, saving API costs and preventing exploits.
+Our vectorized memory system resolves this by computing embeddings for all candidate topics and past issues using the Google Generative AI `text-embedding-004` model. We compare the candidate embeddings against the archived embeddings using cosine similarity. If the similarity is above `0.85` (configurable), the topic is flagged as already covered and skipped.
 
-### 4. OpenTelemetry-Style Telemetry
-Pipeline runs record a 6-span telemetry trace (pipeline run, trend scout, RAG fetcher, writer, evaluator, fact checker) complete with duration metrics, token counts, cost estimations, and unique span IDs.
+#### Cosine Similarity Math
+The cosine similarity of two vectors $A$ and $B$ is calculated as:
+$$\text{Similarity} = \frac{A \cdot B}{\|A\| \|B\|}$$
+
+#### Implementation Code Snippet (Python memory skill in `agent_pipeline.py`)
+```python
+def cosine_similarity(v1: list[float], v2: list[float]) -> float:
+    dot_product = sum(a * b for a, b in zip(v1, v2))
+    norm_v1 = sum(a * a for a in v1) ** 0.5
+    norm_v2 = sum(b * b for b in v2) ** 0.5
+    if norm_v1 == 0 or norm_v2 == 0:
+        return 0.0
+    return dot_product / (norm_v1 * norm_v2)
+
+def check_past_issues(titles: list[str]) -> dict[str, list[str]]:
+    # Lazy-embed and cache past issues locally
+    past_issues = json.load("past_issues.json")
+    for issue in past_issues:
+        if not issue.get("vector") and api_key:
+            issue["vector"] = embed_text_gemini(issue["title"], api_key)
+            updated_cache = True
+            
+    covered_titles = []
+    SIMILARITY_THRESHOLD = 0.85
+    for title in titles:
+        candidate_vec = embed_text_gemini(title, api_key)
+        if candidate_vec:
+            for past in past_issues:
+                if past.get("vector"):
+                    sim = cosine_similarity(candidate_vec, past["vector"])
+                    if sim >= SIMILARITY_THRESHOLD:
+                        print(f"🚫 Semantic duplicate: '{title}' is {sim*100:.1f}% similar to '{past['title']}'")
+                        covered_titles.append(title)
+                        break
+    return {"covered_titles": covered_titles}
+```
+*Note: To conserve resources, we use a lazy-cache embedding strategy. We save computed vectors back to `past_issues.json` so we never calculate an embedding for a past issue more than once.*
 
 ---
 
-## React Frontend Control Panel (Port 3000)
+### 2. Critique-Driven RAG Feedback Loop
 
-Features a modern, high-fidelity UI built with React 19 + TypeScript + Tailwind CSS:
-- **Active Workstation:** Live generation trigger, preset niche controls, snapshotted newsletters.
-- **Live Agent Cooperation:** Premium Group Chat UI showing per-agent interactions in real-time with customized avatars, status indicators, and WhatsApp-style message grouping.
-- **Fleet Logs:** Expandable accordions detailing OTel telemetry traces, token counts, and step results.
-- **Server Archive:** Instantly browse and read all archived technical newsletters.
-- **Metrics & Analytics:** Real-time dashboard charting token trends, quality scores, and success rates.
+If a newsletter draft contains factual claims that are not backed by evidence or fails structural checks, the orchestrator triggers a loopback. It sends a structured feedback command to the RAG Fetcher to expand its search horizon, crawl deeper paragraphs, increase chunk sizes, and feed the new context chunks back to the Writer (Agent B) for a targeted rewrite.
+
+#### Implementation Code Snippet (TypeScript Orchestration in `server.ts`)
+```typescript
+let expandHorizon = false;
+let critiqueFeedback = "";
+
+for (let critiqueAttempt = 1; critiqueAttempt <= maxCritiqueAttempts; ) {
+  // 1. RAG Fetcher activates (uses expandHorizon to adjust parameters)
+  const ragStore = await runRagFetcher(selectedHeadlines, expandHorizon);
+
+  // 2. Writer Agent drafts the newsletter using the RAG evidence chunks
+  draftContent = await runAgentB(selectedHeadlines, ragStore, critiqueFeedback);
+
+  // 3. Evaluator Agent checks quality standards (LLM-as-Judge)
+  evaluationResult = await runAgentC(targetNiche, draftContent, selectedModel, expandHorizon);
+
+  // 4. Fact Checker Agent extracts claims and audits against RAG source context
+  factCheckResult = runFactChecker(draftContent, ragStore.allChunks, ragStore.sources);
+
+  const evalScore = evaluationResult.score;
+  const factScore = factCheckResult.score;
+
+  // Critique check: score below 80 triggers RAG expansion
+  if ((evalScore < 80 || factScore < 80) && critiqueAttempt < maxCritiqueAttempts) {
+    addLog("System", `⚠️ [Critique Loop] Draft scored below threshold! Evaluator: ${evalScore}, Fact Checker: ${factScore}.`);
+    addLog("System", `🔄 [Critique Loop] Triggering RAG expansion and rewrite...`);
+    
+    critiqueFeedback = `CRITIQUE-DRIVEN RAG REWRITE COMMAND:
+    - Evaluator Score: ${evalScore}/100. Notes: ${evaluationResult.notes}
+    - Fact-Checker Score: ${factScore}%.
+    Action: RAG Fetcher is expanding the search horizon. Writer, please use the new context chunks to draft a more technically detailed and fact-dense newsletter.`;
+    
+    expandHorizon = true;
+    critiqueAttempt++;
+  } else {
+    break;
+  }
+}
+```
 
 ---
 
-## Quick Start
+## Detailed Agent Roles & Specifications
 
-```bash
-git clone https://github.com/Ksmashhero06/autonomous-vibe-newsletter-engine.git
-cd autonomous-vibe-newsletter-engine
-npm install && pip install -r requirements.txt
-echo "GEMINI_API_KEY=your-key-here" > .env
-npm run dev
-# → http://localhost:3000
-```
+### Agent A — Trend Scout
+- **Prompt Strategy:** Autonomously chooses which RSS tool to trigger based on the user's target niche. Parses live feeds and filters for high-quality developer news.
+- **Tools:** `fetch_hackernews_headlines`, `fetch_techcrunch_headlines`, `fetch_google_blog_headlines`, `fetch_openai_blog_headlines`, `fetch_meta_blog_headlines`, `fetch_netflix_blog_headlines`, `fetch_aws_blog_headlines`, `fetch_zoho_blog_headlines`.
+- **Gemini Model:** `gemini-1.5-flash` or `gemini-2.5-flash`.
 
-No API key? Run in simulation mode:
-```bash
-python agent_pipeline.py --simulate
-```
+### RAG Fetcher
+- **Action:** Crawls article URLs from the selected headlines. Strips boilerplate HTML.
+- **Horizon Expansion:** 
+  - *Standard Mode:* Scrapes 3 articles, chunks them into 800-character windows.
+  - *Expanded Mode:* Scrapes 5 articles, extracts deeper body text, increases chunk overlaps, and increases embedding coverage.
+
+### Agent B — The Writer
+- **Persona:** Elite technical architect and newsletter author. Writes with authority, depth, and precision.
+- **Rules:** Must base all figures, stats, and code implementations on retrieved RAG evidence chunks. Refuses to hallucinate details.
+- **Tools:** `check_past_issues` (Vector memory database verification tool).
+- **Gemini Model:** `gemini-1.5-pro` or `gemini-2.5-pro`.
+
+### Agent C — The Evaluator
+- **Stage 1 (Programmatic Guardrail):** Pre-evaluates the draft for security (prompt injection checks) and syntax structure (unclosed markdown blocks) using python regex checks.
+- **Stage 2 (LLM-as-Judge):** Scores the draft 0-100 against a 7-point checklist (No greetings/filler, Title present, 3+ Deep Dives, Code/Table present, Introduction, Conclusion, Expert Tone).
+- **Gemini Model:** `gemini-1.5-flash` or `gemini-2.5-flash`.
+
+### Agent D — Fact Checker
+- **Action:** Extracts key technical claims and numbers from the draft. Audits them against the RAG raw source vector store.
+- **Verdict:** Calculates source coverage %. Score < 80% triggers critique rewrite.
+
+---
+
+## Premium React Control Panel UI
+
+We designed a high-fidelity control panel using React 19, TypeScript, and Tailwind CSS. It is structured into 5 core workspace sub-tabs:
+
+1. **Active Workstation:** Side-by-side controls (preset niche pickers, model selectors, custom topics, API key inputs) and the "Editorial Production Sheet" with a raw markdown editor.
+2. **Live Agent Cooperation:** Color-coded chat interface that displays per-agent interactions in real-time. Each agent has a distinct emoji avatar, color identity, status badge, and WhatsApp-style message grouping.
+3. **Fleet logs (OTel Traces):** Visualizes the 6-span execution telemetry timeline (pipeline run, trend scout, RAG fetcher, writer, evaluator, fact checker) detailing costs, token usage, and durations.
+4. **Server Archive:** A secure folder explorer to review all archived newsletters.
+5. **Metrics & Analytics:** Plots token trends and quality score graphs for long-term fleet tracking.
+
+---
+
+## Telemetry & Traceability: OpenTelemetry Spans
+
+Each generation run outputs standard trace telemetry to `run_history.json` with the following structure:
+- **`pipeline_run`**: Root span tracking total duration.
+- **`agent_a_trend_scout`**: Tracks feed retrieval and candidate filtering.
+- **`rag_fetcher`**: Tracks URL crawling, text chunking, and embedding creation.
+- **`agent_b_writer`**: Tracks draft writing, tokens consumed, and rewrite attempts.
+- **`agent_c_evaluator`**: Tracks guardrails and quality score.
+- **`agent_d_fact_checker`**: Tracks claims verification and coverage %.
+
+---
+
+## Development Milestones
+
+- **Day 1 (Scaffolding):** Built the React + Express architecture and core telemetry layer.
+- **Day 2 (Function Calling):** Sourced HackerNews feeds using Gemini Function Calling.
+- **Day 3 (Persistent Memory):** Added `past_issues.json` file-based memory tracking.
+- **Day 4 (Guardrails):** Implemented prompt injection defenses and automated rewrite loops.
+- **Day 5 (Dashboard):** Registered 8 live RSS tools and completed the background scheduler.
+- **Day 6 (Fact Checker & RAG):** Embedded scraped article data and fact-checked drafts using Cosine Similarity.
+- **Post-Day 6 (Optimization):** Swapped simple string checks for a **Vectorized Memory Database** and implemented the **Critique-Driven RAG Loop**.
 
 ---
 
 ## Results
 
-- **23+ newsletters archived** automatically across multiple niche categories.
-- **92/100 average quality score** enforced by Agent C (LLM-as-judge).
-- **Self-Correcting Rate:** ~30% of runs trigger the feedback loop, successfully resolving data deficiencies and upgrading the final quality score to 90+.
-- **Zero Cloud Cost:** Utilizes standard local hardware and Google AI Studio free tier.
+- **23+ Newsletters Generated** across Web3, Edge AI, Rust/WASM, and AI niches.
+- **Average Quality Score: 92/100** enforced by LLM evaluation.
+- **Self-Correction Success:** The feedback loops successfully resolve ~30% of first-attempt formatting or information deficiencies, driving the final score above 90.
+- **Zero Cloud Cost:** Runs completely locally using the Google AI Studio free tier.
 
 ---
 
-## 6-Day Development Journey
+## Repository Structure
 
-| Day | Topic | What I Built |
-|---|---|---|
-| Day 1 | Intro & Vibe Coding | React + Express scaffold, dashboard design system |
-| Day 2 | Tools & Function Calling | Agent A + Gemini RSS tool integrations |
-| Day 3 | Context & Memory | `past_issues.json` database and topic deduplication |
-| Day 4 | Security & Evaluation | Programmatic guardrails, Agent C, rewrite loop |
-| Day 5 | Production Fleet | 8 RSS sources, background worker, unified dashboard |
-| Day 6 | RAG & Fact Checking | URL crawling, RAG vector store, Agent D, 6-span trace telemetry |
-| Post-Day 6 | System Optimization | Vectorized memory database & Critique-driven feedback loop |
-
----
-
-## Business Value
-
-- **Total Automation:** Saves 3–5 hours of research and writing per newsletter edition.
-- **Quality Enforced:** Programmatic and LLM checkers maintain high editorial standards.
-- **Dynamic Adaptability:** Feedback loops ensure the writer self-corrects based on critiques.
-- **Topic Freshness:** Vector database guarantees never repeating conceptually similar topics.
-
----
-
-*Built with precision and clean engineering during the Kaggle 5-Day AI Agents Intensive.*
-*GitHub: https://github.com/Ksmashhero06/autonomous-vibe-newsletter-engine*
+```
+├── server.ts              # Express backend & pipeline orchestrator
+├── src/App.tsx            # React SPA — 5-tab dashboard
+├── agent_pipeline.py      # Python CLI pipeline (all 5 agents)
+├── background_worker.py   # Python scheduler (runs autonomous cycles)
+├── newsletters/           # Auto-archived .md newsletters
+├── run_history.json       # OTel telemetry log (last 50 runs)
+├── agent_interactions.json# Agent-to-agent chat messages log
+└── past_issues.json       # Vector Memory DB — published topics & embeddings
+```
 
 ---
 
 ## PROJECT LINKS
 
-- GitHub: https://github.com/Ksmashhero06/autonomous-vibe-newsletter-engine
-- LinkedIn: https://www.linkedin.com/in/sathiyamoorthi-k-336a79307/
+- **GitHub:** https://github.com/Ksmashhero06/autonomous-vibe-newsletter-engine
+- **LinkedIn:** https://www.linkedin.com/in/sathiyamoorthi-k-336a79307/
 
 ---
 
