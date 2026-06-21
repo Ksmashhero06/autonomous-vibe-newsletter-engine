@@ -258,7 +258,7 @@ Each generation run outputs standard trace telemetry to `run_history.json` with 
 
 ## Results
 
-- **45+ Newsletters Generated** across Web3, Edge AI, Rust/WASM, and AI niches.
+- **16+ Unique Newsletters Generated** across Web3, Edge AI, Rust/WASM, and AI niches.
 - **Average Quality Score: 92/100** enforced by LLM evaluation.
 - **Self-Correction Success:** The feedback loops successfully resolve ~30% of first-attempt formatting or information deficiencies, driving the final score above 90.
 - **Zero Cloud Cost:** Runs completely locally using the Google AI Studio free tier.
