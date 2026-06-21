@@ -1,23 +1,46 @@
 ---
 name: newsletter-generator
-description: Executes the autonomous tech newsletter generation pipeline, compiling trending HackerNews RSS stories for a given technical niche, drafting newsletter copy, and checking quality compliance.
+description: Executes the autonomous v6.0 tech newsletter generation pipeline. Covers 5 agents (Trend Scout, RAG Fetcher, Writer, Evaluator, Fact Checker), 8 live RSS sources, evidence-based RAG writing, and simulation fallback mode.
 ---
-# Newsletter Generator Skill
+
+# Newsletter Generator Skill (v6.0)
 
 ## Goal
-To autonomously research tech trends, write copy, evaluate compliance, and output a structured Markdown newsletter for any technical niche.
+Autonomously research live tech trends, fetch full article content via RAG, write evidence-grounded copy, evaluate quality compliance, and fact-check output against retrieved sources — then output a structured Markdown newsletter for any technical niche.
+
+## Pipeline Stages
+1. **Agent A (Trend Scout)** — Gemini function-calling with 8 RSS tools (HackerNews, TechCrunch, Google, OpenAI, Zoho, Meta, Netflix, AWS). Deduplication via `past_issues.json`.
+2. **RAG Fetcher** — Crawls article URLs, strips HTML, chunks into 800-word windows, embeds with `text-embedding-004`, performs cosine-similarity retrieval.
+3. **Agent B (Writer)** — Writes newsletter using only retrieved evidence blocks. 3-attempt guardrail rewrite loop.
+4. **Agent C (Evaluator)** — LLM-as-judge scoring (0–100) across 7 criteria. Security guardrail regex scan.
+5. **Agent D (Fact Checker)** — Post-draft claim extraction and cross-reference against RAG chunks. Returns source coverage % score.
 
 ## Instructions
-1. Identify the user's target technical niche (e.g. "Rust Systems & WebAssembly", "Edge AI & Distributed Compute"). If not specified, default to "AI & Agentic Frameworks".
-2. Ensure the standard Python environment has `google-generativeai` installed.
-3. Ensure the environment variable `GEMINI_API_KEY` is set.
-4. Execute the pipeline script from the skill's scripts directory:
-   ```bash
-   python scripts/agent_pipeline.py --niche "<niche>"
-   ```
-5. Check the output logs and the resulting timestamped markdown file (e.g., `newsletter_*.md`) created by the script.
-6. Display a preview or summary of the generated newsletter to the user.
+
+### Via React Dashboard (Recommended)
+1. Start the server: `npm run dev`
+2. Open `http://localhost:3000`
+3. Select a niche, optional topic, optional model, and optional API key.
+4. Click **"WAKE UP MULTI-AGENT NEWSROOM"**.
+5. Monitor agent chat in the **💬 Live Agent Cooperation** tab.
+6. View telemetry in the **📊 Observability Traces** tab.
+
+### Via Python CLI
+1. Activate venv: `venv\Scripts\activate`
+2. Run: `python agent_pipeline.py --niche "<niche>" [--model "<model>"]`
+3. Check output in `newsletters/newsletter_<niche>_<timestamp>.md`
 
 ## Constraints
-- Ensure `GEMINI_API_KEY` is loaded before launching the pipeline.
-- Keep execution bounded to standard Python environments.
+- `GEMINI_API_KEY` must start with `AIza...` (Google AI Studio key).
+- If the key is missing or returns 403, the pipeline **automatically** runs in **Simulation Mode** — all 5 agents still execute with curated templates.
+- Newsletter archives are saved to `newsletters/` directory.
+- Telemetry is stored in `run_history.json` (max 50 entries, rolling window).
+- Past issue titles are deduplicated via `past_issues.json`.
+
+## Output Files
+| File | Description |
+|---|---|
+| `newsletters/*.md` | Timestamped newsletter archives |
+| `run_history.json` | 6-span OTel telemetry per run |
+| `agent_interactions.json` | Agent-to-agent message log (group chat source) |
+| `past_issues.json` | Memory deduplication database |
