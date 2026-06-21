@@ -873,18 +873,28 @@ function chunkText(text: string, chunkSize = 800, overlap = 120): string[] {
 }
 
 async function embedTextGemini(text: string, apiKey: string): Promise<number[]> {
-  try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${apiKey}`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "models/text-embedding-004", content: { parts: [{ text: text.slice(0, 8000) }] } }),
-    });
-    const data: any = await res.json();
-    return data?.embedding?.values ?? [];
-  } catch {
-    return [];
+  for (const modelName of ["text-embedding-004", "gemini-embedding-2"]) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:embedContent?key=${apiKey}`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: `models/${modelName}`, content: { parts: [{ text: text.slice(0, 8000) }] } }),
+      });
+      if (res.status === 404 && modelName === "text-embedding-004") {
+        console.warn("⚠️ Model text-embedding-004 not found, falling back to gemini-embedding-2...");
+        continue;
+      }
+      const data: any = await res.json();
+      const vals = data?.embedding?.values;
+      if (vals && vals.length) {
+        return vals;
+      }
+    } catch (e) {
+      console.error(`⚠️ Error embedding with ${modelName}:`, e);
+    }
   }
+  return [];
 }
 
 function cosineSimilarity(a: number[], b: number[]): number {
