@@ -496,30 +496,38 @@ def embed_text_gemini(text: str, api_key: str, model: str = "text-embedding-004"
     No extra library required — uses urllib only.
 
     Returns:
-        List of floats (768-dim for text-embedding-004), or [] on error.
+        List of floats (768-dim for text-embedding-004 or 3072-dim for gemini-embedding-2), or [] on error.
     """
-    url = (
-        f"https://generativelanguage.googleapis.com/v1beta/models/"
-        f"{model}:embedContent?key={api_key}"
-    )
-    body = json.dumps({
-        "model": f"models/{model}",
-        "content": {"parts": [{"text": text[:8000]}]},  # hard cap for embedding
-    }).encode("utf-8")
-
-    try:
-        req = urllib.request.Request(
-            url,
-            data=body,
-            headers={"Content-Type": "application/json"},
-            method="POST",
+    for model_name in [model, "gemini-embedding-2"]:
+        url = (
+            f"https://generativelanguage.googleapis.com/v1beta/models/"
+            f"{model_name}:embedContent?key={api_key}"
         )
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-        return data.get("embedding", {}).get("values", [])
-    except Exception as exc:
-        print(f"  [RAG] ⚠️ Embedding error: {exc}")
-        return []
+        body = json.dumps({
+            "model": f"models/{model_name}",
+            "content": {"parts": [{"text": text[:8000]}]},  # hard cap for embedding
+        }).encode("utf-8")
+
+        try:
+            req = urllib.request.Request(
+                url,
+                data=body,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            return data.get("embedding", {}).get("values", [])
+        except urllib.error.HTTPError as exc:
+            if exc.code == 404 and model_name == "text-embedding-004":
+                print(f"  [RAG] ⚠️ Model text-embedding-004 not found, falling back to gemini-embedding-2...")
+                continue
+            print(f"  [RAG] ⚠️ Embedding error ({model_name}): {exc}")
+            return []
+        except Exception as exc:
+            print(f"  [RAG] ⚠️ Embedding error ({model_name}): {exc}")
+            return []
+    return []
 
 
 def cosine_similarity(a: list[float], b: list[float]) -> float:
