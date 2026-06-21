@@ -3960,5 +3960,597 @@
         "api_errors_count": 0
       }
     }
+  },
+  {
+    "timestamp": "2026-06-21T18:29:50.246Z",
+    "niche": "AI & Agentic Frameworks",
+    "model": "gemini-2.5-flash",
+    "status": "success",
+    "error": null,
+    "agent_a": {
+      "last_wake": "2026-06-21T18:29:50.246Z",
+      "headlines_pulled": [
+        "Deep Dive: Architecture of GitHub Launchpad Previews 'Local Workspace' Agent Engine Built to Run via Native Chromium Extensions",
+        "Performance Tuning & Optimization for GitHub Launchpad Previews 'Local Workspace' Agent Engine Built to Run via Native Chromium Extensions",
+        "Common Pitfalls and Anti-patterns in GitHub Launchpad Previews 'Local Workspace' Agent Engine Built to Run via Native Chromium Extensions Implementations"
+      ],
+      "source": "Custom Topic Deconstruction",
+      "duration_ms": 3206
+    },
+    "agent_b": {
+      "prompt_tokens": 5800,
+      "output_tokens": 3920,
+      "total_tokens": 9720,
+      "attempts": 2,
+      "violations": [],
+      "duration_ms": 17202
+    },
+    "agent_c": {
+      "score": 95,
+      "notes": "Approved by Evaluator Agent",
+      "passed": true,
+      "duration_ms": 83116
+    },
+    "agent_d": {
+      "score": 94,
+      "verified": 5,
+      "total": 5,
+      "passed": true,
+      "duration_ms": 12
+    },
+    "telemetry": {
+      "total_duration_ms": 103524,
+      "total_cost_usd": 0.001611,
+      "agent_a_duration_ms": 3206,
+      "agent_b_duration_ms": 17202,
+      "agent_c_duration_ms": 83116,
+      "agent_d_duration_ms": 11,
+      "spans": [
+        {
+          "name": "pipeline_run",
+          "context": {
+            "traceId": "9c90524b33b18a55c6d1c3cfff22fa96",
+            "spanId": "747193dc83f0643b"
+          },
+          "parent_span_id": null,
+          "start_time": "2026-06-21T18:28:06.711Z",
+          "end_time": "2026-06-21T18:29:50.246Z",
+          "duration_ms": 103524,
+          "attributes": {
+            "niche": "AI & Agentic Frameworks",
+            "model": "gemini-2.5-flash",
+            "status": "success"
+          }
+        },
+        {
+          "name": "agent_a_trend_scout",
+          "context": {
+            "traceId": "9c90524b33b18a55c6d1c3cfff22fa96",
+            "spanId": "da25baedeb9b2f95"
+          },
+          "parent_span_id": "747193dc83f0643b",
+          "start_time": "2026-06-21T18:28:06.711Z",
+          "end_time": "2026-06-21T18:28:09.917Z",
+          "duration_ms": 3206,
+          "attributes": {
+            "source": "Custom Topic Deconstruction",
+            "headlines_pulled_count": 3
+          }
+        },
+        {
+          "name": "rag_fetcher",
+          "context": {
+            "traceId": "9c90524b33b18a55c6d1c3cfff22fa96",
+            "spanId": "a646f3be2c9354d2"
+          },
+          "parent_span_id": "747193dc83f0643b",
+          "start_time": "2026-06-21T18:28:09.917Z",
+          "end_time": "2026-06-21T18:28:09.917Z",
+          "duration_ms": 0,
+          "attributes": {
+            "chunks_count": 3,
+            "sources_count": 0
+          }
+        },
+        {
+          "name": "agent_b_writer",
+          "context": {
+            "traceId": "9c90524b33b18a55c6d1c3cfff22fa96",
+            "spanId": "efcbb7bcfae5d47d"
+          },
+          "parent_span_id": "747193dc83f0643b",
+          "start_time": "2026-06-21T18:28:09.917Z",
+          "end_time": "2026-06-21T18:28:27.119Z",
+          "duration_ms": 17202,
+          "attributes": {
+            "attempts": 2,
+            "violations_count": 2,
+            "prompt_tokens": 5800,
+            "output_tokens": 3920
+          }
+        },
+        {
+          "name": "agent_c_evaluator",
+          "context": {
+            "traceId": "9c90524b33b18a55c6d1c3cfff22fa96",
+            "spanId": "c630f2ff6cf1cbb5"
+          },
+          "parent_span_id": "747193dc83f0643b",
+          "start_time": "2026-06-21T18:28:27.119Z",
+          "end_time": "2026-06-21T18:29:50.235Z",
+          "duration_ms": 83116,
+          "attributes": {
+            "score": 95,
+            "passed": true
+          }
+        },
+        {
+          "name": "agent_d_fact_checker",
+          "context": {
+            "traceId": "9c90524b33b18a55c6d1c3cfff22fa96",
+            "spanId": "6a98ecc5a2870b06"
+          },
+          "parent_span_id": "747193dc83f0643b",
+          "start_time": "2026-06-21T18:29:50.235Z",
+          "end_time": "2026-06-21T18:29:50.246Z",
+          "duration_ms": 11,
+          "attributes": {
+            "score": 94,
+            "passed": true,
+            "verified_claims": 5,
+            "total_claims": 5
+          }
+        }
+      ],
+      "failures": {
+        "violations_count": 2,
+        "attempts_count": 2,
+        "api_errors_count": 0
+      }
+    }
+  },
+  {
+    "timestamp": "2026-06-22T00:03:06.850294Z",
+    "niche": "Web3 Development & Smart Contracts",
+    "model": "gemini-1.5-flash",
+    "status": "success",
+    "error": null,
+    "agent_a": {
+      "last_wake": "2026-06-22T00:03:01.543733Z",
+      "headlines_pulled": [
+        "Deep Dive: Architecture of Sapiom Secures  From Accel to Provide Autonomous Financial Routing Accounts for Software Agents",
+        "Performance Tuning & Optimization for Sapiom Secures  From Accel to Provide Autonomous Financial Routing Accounts for Software Agents",
+        "Common Pitfalls and Anti-patterns in Sapiom Secures  From Accel to Provide Autonomous Financial Routing Accounts for Software Agents Implementations"
+      ],
+      "source": "Multiple Tech RSS Feeds",
+      "duration_ms": 30
+    },
+    "agent_b": {
+      "prompt_tokens": 4350,
+      "output_tokens": 2940,
+      "total_tokens": 7290,
+      "attempts": 1,
+      "violations": [
+        "Formatting Violation: Unclosed markdown code block detected (odd number of triple-backticks)."
+      ],
+      "duration_ms": 1102
+    },
+    "agent_c": {
+      "score": 95,
+      "notes": "Excellent detail. Expanded sections contain high-quality technical telemetry.",
+      "passed": true,
+      "duration_ms": 17
+    },
+    "telemetry": {
+      "total_duration_ms": 5000,
+      "total_cost_usd": 0.001208,
+      "agent_a_duration_ms": 30,
+      "agent_b_duration_ms": 1102,
+      "agent_c_duration_ms": 17,
+      "spans": [
+        {
+          "name": "pipeline_run",
+          "context": {
+            "trace_id": "b7eab6e75f9b4742bf004fe9c8992ddb",
+            "span_id": "a95df3e7a76448f5"
+          },
+          "parent_span_id": null,
+          "start_time": "2026-06-22T00:03:01.543733Z",
+          "end_time": "2026-06-22T00:03:06.850280Z",
+          "duration_ms": 5000,
+          "attributes": {
+            "niche": "Web3 Development & Smart Contracts",
+            "model": "gemini-1.5-flash",
+            "status": "success",
+            "error": ""
+          }
+        },
+        {
+          "name": "agent_a_trend_scout",
+          "context": {
+            "trace_id": "b7eab6e75f9b4742bf004fe9c8992ddb",
+            "span_id": "459dbde5abaa48bc"
+          },
+          "parent_span_id": "a95df3e7a76448f5",
+          "start_time": "2026-06-22T00:03:01.543733Z",
+          "end_time": "2026-06-22T00:03:06.850280Z",
+          "duration_ms": 30,
+          "attributes": {
+            "source": "Multiple Tech RSS Feeds",
+            "headlines_pulled_count": 3
+          }
+        },
+        {
+          "name": "agent_b_writer",
+          "context": {
+            "trace_id": "b7eab6e75f9b4742bf004fe9c8992ddb",
+            "span_id": "97b9f3fb0f39459e"
+          },
+          "parent_span_id": "a95df3e7a76448f5",
+          "start_time": "2026-06-22T00:03:06.850280Z",
+          "end_time": "2026-06-22T00:03:06.850280Z",
+          "duration_ms": 1102,
+          "attributes": {
+            "attempts": 1,
+            "violations_count": 1,
+            "prompt_tokens": 4350,
+            "output_tokens": 2940
+          }
+        },
+        {
+          "name": "agent_c_evaluator",
+          "context": {
+            "trace_id": "b7eab6e75f9b4742bf004fe9c8992ddb",
+            "span_id": "7ee484b2c14e4fd4"
+          },
+          "parent_span_id": "a95df3e7a76448f5",
+          "start_time": "2026-06-22T00:03:06.850280Z",
+          "end_time": "2026-06-22T00:03:06.850280Z",
+          "duration_ms": 17,
+          "attributes": {
+            "score": 95,
+            "passed": true
+          }
+        }
+      ],
+      "failures": {
+        "violations_count": 1,
+        "attempts_count": 1,
+        "api_errors_count": 0
+      }
+    }
+  },
+  {
+    "timestamp": "2026-06-22T00:04:28.683995Z",
+    "niche": "Web3 Development & Smart Contracts",
+    "model": "gemini-1.5-flash",
+    "status": "success",
+    "error": null,
+    "agent_a": {
+      "last_wake": "2026-06-22T00:04:20.812847Z",
+      "headlines_pulled": [
+        "Deep Dive: Architecture of Sapiom Secures  From Accel to Provide Autonomous Financial Routing Accounts for Software Agents",
+        "Performance Tuning & Optimization for Sapiom Secures  From Accel to Provide Autonomous Financial Routing Accounts for Software Agents",
+        "Common Pitfalls and Anti-patterns in Sapiom Secures  From Accel to Provide Autonomous Financial Routing Accounts for Software Agents Implementations"
+      ],
+      "source": "Multiple Tech RSS Feeds",
+      "duration_ms": 25
+    },
+    "agent_b": {
+      "prompt_tokens": 4350,
+      "output_tokens": 2940,
+      "total_tokens": 7290,
+      "attempts": 1,
+      "violations": [
+        "Formatting Violation: Unclosed markdown code block detected (odd number of triple-backticks)."
+      ],
+      "duration_ms": 1613
+    },
+    "agent_c": {
+      "score": 95,
+      "notes": "Excellent detail. Expanded sections contain high-quality technical telemetry.",
+      "passed": true,
+      "duration_ms": 29
+    },
+    "telemetry": {
+      "total_duration_ms": 7000,
+      "total_cost_usd": 0.001208,
+      "agent_a_duration_ms": 25,
+      "agent_b_duration_ms": 1613,
+      "agent_c_duration_ms": 29,
+      "spans": [
+        {
+          "name": "pipeline_run",
+          "context": {
+            "trace_id": "b18f5fa5664843f9961c0dc2e881eb9f",
+            "span_id": "6db9cd711ff4487f"
+          },
+          "parent_span_id": null,
+          "start_time": "2026-06-22T00:04:20.812847Z",
+          "end_time": "2026-06-22T00:04:28.683970Z",
+          "duration_ms": 7000,
+          "attributes": {
+            "niche": "Web3 Development & Smart Contracts",
+            "model": "gemini-1.5-flash",
+            "status": "success",
+            "error": ""
+          }
+        },
+        {
+          "name": "agent_a_trend_scout",
+          "context": {
+            "trace_id": "b18f5fa5664843f9961c0dc2e881eb9f",
+            "span_id": "2f700fe7dac945fa"
+          },
+          "parent_span_id": "6db9cd711ff4487f",
+          "start_time": "2026-06-22T00:04:20.812847Z",
+          "end_time": "2026-06-22T00:04:28.683970Z",
+          "duration_ms": 25,
+          "attributes": {
+            "source": "Multiple Tech RSS Feeds",
+            "headlines_pulled_count": 3
+          }
+        },
+        {
+          "name": "agent_b_writer",
+          "context": {
+            "trace_id": "b18f5fa5664843f9961c0dc2e881eb9f",
+            "span_id": "c13cde7b209342c2"
+          },
+          "parent_span_id": "6db9cd711ff4487f",
+          "start_time": "2026-06-22T00:04:28.683970Z",
+          "end_time": "2026-06-22T00:04:28.683970Z",
+          "duration_ms": 1613,
+          "attributes": {
+            "attempts": 1,
+            "violations_count": 1,
+            "prompt_tokens": 4350,
+            "output_tokens": 2940
+          }
+        },
+        {
+          "name": "agent_c_evaluator",
+          "context": {
+            "trace_id": "b18f5fa5664843f9961c0dc2e881eb9f",
+            "span_id": "ac5f0f711f2d4516"
+          },
+          "parent_span_id": "6db9cd711ff4487f",
+          "start_time": "2026-06-22T00:04:28.683970Z",
+          "end_time": "2026-06-22T00:04:28.683970Z",
+          "duration_ms": 29,
+          "attributes": {
+            "score": 95,
+            "passed": true
+          }
+        }
+      ],
+      "failures": {
+        "violations_count": 1,
+        "attempts_count": 1,
+        "api_errors_count": 0
+      }
+    }
+  },
+  {
+    "timestamp": "2026-06-22T00:04:39.645135Z",
+    "niche": "Rust Systems & WebAssembly",
+    "model": "gemini-1.5-flash",
+    "status": "success",
+    "error": null,
+    "agent_a": {
+      "last_wake": "2026-06-22T00:04:32.063545Z",
+      "headlines_pulled": [
+        "Deep Dive: Architecture of Bypassing the Framework: Why Engineering Teams Are Migrating Enterprise Micro-Frontends Off Next.js",
+        "Performance Tuning & Optimization for Bypassing the Framework: Why Engineering Teams Are Migrating Enterprise Micro-Frontends Off Next.js",
+        "Common Pitfalls and Anti-patterns in Bypassing the Framework: Why Engineering Teams Are Migrating Enterprise Micro-Frontends Off Next.js Implementations"
+      ],
+      "source": "Multiple Tech RSS Feeds",
+      "duration_ms": 24
+    },
+    "agent_b": {
+      "prompt_tokens": 4350,
+      "output_tokens": 2940,
+      "total_tokens": 7290,
+      "attempts": 1,
+      "violations": [
+        "Formatting Violation: Unclosed markdown code block detected (odd number of triple-backticks)."
+      ],
+      "duration_ms": 2073
+    },
+    "agent_c": {
+      "score": 95,
+      "notes": "Excellent detail. Expanded sections contain high-quality technical telemetry.",
+      "passed": true,
+      "duration_ms": 27
+    },
+    "telemetry": {
+      "total_duration_ms": 7000,
+      "total_cost_usd": 0.001208,
+      "agent_a_duration_ms": 24,
+      "agent_b_duration_ms": 2073,
+      "agent_c_duration_ms": 27,
+      "spans": [
+        {
+          "name": "pipeline_run",
+          "context": {
+            "trace_id": "3458cca6548745f2bef34aaee71bd587",
+            "span_id": "54ca9cbf362b493e"
+          },
+          "parent_span_id": null,
+          "start_time": "2026-06-22T00:04:32.063545Z",
+          "end_time": "2026-06-22T00:04:39.645120Z",
+          "duration_ms": 7000,
+          "attributes": {
+            "niche": "Rust Systems & WebAssembly",
+            "model": "gemini-1.5-flash",
+            "status": "success",
+            "error": ""
+          }
+        },
+        {
+          "name": "agent_a_trend_scout",
+          "context": {
+            "trace_id": "3458cca6548745f2bef34aaee71bd587",
+            "span_id": "81361f5e338e4088"
+          },
+          "parent_span_id": "54ca9cbf362b493e",
+          "start_time": "2026-06-22T00:04:32.063545Z",
+          "end_time": "2026-06-22T00:04:39.645120Z",
+          "duration_ms": 24,
+          "attributes": {
+            "source": "Multiple Tech RSS Feeds",
+            "headlines_pulled_count": 3
+          }
+        },
+        {
+          "name": "agent_b_writer",
+          "context": {
+            "trace_id": "3458cca6548745f2bef34aaee71bd587",
+            "span_id": "452c8fda0f524428"
+          },
+          "parent_span_id": "54ca9cbf362b493e",
+          "start_time": "2026-06-22T00:04:39.645120Z",
+          "end_time": "2026-06-22T00:04:39.645120Z",
+          "duration_ms": 2073,
+          "attributes": {
+            "attempts": 1,
+            "violations_count": 1,
+            "prompt_tokens": 4350,
+            "output_tokens": 2940
+          }
+        },
+        {
+          "name": "agent_c_evaluator",
+          "context": {
+            "trace_id": "3458cca6548745f2bef34aaee71bd587",
+            "span_id": "43403f16491645ee"
+          },
+          "parent_span_id": "54ca9cbf362b493e",
+          "start_time": "2026-06-22T00:04:39.645120Z",
+          "end_time": "2026-06-22T00:04:39.645120Z",
+          "duration_ms": 27,
+          "attributes": {
+            "score": 95,
+            "passed": true
+          }
+        }
+      ],
+      "failures": {
+        "violations_count": 1,
+        "attempts_count": 1,
+        "api_errors_count": 0
+      }
+    }
+  },
+  {
+    "timestamp": "2026-06-22T00:04:49.688701Z",
+    "niche": "Edge AI & Distributed Compute",
+    "model": "gemini-1.5-flash",
+    "status": "success",
+    "error": null,
+    "agent_a": {
+      "last_wake": "2026-06-22T00:04:42.910457Z",
+      "headlines_pulled": [
+        "Deep Dive: Architecture of PostgreSQL Fork 'HorizonDB' Claims 3x Write Throughput Boost for Distributed Multi-Agent Log Archiving",
+        "Performance Tuning & Optimization for PostgreSQL Fork 'HorizonDB' Claims 3x Write Throughput Boost for Distributed Multi-Agent Log Archiving",
+        "Common Pitfalls and Anti-patterns in PostgreSQL Fork 'HorizonDB' Claims 3x Write Throughput Boost for Distributed Multi-Agent Log Archiving Implementations"
+      ],
+      "source": "Multiple Tech RSS Feeds",
+      "duration_ms": 23
+    },
+    "agent_b": {
+      "prompt_tokens": 4350,
+      "output_tokens": 2940,
+      "total_tokens": 7290,
+      "attempts": 1,
+      "violations": [
+        "Formatting Violation: Unclosed markdown code block detected (odd number of triple-backticks)."
+      ],
+      "duration_ms": 1553
+    },
+    "agent_c": {
+      "score": 95,
+      "notes": "Excellent detail. Expanded sections contain high-quality technical telemetry.",
+      "passed": true,
+      "duration_ms": 28
+    },
+    "telemetry": {
+      "total_duration_ms": 6000,
+      "total_cost_usd": 0.001208,
+      "agent_a_duration_ms": 23,
+      "agent_b_duration_ms": 1553,
+      "agent_c_duration_ms": 28,
+      "spans": [
+        {
+          "name": "pipeline_run",
+          "context": {
+            "trace_id": "6f39d80bcf3945cb84f04df01e5a1a36",
+            "span_id": "ce522f6769b34d6e"
+          },
+          "parent_span_id": null,
+          "start_time": "2026-06-22T00:04:42.910457Z",
+          "end_time": "2026-06-22T00:04:49.688674Z",
+          "duration_ms": 6000,
+          "attributes": {
+            "niche": "Edge AI & Distributed Compute",
+            "model": "gemini-1.5-flash",
+            "status": "success",
+            "error": ""
+          }
+        },
+        {
+          "name": "agent_a_trend_scout",
+          "context": {
+            "trace_id": "6f39d80bcf3945cb84f04df01e5a1a36",
+            "span_id": "7058cb1910b04631"
+          },
+          "parent_span_id": "ce522f6769b34d6e",
+          "start_time": "2026-06-22T00:04:42.910457Z",
+          "end_time": "2026-06-22T00:04:49.688674Z",
+          "duration_ms": 23,
+          "attributes": {
+            "source": "Multiple Tech RSS Feeds",
+            "headlines_pulled_count": 3
+          }
+        },
+        {
+          "name": "agent_b_writer",
+          "context": {
+            "trace_id": "6f39d80bcf3945cb84f04df01e5a1a36",
+            "span_id": "f5454a0e437e4aa6"
+          },
+          "parent_span_id": "ce522f6769b34d6e",
+          "start_time": "2026-06-22T00:04:49.688674Z",
+          "end_time": "2026-06-22T00:04:49.688674Z",
+          "duration_ms": 1553,
+          "attributes": {
+            "attempts": 1,
+            "violations_count": 1,
+            "prompt_tokens": 4350,
+            "output_tokens": 2940
+          }
+        },
+        {
+          "name": "agent_c_evaluator",
+          "context": {
+            "trace_id": "6f39d80bcf3945cb84f04df01e5a1a36",
+            "span_id": "965eda9dbeee49b9"
+          },
+          "parent_span_id": "ce522f6769b34d6e",
+          "start_time": "2026-06-22T00:04:49.688674Z",
+          "end_time": "2026-06-22T00:04:49.688674Z",
+          "duration_ms": 28,
+          "attributes": {
+            "score": 95,
+            "passed": true
+          }
+        }
+      ],
+      "failures": {
+        "violations_count": 1,
+        "attempts_count": 1,
+        "api_errors_count": 0
+      }
+    }
   }
 ]
