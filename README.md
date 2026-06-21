@@ -474,6 +474,33 @@ Contains the full Streamlit dashboard source code as a downloadable `app.py`. In
 
 ---
 
+## 🧪 Technical Resilience & Edge-Case Stress Testing
+
+### 1. Vector Embedding Fallback Loop
+To handle key permissions or model availability restrictions where `text-embedding-004` is not supported, the engine implements an automated fallback mechanism:
+- If a `404` or model mismatch is returned, it automatically switches to `gemini-embedding-2` for generating dense 3072-dimensional vector representations.
+- This is fully integrated into both Python (`agent_pipeline.py`) and TypeScript (`server.ts`) codebases to ensure uninterrupted operation.
+
+### 2. The 10 Edge-Case Stress Tests (`test_edge_cases.py`)
+A comprehensive automated test runner validates the pipeline against 10 critical security, formatting, and semantic challenges:
+1. **Unclosed Markdown Blocks**: Ensures the Stage 1 security guardrail catches and corrects unclosed code blocks before LLM review.
+2. **Mathematical Notations**: Confirms formatting guardrails correctly parse matrix equations like $O(N \log N)$ and double-escaped variables.
+3. **Structured Tables**: Evaluates if the engine correctly structures complex Markdown comparison tables.
+4. **Deep RAG Retrieval**: Stresses the RAG vector engine to verify extraction quality when injecting multiple conflicting context blocks.
+5. **Kernel Evidence Extraction**: Assures Agent B relies strictly on retrieved kernel facts, preventing hallucinations.
+6. **Prompt Injection Mitigation**: Validates that standard system instruction overrides inside topic titles are safely blocked.
+7. **Compliance Override Scans**: Verifies that standard compliance-spoof keywords are processed as normal text rather than bypassing guards.
+8. **Exact Duplication Detection**: Checks if identical titles trigger immediate deduplication from the history log.
+9. **Semantic Similarity Checks**: Verifies that different titles with close semantic overlap are successfully caught and flagged.
+10. **Critique-Driven Loop Recovery**: Validates that low-scoring drafts successfully cycle through the critique, rewrite, and approval loop.
+
+Run the test suite:
+```bash
+python test_edge_cases.py
+```
+
+---
+
 ## 🔧 CLI Reference
 
 ### `agent_pipeline.py`
@@ -533,6 +560,7 @@ npm run lint     # TypeScript type check
 | **Day 4** | Security & Evaluation | Programmatic guardrails (injection, code blocks); LLM-as-judge Agent C; rewrite feedback loop |
 | **Day 5** | Production Fleet & Observability | 8-source RSS registry; background worker; execution telemetry; multi-model support; custom topic mode; unified React dashboard |
 | **Day 6** | Evidence-Based RAG & Fact Checker | Crawls URLs, vectorizes with `text-embedding-004`, cosine similarity retrieval, post-draft claims audit (Agent D), 5-span telemetry timeline |
+| **Day 7** | Resilience & June 2026 Telemetry | Fallback to `gemini-embedding-2`; 10 automated technical edge-case stress tests (`test_edge_cases.py`); integrated 10 fast-moving June 2026 tech news topics |
 
 ---
 
