@@ -3738,5 +3738,227 @@
         "api_errors_count": 0
       }
     }
+  },
+  {
+    "timestamp": "2026-06-21T23:31:13.723748Z",
+    "niche": "AI & Agentic Frameworks",
+    "model": "gemini-1.5-flash",
+    "status": "success",
+    "error": null,
+    "agent_a": {
+      "last_wake": "2026-06-21T23:30:57.463542Z",
+      "headlines_pulled": [
+        "Deep Dive: Architecture of The Anthropic Model Suspension Shockwave",
+        "Performance Tuning & Optimization for The Anthropic Model Suspension Shockwave",
+        "Common Pitfalls and Anti-patterns in The Anthropic Model Suspension Shockwave Implementations"
+      ],
+      "source": "Multiple Tech RSS Feeds",
+      "duration_ms": 18
+    },
+    "agent_b": {
+      "prompt_tokens": 4350,
+      "output_tokens": 2940,
+      "total_tokens": 7290,
+      "attempts": 1,
+      "violations": [
+        "Formatting Violation: Unclosed markdown code block detected (odd number of triple-backticks)."
+      ],
+      "duration_ms": 4720
+    },
+    "agent_c": {
+      "score": 95,
+      "notes": "Excellent detail. Expanded sections contain high-quality technical telemetry.",
+      "passed": true,
+      "duration_ms": 17
+    },
+    "telemetry": {
+      "total_duration_ms": 16000,
+      "total_cost_usd": 0.001208,
+      "agent_a_duration_ms": 18,
+      "agent_b_duration_ms": 4720,
+      "agent_c_duration_ms": 17,
+      "spans": [
+        {
+          "name": "pipeline_run",
+          "context": {
+            "trace_id": "ef9a94a886b44d429f1ed6cbc3cd05f4",
+            "span_id": "1592c19808154e2d"
+          },
+          "parent_span_id": null,
+          "start_time": "2026-06-21T23:30:57.463542Z",
+          "end_time": "2026-06-21T23:31:13.723733Z",
+          "duration_ms": 16000,
+          "attributes": {
+            "niche": "AI & Agentic Frameworks",
+            "model": "gemini-1.5-flash",
+            "status": "success",
+            "error": ""
+          }
+        },
+        {
+          "name": "agent_a_trend_scout",
+          "context": {
+            "trace_id": "ef9a94a886b44d429f1ed6cbc3cd05f4",
+            "span_id": "f1ebdd826edb419e"
+          },
+          "parent_span_id": "1592c19808154e2d",
+          "start_time": "2026-06-21T23:30:57.463542Z",
+          "end_time": "2026-06-21T23:31:13.723733Z",
+          "duration_ms": 18,
+          "attributes": {
+            "source": "Multiple Tech RSS Feeds",
+            "headlines_pulled_count": 3
+          }
+        },
+        {
+          "name": "agent_b_writer",
+          "context": {
+            "trace_id": "ef9a94a886b44d429f1ed6cbc3cd05f4",
+            "span_id": "7bfc49ae55f14ba9"
+          },
+          "parent_span_id": "1592c19808154e2d",
+          "start_time": "2026-06-21T23:31:13.723733Z",
+          "end_time": "2026-06-21T23:31:13.723733Z",
+          "duration_ms": 4720,
+          "attributes": {
+            "attempts": 1,
+            "violations_count": 1,
+            "prompt_tokens": 4350,
+            "output_tokens": 2940
+          }
+        },
+        {
+          "name": "agent_c_evaluator",
+          "context": {
+            "trace_id": "ef9a94a886b44d429f1ed6cbc3cd05f4",
+            "span_id": "56ff73726d2d48b2"
+          },
+          "parent_span_id": "1592c19808154e2d",
+          "start_time": "2026-06-21T23:31:13.723733Z",
+          "end_time": "2026-06-21T23:31:13.723733Z",
+          "duration_ms": 17,
+          "attributes": {
+            "score": 95,
+            "passed": true
+          }
+        }
+      ],
+      "failures": {
+        "violations_count": 1,
+        "attempts_count": 1,
+        "api_errors_count": 0
+      }
+    }
+  },
+  {
+    "timestamp": "2026-06-21T23:32:35.124099Z",
+    "niche": "Cybersecurity & Network Security",
+    "model": "gemini-1.5-flash",
+    "status": "success",
+    "error": null,
+    "agent_a": {
+      "last_wake": "2026-06-21T23:32:19.330662Z",
+      "headlines_pulled": [
+        "Deep Dive: Architecture of Texas Government Data Breach",
+        "Performance Tuning & Optimization for Texas Government Data Breach",
+        "Common Pitfalls and Anti-patterns in Texas Government Data Breach Implementations"
+      ],
+      "source": "Multiple Tech RSS Feeds",
+      "duration_ms": 26
+    },
+    "agent_b": {
+      "prompt_tokens": 4350,
+      "output_tokens": 2940,
+      "total_tokens": 7290,
+      "attempts": 1,
+      "violations": [
+        "Formatting Violation: Unclosed markdown code block detected (odd number of triple-backticks)."
+      ],
+      "duration_ms": 3855
+    },
+    "agent_c": {
+      "score": 95,
+      "notes": "Excellent detail. Expanded sections contain high-quality technical telemetry.",
+      "passed": true,
+      "duration_ms": 20
+    },
+    "telemetry": {
+      "total_duration_ms": 15000,
+      "total_cost_usd": 0.001208,
+      "agent_a_duration_ms": 26,
+      "agent_b_duration_ms": 3855,
+      "agent_c_duration_ms": 20,
+      "spans": [
+        {
+          "name": "pipeline_run",
+          "context": {
+            "trace_id": "85e25bd7f770406ca8667c104806d533",
+            "span_id": "24dc1c7cee9d4201"
+          },
+          "parent_span_id": null,
+          "start_time": "2026-06-21T23:32:19.330662Z",
+          "end_time": "2026-06-21T23:32:35.124072Z",
+          "duration_ms": 15000,
+          "attributes": {
+            "niche": "Cybersecurity & Network Security",
+            "model": "gemini-1.5-flash",
+            "status": "success",
+            "error": ""
+          }
+        },
+        {
+          "name": "agent_a_trend_scout",
+          "context": {
+            "trace_id": "85e25bd7f770406ca8667c104806d533",
+            "span_id": "8fcb4d3066564901"
+          },
+          "parent_span_id": "24dc1c7cee9d4201",
+          "start_time": "2026-06-21T23:32:19.330662Z",
+          "end_time": "2026-06-21T23:32:35.124072Z",
+          "duration_ms": 26,
+          "attributes": {
+            "source": "Multiple Tech RSS Feeds",
+            "headlines_pulled_count": 3
+          }
+        },
+        {
+          "name": "agent_b_writer",
+          "context": {
+            "trace_id": "85e25bd7f770406ca8667c104806d533",
+            "span_id": "93f5a454ee3d42c8"
+          },
+          "parent_span_id": "24dc1c7cee9d4201",
+          "start_time": "2026-06-21T23:32:35.124072Z",
+          "end_time": "2026-06-21T23:32:35.124072Z",
+          "duration_ms": 3855,
+          "attributes": {
+            "attempts": 1,
+            "violations_count": 1,
+            "prompt_tokens": 4350,
+            "output_tokens": 2940
+          }
+        },
+        {
+          "name": "agent_c_evaluator",
+          "context": {
+            "trace_id": "85e25bd7f770406ca8667c104806d533",
+            "span_id": "ccd93f0c26854a3d"
+          },
+          "parent_span_id": "24dc1c7cee9d4201",
+          "start_time": "2026-06-21T23:32:35.124072Z",
+          "end_time": "2026-06-21T23:32:35.124072Z",
+          "duration_ms": 20,
+          "attributes": {
+            "score": 95,
+            "passed": true
+          }
+        }
+      ],
+      "failures": {
+        "violations_count": 1,
+        "attempts_count": 1,
+        "api_errors_count": 0
+      }
+    }
   }
 ]
