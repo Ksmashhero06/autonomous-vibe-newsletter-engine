@@ -500,10 +500,15 @@
       "step_number": 100,
       "action": "Classified visual deliverables inside test_deliverables into separate screenshots/ and recordings/ folders.",
       "finding": "Separated PNG images and WEBP screen recordings to dedicated folders under test_deliverables. Updated image source links in test_deliverables/test_run_screenshots.md to target the screenshots/ subfolder relatively."
+    },
+    {
+      "step_number": 101,
+      "action": "Isolated Kaggle writeup assets into test_deliverables/kaggle_writeup/ subfolder.",
+      "finding": "Moved all Kaggle-related screen captures and recordings out of core newsletter screenshots/ and recordings/ directories to keep them dedicated to the project tests."
     }
   ],
   "active_files": [
     ".agent_journal.json"
   ],
-  "next_step": "Notify user that classification has completed successfully."
+  "next_step": "Notify user that isolation of Kaggle assets is complete."
 }
