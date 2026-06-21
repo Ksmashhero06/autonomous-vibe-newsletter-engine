@@ -475,12 +475,16 @@
       "step_number": 95,
       "action": "Updated README.md and kaggle_writeup_submission.md to reflect technical resilience additions.",
       "finding": "Added specifications for gemini-embedding-2 fallback loop, Day 7 milestone progress, 10 technical edge-case stress tests list, and updated generation results to 45+ issues."
+    },
+    {
+      "step_number": 96,
+      "action": "Deduplicated the archive of newsletter markdown files.",
+      "finding": "Identified and removed 30 duplicate files in newsletters/ folder using a custom Python script that ignored header metadata, leaving 16 unique newsletters. Updated the writeup file accordingly."
     }
   ],
   "active_files": [
-    "README.md",
     "kaggle_writeup_submission.md",
     ".agent_journal.json"
   ],
-  "next_step": "Notify user that both README.md and kaggle_writeup_submission.md have been successfully updated and pushed."
+  "next_step": "Notify user that deduplication has completed successfully."
 }
