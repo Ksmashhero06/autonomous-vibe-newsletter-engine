@@ -495,10 +495,15 @@
       "step_number": 99,
       "action": "Stored all screenshots, output recordings, and resolved report inside test_deliverables folder.",
       "finding": "Created test_deliverables/ directory containing all run PNG captures and WEBP recordings. Added test_run_screenshots.md referencing local deliverables relatively, and pushed the entire media catalog to remote origin."
+    },
+    {
+      "step_number": 100,
+      "action": "Classified visual deliverables inside test_deliverables into separate screenshots/ and recordings/ folders.",
+      "finding": "Separated PNG images and WEBP screen recordings to dedicated folders under test_deliverables. Updated image source links in test_deliverables/test_run_screenshots.md to target the screenshots/ subfolder relatively."
     }
   ],
   "active_files": [
     ".agent_journal.json"
   ],
-  "next_step": "Notify user that all deliverables are successfully archived, committed, and pushed."
+  "next_step": "Notify user that classification has completed successfully."
 }
