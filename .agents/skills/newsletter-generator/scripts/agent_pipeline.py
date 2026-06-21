@@ -414,7 +414,7 @@ class _MLStripper(HTMLParser):
         return " ".join(self._fed)
 
 
-def clean_html_to_text(html: str) -> str:
+def clean_html_to_text(html: str, expand_horizon: bool = False) -> str:
     """Strip HTML tags and boilerplate, returning clean article prose."""
     stripper = _MLStripper()
     try:
@@ -424,14 +424,18 @@ def clean_html_to_text(html: str) -> str:
         # Fallback: brute-force regex strip
         text = re.sub(r"<[^>]+>", " ", html)
 
-    # Collapse whitespace
-    text = re.sub(r"\s+", " ", text).strip()
-    # Remove lines shorter than 40 chars (likely navigation fragments)
-    lines = [ln.strip() for ln in text.split("\n") if len(ln.strip()) >= 40]
-    return "\n\n".join(lines) if lines else text
+    # Clean whitespace line by line to preserve paragraphs
+    cleaned_lines = []
+    min_len = 25 if expand_horizon else 40
+    for line in text.splitlines():
+        cleaned_line = re.sub(r"[ \t]+", " ", line).strip()
+        if len(cleaned_line) >= min_len:
+            cleaned_lines.append(cleaned_line)
+    
+    return "\n\n".join(cleaned_lines) if cleaned_lines else text
 
 
-def fetch_full_article(url: str, timeout: int = 12) -> dict:
+def fetch_full_article(url: str, timeout: int = 12, expand_horizon: bool = False) -> dict:
     """
     Fetch and extract the full plain-text body of a web article.
 
@@ -447,13 +451,15 @@ def fetch_full_article(url: str, timeout: int = 12) -> dict:
             },
         )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            raw = resp.read(1_200_000)  # cap at ~1.2 MB
+            # Read more data (2.4 MB vs 1.2 MB) if search horizon is expanded
+            raw_cap = 2_400_000 if expand_horizon else 1_200_000
+            raw = resp.read(raw_cap)
             encoding = resp.headers.get_content_charset() or "utf-8"
             html = raw.decode(encoding, errors="replace")
     except Exception as exc:
         return {"url": url, "text": "", "word_count": 0, "error": str(exc)}
 
-    text = clean_html_to_text(html)
+    text = clean_html_to_text(html, expand_horizon=expand_horizon)
     return {"url": url, "text": text, "word_count": len(text.split()), "error": None}
 
 
@@ -571,29 +577,18 @@ def run_rag_content_fetcher(
     api_key: str = "",
     simulate: bool = False,
     max_articles: int = 3,
+    expand_horizon: bool = False,
 ) -> dict:
     """
     Content Fetching + RAG Pipeline between Agent A and Agent B.
-
-    For each top-scored article from Agent A:
-      1. Fetch the full article from its URL.
-      2. Clean boilerplate HTML.
-      3. Chunk into overlapping windows.
-      4. Embed all chunks (if Gemini API key available).
-      5. Store chunk store for RAG retrieval.
-
-    Returns:
-        {
-          "article_chunks": [{"url", "title", "chunks", "embeddings"}],
-          "all_chunks":     [str],          # flat list for retrieval
-          "all_embeddings": [[float]],      # parallel to all_chunks
-          "sources":        [str],          # URLs successfully fetched
-          "skipped":        [str],          # URLs that failed
-        }
+    Supports expanding search horizon if quality critique score < 80.
     """
+    if expand_horizon:
+        max_articles = max(max_articles, 5)
+
     print("\n" + "─" * 64)
     print("📡  RAG CONTENT FETCHER: Full-Article Extraction")
-    print(f"    Articles to fetch: {min(len(articles), max_articles)}")
+    print(f"    Articles to fetch: {min(len(articles), max_articles)} (Horizon expanded: {expand_horizon})")
     print("─" * 64)
 
     article_chunks = []
@@ -612,7 +607,6 @@ def run_rag_content_fetcher(
         if not url:
             print(f"  [RAG] ⚠️  No URL for: {title[:60]} — skipping full fetch.")
             skipped.append(title)
-            # Use description as fallback context
             desc = art.get("description", "")
             if desc:
                 all_chunks.append(f"[{title}]\n{desc}")
@@ -637,7 +631,18 @@ def run_rag_content_fetcher(
                 "Engineers adopting this approach can expect 3-5x reduction in cold-start latency and "
                 "near-zero GC pressure under sustained load due to arena allocation strategies."
             )
-            chunks = chunk_text(sim_text, chunk_size=800, overlap=120)
+            if expand_horizon:
+                sim_text += (
+                    "\n\n**Expanded Deep Dive Context & Telemetry**\n"
+                    "Deeper paragraph scraping reveals that the architecture employs advanced lock-free queues "
+                    "and zero-copy parsing to push latencies down to the sub-millisecond range. "
+                    "Scraping deeper sections also uncovered production telemetry showing a 99.999% reliability rate "
+                    "across multi-region deployments with active-active replication."
+                )
+            
+            chunk_size = 500 if expand_horizon else 800
+            overlap = 200 if expand_horizon else 120
+            chunks = chunk_text(sim_text, chunk_size=chunk_size, overlap=overlap)
             embeddings: list[list[float]] = [[] for _ in chunks]
             article_chunks.append({"url": url, "title": title, "chunks": chunks, "embeddings": embeddings})
             all_chunks.extend(chunks)
@@ -648,7 +653,7 @@ def run_rag_content_fetcher(
 
         print(f"  [RAG] 🌐 Fetching full article: {url[:70]}...")
         t0 = _time_mod.time()
-        result = fetch_full_article(url)
+        result = fetch_full_article(url, expand_horizon=expand_horizon)
         elapsed = round(_time_mod.time() - t0, 2)
 
         if result["error"] or result["word_count"] < 100:
@@ -663,7 +668,10 @@ def run_rag_content_fetcher(
 
         text = result["text"]
         print(f"  [RAG] ✅ Fetched {result['word_count']:,} words in {elapsed}s")
-        chunks = chunk_text(text, chunk_size=800, overlap=120)
+        
+        chunk_size = 500 if expand_horizon else 800
+        overlap = 200 if expand_horizon else 120
+        chunks = chunk_text(text, chunk_size=chunk_size, overlap=overlap)
         print(f"  [RAG] 📦 Chunked into {len(chunks)} overlapping segments")
 
         embeddings = []
@@ -1997,6 +2005,7 @@ def run_agent_b(
     feedback: str = None,
     previous_draft: str = None,
     rag_context: dict = None,   # v6.0 RAG: {all_chunks, all_embeddings, sources, api_key}
+    expand_horizon: bool = False,
 ) -> str:
     """
     Agent B (The Writer) v6.0: Receives Agent A's topic payload + RAG-retrieved
@@ -2171,7 +2180,7 @@ As we move deeper into this development cycle, separation of concerns is being e
 
         # Build a retrieval query from the top topics
         query = " ".join(t.get("title", "") for t in topics[:3])
-        retrieved = rag_retrieve_for_query(query, all_chunks, all_embeddings, api_key, k=8)
+        retrieved = rag_retrieve_for_query(query, all_chunks, all_embeddings, api_key, k=12 if expand_horizon else 8)
 
         evidence_lines = []
         for idx, chunk in enumerate(retrieved, 1):
@@ -2378,7 +2387,7 @@ def evaluate_draft_security_and_quality(draft: str) -> dict:
 # Agent C — Compliance Evaluator
 # ──────────────────────────────────────────────────────────────────────────────
 
-def run_agent_c(niche: str, draft: str, model_name: str, simulate: bool = False) -> dict:
+def run_agent_c(niche: str, draft: str, model_name: str, simulate: bool = False, expand_horizon: bool = False) -> dict:
     """
     Agent C (Compliance Critic): Audits the newsletter draft against a
     structured quality checklist and returns a stamped evaluation report.
@@ -2389,33 +2398,62 @@ def run_agent_c(niche: str, draft: str, model_name: str, simulate: bool = False)
 
     if simulate:
         print("  [Agent C] Running simulated compliance and quality audit...")
-        print("  [Agent C] ✅ APPROVED")
-        print("  [Agent C] Score    : 95/100")
-        print("  [Agent C] Checks   : 7/7 passed")
-        print("  [Agent C] Notes    : Good technical depth and layout structure.")
-        execution_telemetry["agent_c"]["score"] = 95
-        execution_telemetry["agent_c"]["notes"] = "Good technical depth and layout structure."
-        execution_telemetry["agent_c"]["passed"] = True
-        
-        log_agent_interaction(
-            "Agent C (Evaluator)",
-            "Orchestrator",
-            "Audit complete. Verdict: APPROVED (Score: 95/100). Checklist: 7/7 requirements satisfied."
-        )
-        return {
-            "passed": True,
-            "score": 95,
-            "checks": {
-                "title_present": True,
-                "introduction": True,
-                "deep_dives": True,
-                "code_or_table": True,
-                "conclusion": True,
-                "no_filler": True,
-                "expert_tone": True
-            },
-            "notes": "Good technical depth and layout structure."
-        }
+        if not expand_horizon:
+            print("  [Agent C] ⚠️ REVIEW NEEDED (Simulated low content score to test critique-driven RAG)")
+            print("  [Agent C] Score    : 75/100")
+            print("  [Agent C] Checks   : 5/7 passed")
+            print("  [Agent C] Notes    : Content is technically clean but lacks deeper architectural detail.")
+            execution_telemetry["agent_c"]["score"] = 75
+            execution_telemetry["agent_c"]["notes"] = "Content is technically clean but lacks deeper architectural detail."
+            execution_telemetry["agent_c"]["passed"] = False
+            
+            log_agent_interaction(
+                "Agent C (Evaluator)",
+                "Orchestrator",
+                "Audit complete. Verdict: REVIEW NEEDED (Score: 75/100). Feedback: Content lacks deeper architectural detail."
+            )
+            return {
+                "passed": False,
+                "score": 75,
+                "checks": {
+                    "title_present": True,
+                    "introduction": True,
+                    "deep_dives": False,
+                    "code_or_table": True,
+                    "conclusion": True,
+                    "no_filler": False,
+                    "expert_tone": True
+                },
+                "notes": "Content is technically clean but lacks deeper architectural detail."
+            }
+        else:
+            print("  [Agent C] ✅ APPROVED (Simulated success after RAG expansion)")
+            print("  [Agent C] Score    : 95/100")
+            print("  [Agent C] Checks   : 7/7 passed")
+            print("  [Agent C] Notes    : Excellent detail. Expanded sections contain high-quality technical telemetry.")
+            execution_telemetry["agent_c"]["score"] = 95
+            execution_telemetry["agent_c"]["notes"] = "Excellent detail. Expanded sections contain high-quality technical telemetry."
+            execution_telemetry["agent_c"]["passed"] = True
+            
+            log_agent_interaction(
+                "Agent C (Evaluator)",
+                "Orchestrator",
+                "Audit complete. Verdict: APPROVED (Score: 95/100) after RAG expansion."
+            )
+            return {
+                "passed": True,
+                "score": 95,
+                "checks": {
+                    "title_present": True,
+                    "introduction": True,
+                    "deep_dives": True,
+                    "code_or_table": True,
+                    "conclusion": True,
+                    "no_filler": True,
+                    "expert_tone": True
+                },
+                "notes": "Excellent detail. Expanded sections contain high-quality technical telemetry."
+            }
 
     model = LLMRouter.get_model(model_name=model_name)
 
@@ -2652,110 +2690,154 @@ def run_pipeline(niche: str = "AI & Agentic Frameworks", model_name: str = "gemi
 
         # ── v6.0 RAG: Content Fetcher + Vector Store (between Agent A and B) ──
         gemini_api_key = os.environ.get("GEMINI_API_KEY", "").strip()
-        rag_ctx = run_rag_content_fetcher(
-            articles=topics,
-            niche=niche,
-            api_key=gemini_api_key,
-            simulate=simulate,
-            max_articles=3,
-        )
-        rag_ctx["api_key"] = gemini_api_key
-
-        log_agent_interaction(
-            "RAG Content Fetcher",
-            "Agent B (Writer)",
-            f"Full-article RAG pipeline complete. "
-            f"Vector store: {len(rag_ctx['all_chunks'])} chunks from {len(rag_ctx['sources'])} articles. "
-            f"Skipped: {len(rag_ctx['skipped'])} sources. Passing evidence context to Writer."
-        )
-
-        # ── Agent B: Writer with RAG evidence context ──
-        max_attempts = 3
+        expand_horizon = False
+        critique_attempt = 1
+        max_critique_attempts = 2
         feedback = None
         draft = None
-        
-        agent_b_start_t = time.time()
-        for attempt in range(1, max_attempts + 1):
-            execution_telemetry["agent_b"]["attempts"] = attempt
-            print(f"\n🔄  [Attempt {attempt}/{max_attempts}] Running Writer & Guardrail Evaluation...")
-            draft = run_agent_b(
-                niche=niche,
-                topics=topics,
-                model_name=model_name,
-                simulate=simulate,
-                feedback=feedback,
-                previous_draft=draft,
-                rag_context=rag_ctx,
-            )
-            if not draft:
-                agent_b_end_t = time.time()
-                execution_telemetry["agent_b"]["duration_ms"] = int((agent_b_end_t - agent_b_start_t) * 1000)
-                pipeline_end_t = time.time()
-                execution_telemetry["total_duration_ms"] = int((pipeline_end_t - pipeline_start_t) * 1000)
-                print("\n❌  Agent B produced no draft. Pipeline aborted.")
-                save_telemetry(niche, model_name, "failed", "Agent B produced no draft")
-                return ""
+        rag_ctx = None
 
-            # Day 4: Run the automated security & quality checks
-            print(f"🛡️  [Security & Quality] Evaluating draft for Attempt {attempt}...")
-            guardrail_result = evaluate_draft_security_and_quality(draft)
+        while critique_attempt <= max_critique_attempts:
+            rag_ctx = run_rag_content_fetcher(
+                articles=topics,
+                niche=niche,
+                api_key=gemini_api_key,
+                simulate=simulate,
+                max_articles=3 if not expand_horizon else 5,
+                expand_horizon=expand_horizon,
+            )
+            rag_ctx["api_key"] = gemini_api_key
+
+            log_agent_interaction(
+                "RAG Content Fetcher",
+                "Agent B (Writer)",
+                f"Full-article RAG pipeline complete. "
+                f"Vector store: {len(rag_ctx['all_chunks'])} chunks from {len(rag_ctx['sources'])} articles. "
+                f"Skipped: {len(rag_ctx['skipped'])} sources. Passing evidence context to Writer (Horizon expanded: {expand_horizon})."
+            )
+
+            # ── Agent B: Writer with RAG evidence context ──
+            max_attempts = 3
             
-            if guardrail_result["passed"]:
-                print("🛡️  [Security & Quality] ✅ Check passed. No security or formatting violations found.")
-                log_agent_interaction(
-                    "Evaluation Guardrail",
-                    "Agent C (Evaluator)",
-                    "PASSED security and formatting checks. Handing over to Evaluator for structured quality review."
+            agent_b_start_t = time.time()
+            for attempt in range(1, max_attempts + 1):
+                execution_telemetry["agent_b"]["attempts"] = attempt
+                print(f"\n🔄  [Attempt {attempt}/{max_attempts}] Running Writer & Guardrail Evaluation...")
+                draft = run_agent_b(
+                    niche=niche,
+                    topics=topics,
+                    model_name=model_name,
+                    simulate=simulate,
+                    feedback=feedback,
+                    previous_draft=draft,
+                    rag_context=rag_ctx,
+                    expand_horizon=expand_horizon,
                 )
-                break
-            else:
-                violations_text = "\n".join(f"- {v}" for v in guardrail_result["violations"])
-                print(f"🛡️  [Security & Quality] ❌ Violations detected:\n{violations_text}")
-                execution_telemetry["agent_b"]["violations"].extend(guardrail_result["violations"])
+                if not draft:
+                    agent_b_end_t = time.time()
+                    execution_telemetry["agent_b"]["duration_ms"] = int((agent_b_end_t - agent_b_start_t) * 1000)
+                    pipeline_end_t = time.time()
+                    execution_telemetry["total_duration_ms"] = int((pipeline_end_t - pipeline_start_t) * 1000)
+                    print("\n❌  Agent B produced no draft. Pipeline aborted.")
+                    save_telemetry(niche, model_name, "failed", "Agent B produced no draft")
+                    return ""
+
+                # Day 4: Run the automated security & quality checks
+                print(f"🛡️  [Security & Quality] Evaluating draft for Attempt {attempt}...")
+                guardrail_result = evaluate_draft_security_and_quality(draft)
                 
-                if attempt < max_attempts:
-                    print(f"🔄  Feedback Loop: Directing Agent B to rewrite draft to fix violations.")
-                    feedback = violations_text
-                    log_agent_interaction(
-                        "Evaluation Guardrail",
-                        "Agent B (Writer)",
-                        f"REJECTED. The draft contains syntax/formatting violations: {violations_text}. "
-                        "Please perform a complete rewrite to correct these issues."
-                    )
-                else:
-                    print("🛡️  [Security & Quality] ⚠️ Maximum correction attempts reached. Proceeding to final audit.")
+                if guardrail_result["passed"]:
+                    print("🛡️  [Security & Quality] ✅ Check passed. No security or formatting violations found.")
                     log_agent_interaction(
                         "Evaluation Guardrail",
                         "Agent C (Evaluator)",
-                        "WARNING: Security/formatting violations remain, but retry limit reached. Forcing handoff to Critic."
+                        "PASSED security and formatting checks. Handing over to Evaluator for structured quality review."
                     )
-        
-        agent_b_end_t = time.time()
-        execution_telemetry["agent_b"]["duration_ms"] = int((agent_b_end_t - agent_b_start_t) * 1000)
+                    break
+                else:
+                    violations_text = "\n".join(f"- {v}" for v in guardrail_result["violations"])
+                    print(f"🛡️  [Security & Quality] ❌ Violations detected:\n{violations_text}")
+                    execution_telemetry["agent_b"]["violations"].extend(guardrail_result["violations"])
+                    
+                    if attempt < max_attempts:
+                        print(f"🔄  Feedback Loop: Directing Agent B to rewrite draft to fix violations.")
+                        feedback = violations_text
+                        log_agent_interaction(
+                            "Evaluation Guardrail",
+                            "Agent B (Writer)",
+                            f"REJECTED. The draft contains syntax/formatting violations: {violations_text}. "
+                            "Please perform a complete rewrite to correct these issues."
+                        )
+                    else:
+                        print("🛡️  [Security & Quality] ⚠️ Maximum correction attempts reached. Proceeding to final audit.")
+                        log_agent_interaction(
+                            "Evaluation Guardrail",
+                            "Agent C (Evaluator)",
+                            "WARNING: Security/formatting violations remain, but retry limit reached. Forcing handoff to Critic."
+                        )
+            
+            agent_b_end_t = time.time()
+            execution_telemetry["agent_b"]["duration_ms"] = int((agent_b_end_t - agent_b_start_t) * 1000)
 
-        # ── Agent C: Evaluator ──
-        agent_c_start_t = time.time()
-        evaluation = run_agent_c(niche=niche, draft=draft, model_name=model_name, simulate=simulate)
-        agent_c_end_t = time.time()
-        execution_telemetry["agent_c"]["duration_ms"] = int((agent_c_end_t - agent_c_start_t) * 1000)
+            # ── Agent C: Evaluator ──
+            agent_c_start_t = time.time()
+            evaluation = run_agent_c(
+                niche=niche,
+                draft=draft,
+                model_name=model_name,
+                simulate=simulate,
+                expand_horizon=expand_horizon
+            )
+            agent_c_end_t = time.time()
+            execution_telemetry["agent_c"]["duration_ms"] = int((agent_c_end_t - agent_c_start_t) * 1000)
 
-        # ── Agent D: Fact Checker (v6.0) ──
-        fact_check_result = run_fact_checker(
-            draft=draft,
-            all_chunks=rag_ctx["all_chunks"],
-            sources=rag_ctx["sources"],
-            niche=niche,
-            model_name=model_name,
-            api_key=gemini_api_key,
-            simulate=simulate,
-        )
-        log_agent_interaction(
-            "Agent D (Fact Checker)",
-            "Orchestrator",
-            f"Fact check complete. Source coverage: {fact_check_result.get('score', 0)}%. "
-            f"Verified {fact_check_result.get('verified_claims', 0)}/{fact_check_result.get('total_claims_checked', 0)} claims. "
-            f"Verdict: {'PASSED' if fact_check_result.get('passed') else 'FLAGGED'}"
-        )
+            # ── Agent D: Fact Checker (v6.0) ──
+            fact_check_result = run_fact_checker(
+                draft=draft,
+                all_chunks=rag_ctx["all_chunks"],
+                sources=rag_ctx["sources"],
+                niche=niche,
+                model_name=model_name,
+                api_key=gemini_api_key,
+                simulate=simulate,
+            )
+            log_agent_interaction(
+                "Agent D (Fact Checker)",
+                "Orchestrator",
+                f"Fact check complete. Source coverage: {fact_check_result.get('score', 0)}%. "
+                f"Verified {fact_check_result.get('verified_claims', 0)}/{fact_check_result.get('total_claims_checked', 0)} claims. "
+                f"Verdict: {'PASSED' if fact_check_result.get('passed') else 'FLAGGED'}"
+            )
+
+            # Check if Agent C or Agent D score is below 80
+            eval_score = evaluation.get("score", 80)
+            fact_score = fact_check_result.get("score", 100)
+
+            if (eval_score < 80 or fact_score < 80) and critique_attempt < max_critique_attempts:
+                print(f"\n⚠️  [Critique Loop] Draft scored below threshold! Evaluator Score: {eval_score}, Fact Checker Score: {fact_score}.")
+                print("🔄  [Critique Loop] Triggering critique-driven RAG expansion and rewrite...")
+                
+                feedback = (
+                    f"CRITIQUE-DRIVEN RAG REWRITE COMMAND:\n"
+                    f"- Evaluator Score: {eval_score}/100. Notes: {evaluation.get('notes')}\n"
+                    f"- Fact-Checker Source Coverage: {fact_score}%. "
+                    f"Action: Fetcher is expanding the search horizon to scrape deeper content and retrieve more chunks. "
+                    f"Writer, please utilize the new context chunks to draft a more technically detailed and fact-dense newsletter."
+                )
+                
+                log_agent_interaction(
+                    "Agent C (Evaluator)",
+                    "RAG Content Fetcher",
+                    f"CRITIQUE REJECTED (Evaluator: {eval_score}, Fact: {fact_score}). "
+                    f"Command: Expand search horizon, scrape deeper paragraphs, and retrieve k=12 chunks."
+                )
+
+                expand_horizon = True
+                critique_attempt += 1
+            else:
+                if (eval_score < 80 or fact_score < 80):
+                    print("\n⚠️  [Critique Loop] Threshold not met, but maximum critique attempts reached. Proceeding to publication.")
+                break
 
         # ── Update past issues memory ──
         update_past_issues(niche, topics, draft)
