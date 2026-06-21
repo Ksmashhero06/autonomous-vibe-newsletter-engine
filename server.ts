@@ -1748,9 +1748,44 @@ Your mission:
             points: 588,
           },
           {
-            title: "Meta Research details LLaMA 4: 100T parameter model optimized for agentic tool use and complex reasoning",
-            description: "Meta Research blog details architectural updates including speculative decoding pipelines and low-rank adaptation techniques for edge devices.",
-            points: 575,
+            title: "The Anthropic Model Suspension Shockwave",
+            description: "Anthropic abruptly disabled global access to Claude Fable 5 and Claude Mythos 5 over U.S. government directives regarding cyber capability jailbreak risks.",
+            points: 645,
+          },
+          {
+            title: "The Corporate AI Cost 'Reckoning'",
+            description: "Massive early adopters like Amazon, Walmart, and Uber introduce strict budget caps and rein in AI usage to optimize return on investment (ROI).",
+            points: 530,
+          },
+          {
+            title: "The Rise of 'Agentic AI' in Production",
+            description: "Deloitte and Gartner data show a massive gap between piloting autonomous agents and moving them into live production without rewriting internal processes.",
+            points: 520,
+          },
+          {
+            title: "Yann LeCun vs. xAI",
+            description: "Meta's Yann LeCun labels xAI as 'kind of a failure' and predicts the brute-force LLM scaling approach is heading toward a major industry-wide reset.",
+            points: 515,
+          },
+          {
+            title: "The Green Computing & AI Data Center Boom",
+            description: "Environmental impact of AI data centers strains power grids in regions like Australia and the U.S., driving tech giants toward green energy strategies.",
+            points: 490,
+          },
+          {
+            title: "Physical AI & Humanoid Robotics in Logistics",
+            description: "Amazon, BMW, and Xiaomi scale physical AI fleet operations, deploying humanoid robots to factory floors to handle structural labor shortages.",
+            points: 480,
+          },
+          {
+            title: "Space-Based AI Compute Frontier",
+            description: "Nvidia and StarCloud collaborate on the first orbital AI model training, exploring space-based data centers for energy and cooling benefits.",
+            points: 475,
+          },
+          {
+            title: "AI-Generated Influencers & Social Commerce",
+            description: "Brands pivot advertising budgets from human creators toward fully AI-generated virtual influencers, raising authenticity and trust questions.",
+            points: 430,
           },
           {
             title: "Is clean token-to-token streaming with low late-delivery possible over HTTP/3?",
@@ -1765,6 +1800,16 @@ Your mission:
         ];
       } else {
         trendingTopics = [
+          {
+            title: "Texas Government Data Breach",
+            description: "A major security breach in Texas recently allowed hackers to steal 3 million driver's licenses and passports, putting a spotlight on critical state infrastructure vulnerabilities.",
+            points: 590,
+          },
+          {
+            title: "Direct-to-Satellite Mobile Connectivity",
+            description: "Starlink and major carriers enable standard smartphones to connect directly to satellites, threatening traditional telecom tower infrastructure.",
+            points: 560,
+          },
           {
             title: "Netflix TechBlog: Migrating a core streaming service from Java to Rust",
             description: "Netflix engineers detail how migrating to Rust reduced CPU utilization by 40% and eliminated garbage collection latency spikes in high-throughput video metadata streams.",
