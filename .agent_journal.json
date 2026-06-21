@@ -490,10 +490,15 @@
       "step_number": 98,
       "action": "Moved resolved test run screenshots walkthrough and image files to project folder.",
       "finding": "Created screenshots/ directory, copied the PNG assets, updated image links to relative paths for portability, wrote the test_run_screenshots.md file to the project root, and pushed to origin/main."
+    },
+    {
+      "step_number": 99,
+      "action": "Stored all screenshots, output recordings, and resolved report inside test_deliverables folder.",
+      "finding": "Created test_deliverables/ directory containing all run PNG captures and WEBP recordings. Added test_run_screenshots.md referencing local deliverables relatively, and pushed the entire media catalog to remote origin."
     }
   ],
   "active_files": [
     ".agent_journal.json"
   ],
-  "next_step": "Notify user that all files are moved, committed, and pushed."
+  "next_step": "Notify user that all deliverables are successfully archived, committed, and pushed."
 }
