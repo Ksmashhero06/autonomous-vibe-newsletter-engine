@@ -485,10 +485,15 @@
       "step_number": 97,
       "action": "Ran custom test cases across diverse niches and captured high-fidelity dashboard screenshots.",
       "finding": "Executed simulation pipeline runs for Web3, Rust, and Edge AI topics. Implemented robust deterministic embedding vectors to handle offline fallback seamlessly. Captured screenshots of the Workstation, Cooperation, Fleet Logs, and Archive tabs."
+    },
+    {
+      "step_number": 98,
+      "action": "Moved resolved test run screenshots walkthrough and image files to project folder.",
+      "finding": "Created screenshots/ directory, copied the PNG assets, updated image links to relative paths for portability, wrote the test_run_screenshots.md file to the project root, and pushed to origin/main."
     }
   ],
   "active_files": [
     ".agent_journal.json"
   ],
-  "next_step": "Notify user of successful completion of custom test runs and screenshots."
+  "next_step": "Notify user that all files are moved, committed, and pushed."
 }
