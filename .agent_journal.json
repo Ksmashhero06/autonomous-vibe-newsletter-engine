@@ -505,10 +505,15 @@
       "step_number": 101,
       "action": "Isolated Kaggle writeup assets into test_deliverables/kaggle_writeup/ subfolder.",
       "finding": "Moved all Kaggle-related screen captures and recordings out of core newsletter screenshots/ and recordings/ directories to keep them dedicated to the project tests."
+    },
+    {
+      "step_number": 102,
+      "action": "Deleted unrelated Day 4 shopping assistant screenshots from test_deliverables.",
+      "finding": "Purged 7 files (shopping assistant/browser session screenshots) that were separate from the newsletter engine test results."
     }
   ],
   "active_files": [
     ".agent_journal.json"
   ],
-  "next_step": "Notify user that isolation of Kaggle assets is complete."
+  "next_step": "Notify user that deletion of Day 4 screenshots is complete."
 }
