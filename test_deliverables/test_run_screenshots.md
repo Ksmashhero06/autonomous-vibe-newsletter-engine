@@ -5,15 +5,15 @@ This walkthrough showcases the visual layout and execution flow of the **Autonom
 ## 📸 Interactive UI Gallery
 
 ````carousel
-![1. Workstation Tab — Cockpit Platform dashboard showing configuration panel and active multi-agent controls.](workstation_tab_1782066942184.png)
+![1. Workstation Tab — Cockpit Platform dashboard showing configuration panel and active multi-agent controls.](screenshots/workstation_tab_1782066942184.png)
 <!-- slide -->
-![2. Cooperation Tab — Group Chat UI showing color-coded live conversations between Orchestrator, Trend Scout, RAG Fetcher, Writer, and Guardrails.](cooperation_tab_1782066967670.png)
+![2. Cooperation Tab — Group Chat UI showing color-coded live conversations between Orchestrator, Trend Scout, RAG Fetcher, Writer, and Guardrails.](screenshots/cooperation_tab_1782066967670.png)
 <!-- slide -->
-![3. Fleet Logs Tab — Telemetry tracking and metrics dashboard monitoring API calls and transaction times.](fleet_logs_tab_1782067019893.png)
+![3. Fleet Logs Tab — Telemetry tracking and metrics dashboard monitoring API calls and transaction times.](screenshots/fleet_logs_tab_1782067019893.png)
 <!-- slide -->
-![4. Server Archive Tab — Complete file system browser for reviewing auto-archived markdown files.](archive_tab_1782067033809.png)
+![4. Server Archive Tab — Complete file system browser for reviewing auto-archived markdown files.](screenshots/archive_tab_1782067033809.png)
 <!-- slide -->
-![5. Newsletter Reader View — The rendered markdown output for 'Rust Systems & WebAssembly' showcasing the automated RAG execution summary.](newsletter_reader_view_1782067047801.png)
+![5. Newsletter Reader View — The rendered markdown output for 'Rust Systems & WebAssembly' showcasing the automated RAG execution summary.](screenshots/newsletter_reader_view_1782067047801.png)
 ````
 
 ---
