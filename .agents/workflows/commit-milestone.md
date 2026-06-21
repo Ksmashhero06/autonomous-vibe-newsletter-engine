@@ -24,13 +24,14 @@ Follow this workflow to commit and push the current milestone:
    git reset HEAD .env
    ```
 
-4. **Commit with Conventional Commit format**:
-   Use the appropriate prefix:
-   - `feat:` — new feature
-   - `fix:` — bug fix
-   - `docs:` — documentation only
-   - `refactor:` — code restructure without behaviour change
-   - `chore:` — maintenance tasks
+4. **Commit with Conventional Commit format (Split into 4-5 or more separate commits)**:
+   - **CRITICAL**: Do NOT bundle multiple distinct changes into a single large commit. Always split your changes into 4-5 (or more) separate commits based on logical separation (e.g. backend changes, pipeline scripts, config/rules, documentation updates).
+   - Use the appropriate prefix for each commit:
+     - `feat:` — new feature
+     - `fix:` — bug fix
+     - `docs:` — documentation only
+     - `refactor:` — code restructure without behaviour change
+     - `chore:` — maintenance tasks
 
    ```powershell
    git commit --no-verify -m "feat(ui): redesign cooperation tab as group chat"
