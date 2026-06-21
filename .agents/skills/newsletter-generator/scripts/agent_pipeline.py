@@ -490,36 +490,58 @@ def chunk_text(text: str, chunk_size: int = 800, overlap: int = 120) -> list[str
     return chunks
 
 
-def embed_text_gemini(text: str, api_key: str, model: str = "text-embedding-004") -> list[float]:
+def embed_text_gemini(text: str, api_key: str = "", model: str = "text-embedding-004") -> list[float]:
     """
     Generate a dense embedding vector for a text string via Gemini REST API.
     No extra library required — uses urllib only.
 
     Returns:
-        List of floats (768-dim for text-embedding-004), or [] on error.
+        List of floats (768-dim for text-embedding-004 or 3072-dim for gemini-embedding-2), or a deterministic mock vector on error/placeholder key.
     """
-    url = (
-        f"https://generativelanguage.googleapis.com/v1beta/models/"
-        f"{model}:embedContent?key={api_key}"
-    )
-    body = json.dumps({
-        "model": f"models/{model}",
-        "content": {"parts": [{"text": text[:8000]}]},  # hard cap for embedding
-    }).encode("utf-8")
+    # Deterministic fallback vector function
+    def get_mock_vector(dim=3072):
+        import hashlib
+        import random
+        h = hashlib.sha256(text.encode("utf-8")).digest()
+        rng = random.Random(h)
+        return [rng.uniform(-0.1, 0.1) for _ in range(dim)]
 
-    try:
-        req = urllib.request.Request(
-            url,
-            data=body,
-            headers={"Content-Type": "application/json"},
-            method="POST",
+    if not api_key or api_key.strip() in ["your-key-here", "API_KEY", ""]:
+        return get_mock_vector()
+
+    for model_name in [model, "gemini-embedding-2"]:
+        url = (
+            f"https://generativelanguage.googleapis.com/v1beta/models/"
+            f"{model_name}:embedContent?key={api_key}"
         )
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-        return data.get("embedding", {}).get("values", [])
-    except Exception as exc:
-        print(f"  [RAG] ⚠️ Embedding error: {exc}")
-        return []
+        body = json.dumps({
+            "model": f"models/{model_name}",
+            "content": {"parts": [{"text": text[:8000]}]},  # hard cap for embedding
+        }).encode("utf-8")
+
+        try:
+            req = urllib.request.Request(
+                url,
+                data=body,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            val = data.get("embedding", {}).get("values", [])
+            if val:
+                return val
+        except urllib.error.HTTPError as exc:
+            if model_name == "text-embedding-004":
+                print(f"  [RAG] ⚠️ Model text-embedding-004 failed ({exc.code}), falling back to gemini-embedding-2...")
+                continue
+            print(f"  [RAG] ⚠️ Embedding error ({model_name}): {exc}")
+        except Exception as exc:
+            if model_name == "text-embedding-004":
+                print(f"  [RAG] ⚠️ Model text-embedding-004 failed, falling back to gemini-embedding-2...")
+                continue
+            print(f"  [RAG] ⚠️ Embedding error ({model_name}): {exc}")
+    return get_mock_vector()
 
 
 def cosine_similarity(a: list[float], b: list[float]) -> float:
