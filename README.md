@@ -552,7 +552,8 @@ npm run lint     # TypeScript type check
 | **Rewrite feedback loop** | Up to 3 attempts; violation details sent back to Agent B with original draft for targeted correction |
 | **Multi-model support** | Gemini 2.5 Flash/Pro, 1.5 Flash/Pro — all free tier, selectable per run |
 | **6-span OTel telemetry** | Per-agent metrics + RAG + Fact Checker spans saved to `run_history.json` with trace/span IDs |
-| **Agent communication log** | Every agent handoff message saved to `agent_interactions.json` and displayed in the UI |
+| **Premium Group Chat UI** | Cooperation tab redesigned as a group chat with emoji avatars, unique colors, WhatsApp-style bubble grouping, online status, and participant badges |
+| **Agent communication log** | Every agent handoff message saved to `agent_interactions.json` and parsed into live chat logs |
 | **Auto-archive** | All newsletters saved as timestamped `.md` files in `newsletters/` automatically |
 | **Background worker** | Python scheduler with configurable interval; writes heartbeat for the dashboard |
 | **Offline simulation** | Full 5-agent pipeline runs without an API key using niche-matched curated templates |
