@@ -435,6 +435,11 @@
       "step_number": 87,
       "action": "Stopped all running project terminals/processes.",
       "finding": "Identified active project processes (node.exe, python.exe, python3.13.exe) on ports 3000, 8501, and 8080, and terminated them."
+    },
+    {
+      "step_number": 88,
+      "action": "Copied kaggle_writeup_submission.md to the project root directory.",
+      "finding": "Copied the Capstone writeup file containing submission fields, description, architecture details, and video script outline to the workspace root for the user."
     }
   ],
   "active_files": [
@@ -446,7 +451,8 @@
     ".agent_code_map.md",
     "README.md",
     ".agents/skills/git-commit-formatter/SKILL.md",
-    ".agents/workflows/commit-milestone.md"
+    ".agents/workflows/commit-milestone.md",
+    "kaggle_writeup_submission.md"
   ],
-  "next_step": "All terminals and processes are successfully stopped. No further actions required."
+  "next_step": "Writeup file is ready in project root. No further actions required."
 }
