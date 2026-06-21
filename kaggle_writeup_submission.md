@@ -137,6 +137,13 @@ def check_past_issues(titles: list[str]) -> dict[str, list[str]]:
 
 ---
 
+### 3. Automated Technical Resilience & Edge-Case Stress Testing
+To guarantee operational stability, the engine features:
+- **Vector Embedding Fallback Loop**: If the default `text-embedding-004` model returns a `404` or mismatch, the orchestrator dynamically falls back to `gemini-embedding-2` to calculate dense 3072-dimensional embeddings.
+- **10 Edge-Case Stress Tests**: An automated validator (`test_edge_cases.py`) verifying unclosed Markdown blocks, complex math equations ($O(N \log N)$), deep RAG retrieves, kernel evidence constraints, prompt injection blocks, and critique-driven recoveries.
+
+---
+
 ### 2. Critique-Driven RAG Feedback Loop
 
 If a newsletter draft contains factual claims that are not backed by evidence or fails structural checks, the orchestrator triggers a loopback. It sends a structured feedback command to the RAG Fetcher to expand its search horizon, crawl deeper paragraphs, increase chunk sizes, and feed the new context chunks back to the Writer (Agent B) for a targeted rewrite.
@@ -244,13 +251,14 @@ Each generation run outputs standard trace telemetry to `run_history.json` with 
 - **Day 4 (Guardrails):** Implemented prompt injection defenses and automated rewrite loops.
 - **Day 5 (Dashboard):** Registered 8 live RSS tools and completed the background scheduler.
 - **Day 6 (Fact Checker & RAG):** Embedded scraped article data and fact-checked drafts using Cosine Similarity.
-- **Post-Day 6 (Optimization):** Swapped simple string checks for a **Vectorized Memory Database** and implemented the **Critique-Driven RAG Loop**.
+- **Day 7 (Resilience & Telemetry):** Implemented `gemini-embedding-2` fallback for RAG vectorization and executed 10 technical edge-case stress tests (`test_edge_cases.py`).
+- **Post-Day 7 (Optimization):** Swapped simple string checks for a **Vectorized Memory Database** and implemented the **Critique-Driven RAG Loop**.
 
 ---
 
 ## Results
 
-- **23+ Newsletters Generated** across Web3, Edge AI, Rust/WASM, and AI niches.
+- **45+ Newsletters Generated** across Web3, Edge AI, Rust/WASM, and AI niches.
 - **Average Quality Score: 92/100** enforced by LLM evaluation.
 - **Self-Correction Success:** The feedback loops successfully resolve ~30% of first-attempt formatting or information deficiencies, driving the final score above 90.
 - **Zero Cloud Cost:** Runs completely locally using the Google AI Studio free tier.
