@@ -1659,82 +1659,142 @@ export default function App() {
 
           </div>
           ) : activeSubTab === "cooperation" ? (
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 md:p-8 space-y-6 shadow-xs transition-colors duration-200">
-              <div className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-slate-800 flex-wrap gap-2">
-                <div>
-                  <h2 className="text-md font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 text-purple-500" />
-                    Agent-to-Agent Interactive Chat & Cooperation
-                  </h2>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    Live feed of communications exchanged during the last execution cycle.
-                  </p>
+            <div style={{background: "linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #0d1117 100%)", borderRadius: "24px", overflow: "hidden", border: "1px solid rgba(99,102,241,0.15)", minHeight: "600px", display: "flex", flexDirection: "column"}}>
+
+              {/* Group chat header */}
+              <div style={{background: "rgba(15,15,30,0.95)", backdropFilter: "blur(20px)", borderBottom: "1px solid rgba(99,102,241,0.2)", padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px"}}>
+                <div style={{display: "flex", alignItems: "center", gap: "12px"}}>
+                  <div style={{position: "relative"}}>
+                    <div style={{width: "44px", height: "44px", borderRadius: "50%", background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px", boxShadow: "0 0 20px rgba(99,102,241,0.4)"}}>🤖</div>
+                    <div style={{position: "absolute", bottom: "1px", right: "1px", width: "11px", height: "11px", borderRadius: "50%", background: "#22c55e", border: "2px solid #0f0f1a"}}></div>
+                  </div>
+                  <div>
+                    <div style={{fontWeight: "800", fontSize: "14px", color: "#f1f5f9", letterSpacing: "-0.3px"}}>Agent Fleet — Group Chat</div>
+                    <div style={{fontSize: "11px", color: "#94a3b8", marginTop: "2px"}}>
+                      {interactions.length > 0 ? `${interactions.length} messages · Last run cycle` : "Awaiting pipeline activation..."}
+                    </div>
+                  </div>
                 </div>
-                <button
-                  onClick={fetchDashboardTelemetry}
-                  className="bg-white dark:bg-slate-950 hover:bg-slate-50 dark:hover:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-705 dark:text-slate-300 font-bold text-xs px-3 py-1.5 rounded-xl transition-all cursor-pointer"
-                >
-                  Sync Feed
-                </button>
+                {/* Participant avatars row */}
+                <div style={{display: "flex", alignItems: "center", gap: "6px"}}>
+                  {[
+                    {emoji: "🔭", color: "#8b5cf6", label: "Scout"},
+                    {emoji: "✍️", color: "#f59e0b", label: "Writer"},
+                    {emoji: "🧠", color: "#06b6d4", label: "Memory"},
+                    {emoji: "🛡️", color: "#ef4444", label: "Guard"},
+                    {emoji: "⚖️", color: "#22c55e", label: "Eval"},
+                    {emoji: "🔎", color: "#f97316", label: "Fact"},
+                  ].map(p => (
+                    <div key={p.label} title={p.label} style={{width: "30px", height: "30px", borderRadius: "50%", background: `${p.color}22`, border: `2px solid ${p.color}55`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", cursor: "default"}}>
+                      {p.emoji}
+                    </div>
+                  ))}
+                  <button
+                    onClick={fetchDashboardTelemetry}
+                    style={{marginLeft: "8px", background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", color: "#a5b4fc", fontWeight: "700", fontSize: "11px", padding: "5px 12px", borderRadius: "20px", cursor: "pointer", transition: "all 0.2s"}}
+                    onMouseOver={e => (e.currentTarget.style.background = "rgba(99,102,241,0.3)")}
+                    onMouseOut={e => (e.currentTarget.style.background = "rgba(99,102,241,0.15)")}
+                  >
+                    ↻ Sync
+                  </button>
+                </div>
               </div>
 
-              {interactions.length === 0 ? (
-                <div className="text-center py-12 text-slate-400 space-y-2">
-                  <Bot className="h-10 w-10 mx-auto text-slate-300 dark:text-slate-700 animate-pulse" />
-                  <p className="text-xs text-slate-500">No active agent communications recorded. Wake up the newsroom to start a new cycle.</p>
-                </div>
-              ) : (
-                <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
-                  {interactions.map((msg: any, idx: number) => {
-                    const sender = msg.sender || "Agent";
-                    const receiver = msg.receiver || "Agent";
+              {/* Chat body */}
+              <div style={{flex: 1, overflowY: "auto", padding: "20px 20px 12px", display: "flex", flexDirection: "column", gap: "4px", maxHeight: "520px"}}>
+                {interactions.length === 0 ? (
+                  <div style={{flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "12px", padding: "60px 20px"}}>
+                    <div style={{fontSize: "48px", opacity: 0.4}}>💬</div>
+                    <p style={{color: "#64748b", fontSize: "13px", textAlign: "center", maxWidth: "280px", lineHeight: "1.6"}}>No active agent conversations yet. Wake up the newsroom to start a pipeline run.</p>
+                  </div>
+                ) : (() => {
+                  // Agent config map
+                  const agentConfig: Record<string, {emoji: string; color: string; bg: string; name: string}> = {
+                    "Scout": {emoji: "🔭", color: "#8b5cf6", bg: "rgba(139,92,246,0.12)", name: "Trend Scout (A)"},
+                    "Trend Scout": {emoji: "🔭", color: "#8b5cf6", bg: "rgba(139,92,246,0.12)", name: "Trend Scout (A)"},
+                    "Agent A": {emoji: "🔭", color: "#8b5cf6", bg: "rgba(139,92,246,0.12)", name: "Trend Scout (A)"},
+                    "Writer": {emoji: "✍️", color: "#f59e0b", bg: "rgba(245,158,11,0.12)", name: "The Writer (B)"},
+                    "Agent B": {emoji: "✍️", color: "#f59e0b", bg: "rgba(245,158,11,0.12)", name: "The Writer (B)"},
+                    "Memory Layer": {emoji: "🧠", color: "#06b6d4", bg: "rgba(6,182,212,0.12)", name: "Memory Layer"},
+                    "Memory": {emoji: "🧠", color: "#06b6d4", bg: "rgba(6,182,212,0.12)", name: "Memory Layer"},
+                    "System Memory": {emoji: "🧠", color: "#06b6d4", bg: "rgba(6,182,212,0.12)", name: "Memory Layer"},
+                    "Evaluation Guardrail": {emoji: "🛡️", color: "#ef4444", bg: "rgba(239,68,68,0.12)", name: "Security Guard"},
+                    "Guardrail": {emoji: "🛡️", color: "#ef4444", bg: "rgba(239,68,68,0.12)", name: "Security Guard"},
+                    "Evaluator": {emoji: "⚖️", color: "#22c55e", bg: "rgba(34,197,94,0.12)", name: "Evaluator (C)"},
+                    "Agent C": {emoji: "⚖️", color: "#22c55e", bg: "rgba(34,197,94,0.12)", name: "Evaluator (C)"},
+                    "Fact Checker": {emoji: "🔎", color: "#f97316", bg: "rgba(249,115,22,0.12)", name: "Fact Checker (D)"},
+                    "Agent D": {emoji: "🔎", color: "#f97316", bg: "rgba(249,115,22,0.12)", name: "Fact Checker (D)"},
+                    "Orchestrator": {emoji: "🎯", color: "#a78bfa", bg: "rgba(167,139,250,0.10)", name: "Orchestrator"},
+                    "System": {emoji: "⚙️", color: "#64748b", bg: "rgba(100,116,139,0.12)", name: "System"},
+                    "RAG Fetcher": {emoji: "📚", color: "#0ea5e9", bg: "rgba(14,165,233,0.12)", name: "RAG Fetcher"},
+                    "Streamlit Portal": {emoji: "🖥️", color: "#64748b", bg: "rgba(100,116,139,0.08)", name: "Portal"},
+                  };
+                  const getConfig = (name: string) => {
+                    for (const key of Object.keys(agentConfig)) {
+                      if (name?.includes(key)) return agentConfig[key];
+                    }
+                    return {emoji: "🤖", color: "#94a3b8", bg: "rgba(148,163,184,0.12)", name: name || "Agent"};
+                  };
+
+                  let lastSender = "";
+                  return interactions.map((msg: any, idx: number) => {
+                    const sender = msg.sender || msg.agent || "System";
+                    const receiver = msg.receiver || "";
                     const timeStr = msg.timestamp || "";
                     const text = msg.message || "";
-
-                    let borderColor = "border-blue-500";
-                    let senderColor = "text-blue-500 dark:text-blue-400";
-                    let bgColor = "bg-blue-50/10 dark:bg-blue-950/10";
-                    
-                    if (sender.includes("Scout") || sender.includes("Agent A")) {
-                      borderColor = "border-purple-500";
-                      senderColor = "text-purple-600 dark:text-purple-400";
-                      bgColor = "bg-purple-50/10 dark:bg-purple-950/10";
-                    } else if (sender.includes("Writer") || sender.includes("Agent B")) {
-                      borderColor = "border-amber-500";
-                      senderColor = "text-amber-600 dark:text-amber-400";
-                      bgColor = "bg-amber-50/10 dark:bg-amber-950/10";
-                    } else if (sender.includes("Guardrail")) {
-                      borderColor = "border-red-500";
-                      senderColor = "text-red-600 dark:text-red-400";
-                      bgColor = "bg-red-50/10 dark:bg-red-950/10";
-                    } else if (sender.includes("Evaluator") || sender.includes("Agent C")) {
-                      borderColor = "border-emerald-500";
-                      senderColor = "text-emerald-600 dark:text-emerald-400";
-                      bgColor = "bg-emerald-50/10 dark:bg-emerald-950/10";
-                    } else if (sender.includes("Memory")) {
-                      borderColor = "border-cyan-500";
-                      senderColor = "text-cyan-600 dark:text-cyan-400";
-                      bgColor = "bg-cyan-50/10 dark:bg-cyan-950/10";
-                    }
+                    const cfg = getConfig(sender);
+                    const isNewSender = sender !== lastSender;
+                    lastSender = sender;
 
                     return (
-                      <div
-                        key={idx}
-                        className={`p-4 rounded-2xl border-l-4 border-y border-r border-slate-200 dark:border-slate-800 ${bgColor} ${borderColor} transition-all`}
-                      >
-                        <div className="flex justify-between items-center mb-1 flex-wrap gap-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className={`font-extrabold text-xs tracking-tight ${senderColor}`}>{sender}</span>
-                            <span className="text-slate-400 dark:text-slate-500 text-[10px]">➔ to {receiver}</span>
+                      <div key={idx} style={{display: "flex", flexDirection: "column", gap: "2px", marginTop: isNewSender && idx !== 0 ? "14px" : "2px"}}>
+                        {/* Sender label — only shown when sender changes */}
+                        {isNewSender && (
+                          <div style={{display: "flex", alignItems: "center", gap: "7px", marginBottom: "4px", paddingLeft: "4px"}}>
+                            <div style={{width: "30px", height: "30px", borderRadius: "50%", background: cfg.bg, border: `2px solid ${cfg.color}40`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "14px", flexShrink: 0, boxShadow: `0 0 10px ${cfg.color}20`}}>
+                              {cfg.emoji}
+                            </div>
+                            <span style={{fontWeight: "700", fontSize: "12px", color: cfg.color, letterSpacing: "-0.2px"}}>{cfg.name}</span>
+                            {receiver && (
+                              <span style={{fontSize: "10px", color: "#475569", background: "rgba(71,85,105,0.2)", padding: "1px 7px", borderRadius: "20px"}}>
+                                → {getConfig(receiver).name}
+                              </span>
+                            )}
+                            {timeStr && <span style={{fontSize: "10px", color: "#475569", marginLeft: "auto"}}>{timeStr}</span>}
                           </div>
-                          <span className="text-slate-400 dark:text-slate-500 text-[10px] font-mono">{timeStr}</span>
+                        )}
+
+                        {/* Chat bubble */}
+                        <div style={{
+                          marginLeft: "37px",
+                          background: cfg.bg,
+                          border: `1px solid ${cfg.color}25`,
+                          borderRadius: isNewSender ? "4px 18px 18px 18px" : "4px 18px 18px 4px",
+                          padding: "10px 14px",
+                          maxWidth: "88%",
+                          position: "relative",
+                          boxShadow: `0 2px 8px ${cfg.color}10`,
+                        }}>
+                          <p style={{fontSize: "12.5px", color: "#cbd5e1", lineHeight: "1.65", fontFamily: "sans-serif", whiteSpace: "pre-wrap", margin: 0}}>{text}</p>
+                          {!isNewSender && timeStr && (
+                            <span style={{display: "block", fontSize: "9.5px", color: "#475569", marginTop: "5px", textAlign: "right"}}>{timeStr}</span>
+                          )}
                         </div>
-                        <p className="text-xs text-slate-700 dark:text-slate-350 leading-relaxed font-sans whitespace-pre-wrap">{text}</p>
                       </div>
                     );
-                  })}
+                  });
+                })()}
+              </div>
+
+              {/* Chat input bar (decorative — shows pipeline is live) */}
+              <div style={{background: "rgba(15,15,30,0.95)", borderTop: "1px solid rgba(99,102,241,0.15)", padding: "12px 16px", display: "flex", alignItems: "center", gap: "10px"}}>
+                <div style={{flex: 1, background: "rgba(30,30,50,0.8)", border: "1px solid rgba(99,102,241,0.2)", borderRadius: "24px", padding: "10px 16px", fontSize: "12px", color: "#475569", userSelect: "none"}}>
+                  Agent messages appear here during pipeline execution...
                 </div>
-              )}
+                <div style={{width: "38px", height: "38px", borderRadius: "50%", background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "16px", cursor: "default", opacity: 0.5}}>
+                  ➤
+                </div>
+              </div>
             </div>
           ) : activeSubTab === "logs" ? (
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 md:p-8 space-y-6 shadow-xs transition-colors duration-200">
