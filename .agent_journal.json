@@ -480,11 +480,15 @@
       "step_number": 96,
       "action": "Deduplicated the archive of newsletter markdown files.",
       "finding": "Identified and removed 30 duplicate files in newsletters/ folder using a custom Python script that ignored header metadata, leaving 16 unique newsletters. Updated the writeup file accordingly."
+    },
+    {
+      "step_number": 97,
+      "action": "Ran custom test cases across diverse niches and captured high-fidelity dashboard screenshots.",
+      "finding": "Executed simulation pipeline runs for Web3, Rust, and Edge AI topics. Implemented robust deterministic embedding vectors to handle offline fallback seamlessly. Captured screenshots of the Workstation, Cooperation, Fleet Logs, and Archive tabs."
     }
   ],
   "active_files": [
-    "kaggle_writeup_submission.md",
     ".agent_journal.json"
   ],
-  "next_step": "Notify user that deduplication has completed successfully."
+  "next_step": "Notify user of successful completion of custom test runs and screenshots."
 }
