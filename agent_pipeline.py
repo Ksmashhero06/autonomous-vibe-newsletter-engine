@@ -1484,7 +1484,8 @@ def fetch_aws_blog_headlines(max_items: int = 10) -> dict[str, Any]:
 
 def check_past_issues(titles: list[str]) -> dict[str, list[str]]:
     """
-    Checks if any of the given article titles have already been covered in past issues of the newsletter.
+    Checks if any of the given article titles have already been covered in past issues of the newsletter
+    using semantic vector similarity (local file-based vector storage) with Gemini text-embedding-004.
 
     Args:
         titles: A list of article titles to check.
@@ -1504,12 +1505,72 @@ def check_past_issues(titles: list[str]) -> dict[str, list[str]]:
         print(f"  [🔧 Tool] ❌ Error reading past_issues.json: {exc}")
         return {"covered_titles": []}
 
+    # Extract API key for embedding
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if api_key and (api_key == "MY_GEMINI_API_KEY" or "API_KEY_SERVICE_BLOCKED" in api_key or "blocked" in api_key.lower()):
+        api_key = None
+
+    # Lazy-embed existing past issues if key is available
+    updated_cache = False
+    past_titles_with_vectors = []
+
+    for issue in past_issues:
+        if not isinstance(issue, dict):
+            continue
+        title = issue.get("title", "").strip()
+        if not title:
+            continue
+
+        vector = issue.get("vector")
+        if not vector and api_key:
+            print(f"  [Memory] 🔮 Vectorizing past topic: '{title}'...")
+            vector = embed_text_gemini(title, api_key)
+            if vector:
+                issue["vector"] = vector
+                updated_cache = True
+
+        past_titles_with_vectors.append({
+            "title": title,
+            "vector": vector
+        })
+
+    # Save cache if we populated new vectors
+    if updated_cache:
+        try:
+            with open(past_issues_path, "w", encoding="utf-8") as f:
+                json.dump(past_issues, f, indent=2)
+            print("  [Memory] Saved newly computed past issue vectors to past_issues.json.")
+        except Exception as exc:
+            print(f"  [Memory] ❌ Error updating vector cache: {exc}")
+
     covered_titles = []
-    past_titles = [issue.get("title", "").strip().lower() for issue in past_issues if isinstance(issue, dict)]
+    SIMILARITY_THRESHOLD = 0.85
 
     for title in titles:
         cleaned_title = title.strip().lower()
-        if cleaned_title in past_titles:
+        is_covered = False
+
+        # 1. Try vector similarity first
+        if api_key:
+            candidate_vec = embed_text_gemini(title, api_key)
+            if candidate_vec:
+                for past in past_titles_with_vectors:
+                    if past["vector"]:
+                        sim = cosine_similarity(candidate_vec, past["vector"])
+                        if sim >= SIMILARITY_THRESHOLD:
+                            print(f"  [Memory] 🚫 Semantic duplicate detected! '{title}' is {sim*100:.1f}% similar to past topic '{past['title']}'")
+                            is_covered = True
+                            break
+
+        # 2. Fallback to exact string matching if not covered or no API key
+        if not is_covered:
+            for past in past_titles_with_vectors:
+                if cleaned_title == past["title"].strip().lower():
+                    print(f"  [Memory] 🚫 Exact match detected for: '{title}'")
+                    is_covered = True
+                    break
+
+        if is_covered:
             covered_titles.append(title)
 
     print(f"  [🔧 Tool] ✅ Found covered titles: {covered_titles}")
@@ -2438,7 +2499,7 @@ Draft to evaluate:
 
 
 def update_past_issues(niche: str, topics: list[dict], newsletter_content: str):
-    """Parses selected topics from the final draft and appends them to past_issues.json."""
+    """Parses selected topics from the final draft and appends them to past_issues.json with vectors."""
     past_issues_path = os.path.join(os.path.dirname(__file__), "past_issues.json")
 
     # Load existing
@@ -2452,6 +2513,11 @@ def update_past_issues(niche: str, topics: list[dict], newsletter_content: str):
 
     existing_titles = {issue.get("title", "").strip().lower() for issue in past_issues if isinstance(issue, dict)}
 
+    # Extract API key for embedding
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if api_key and (api_key == "MY_GEMINI_API_KEY" or "API_KEY_SERVICE_BLOCKED" in api_key or "blocked" in api_key.lower()):
+        api_key = None
+
     updated = False
     for topic in topics:
         title = topic.get("title", "")
@@ -2461,10 +2527,16 @@ def update_past_issues(niche: str, topics: list[dict], newsletter_content: str):
         # Check if the title is mentioned in the newsletter content
         if title.lower() in newsletter_content.lower():
             if title.strip().lower() not in existing_titles:
+                vector = None
+                if api_key:
+                    print(f"  [Memory] 🔮 Vectorizing new topic: '{title}'...")
+                    vector = embed_text_gemini(title, api_key)
+                
                 past_issues.append({
                     "title": title,
                     "niche": niche,
-                    "timestamp": datetime.now().isoformat() + "Z"
+                    "timestamp": datetime.now().isoformat() + "Z",
+                    "vector": vector
                 })
                 existing_titles.add(title.strip().lower())
                 updated = True

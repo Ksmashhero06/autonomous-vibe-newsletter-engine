@@ -13,8 +13,15 @@ app.use(express.json());
 
 const PORT = 3000;
 
+interface PastIssue {
+  title: string;
+  niche: string;
+  timestamp: string;
+  vector?: number[];
+}
+
 // Memory Database Helpers
-function getPastIssues(): { title: string; niche: string; timestamp: string }[] {
+function getPastIssues(): PastIssue[] {
   try {
     const filePath = path.join(process.cwd(), "past_issues.json");
     if (fs.existsSync(filePath)) {
@@ -26,7 +33,7 @@ function getPastIssues(): { title: string; niche: string; timestamp: string }[] 
   return [];
 }
 
-function savePastIssues(issues: { title: string; niche: string; timestamp: string }[]) {
+function savePastIssues(issues: PastIssue[]) {
   try {
     const filePath = path.join(process.cwd(), "past_issues.json");
     fs.writeFileSync(filePath, JSON.stringify(issues, null, 2), "utf-8");
@@ -1805,8 +1812,64 @@ Please rewrite the entire newsletter draft from scratch, addressing and fixing e
 
             // Execute check
             const pastIssues = getPastIssues();
-            const pastTitles = pastIssues.map(issue => issue.title.trim().toLowerCase());
-            const covered = titlesToCheck.filter(title => pastTitles.includes(title.trim().toLowerCase()));
+            const apiKey = keys.gemini;
+            let updatedCache = false;
+
+            if (apiKey && apiKey !== "MY_GEMINI_API_KEY") {
+              for (const issue of pastIssues) {
+                if (!issue.vector) {
+                  addLog("Writer", `🔮 Memory: Vectorizing past topic: "${issue.title}"...`);
+                  const vec = await embedTextGemini(issue.title, apiKey);
+                  if (vec && vec.length > 0) {
+                    issue.vector = vec;
+                    updatedCache = true;
+                  }
+                }
+              }
+            }
+
+            if (updatedCache) {
+              savePastIssues(pastIssues);
+              addLog("Writer", `✅ Memory: Saved newly computed past issue vectors to past_issues.json.`);
+            }
+
+            const SIMILARITY_THRESHOLD = 0.85;
+            const covered: string[] = [];
+
+            for (const title of titlesToCheck) {
+              let isCovered = false;
+              const cleanedTitle = title.trim().toLowerCase();
+
+              if (apiKey && apiKey !== "MY_GEMINI_API_KEY") {
+                const candidateVec = await embedTextGemini(title, apiKey);
+                if (candidateVec && candidateVec.length > 0) {
+                  for (const past of pastIssues) {
+                    if (past.vector && past.vector.length > 0) {
+                      const sim = cosineSimilarity(candidateVec, past.vector);
+                      if (sim >= SIMILARITY_THRESHOLD) {
+                        addLog("Writer", `🚫 Semantic duplicate detected! "${title}" is ${(sim * 100).toFixed(1)}% similar to past topic "${past.title}"`);
+                        isCovered = true;
+                        break;
+                      }
+                    }
+                  }
+                }
+              }
+
+              if (!isCovered) {
+                for (const past of pastIssues) {
+                  if (cleanedTitle === past.title.trim().toLowerCase()) {
+                    addLog("Writer", `🚫 Exact match detected for: "${title}"`);
+                    isCovered = true;
+                    break;
+                  }
+                }
+              }
+
+              if (isCovered) {
+                covered.push(title);
+              }
+            }
 
             addLog("Writer", `Memory skill result: Covered topics found -> [${covered.join(", ") || "None"}].`);
 
@@ -2057,10 +2120,15 @@ ${draftContent}`;
       for (const t of trendingTopics) {
         if (t.title && draftContent.toLowerCase().includes(t.title.toLowerCase())) {
           if (!existingTitles.has(t.title.trim().toLowerCase())) {
+            let vector: number[] | undefined = undefined;
+            if (keys.gemini && keys.gemini !== "MY_GEMINI_API_KEY") {
+              vector = await embedTextGemini(t.title, keys.gemini);
+            }
             pastIssues.push({
               title: t.title,
               niche: targetNiche,
-              timestamp: new Date().toISOString()
+              timestamp: new Date().toISOString(),
+              vector: vector
             });
             existingTitles.add(t.title.trim().toLowerCase());
             updated = true;
