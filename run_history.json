@@ -4795,5 +4795,591 @@
         "api_errors_count": 0
       }
     }
+  },
+  {
+    "timestamp": "2026-06-23T00:43:59.496145Z",
+    "niche": "AI & Agentic Frameworks",
+    "model": "gemini-1.5-flash",
+    "status": "success",
+    "error": null,
+    "agent_a": {
+      "last_wake": "2026-06-23T00:43:51.344008Z",
+      "headlines_pulled": [
+        "Deep Dive: Architecture of fall of developerss in IT sectors due to arise of AI",
+        "Performance Tuning & Optimization for fall of developerss in IT sectors due to arise of AI",
+        "Common Pitfalls and Anti-patterns in fall of developerss in IT sectors due to arise of AI Implementations"
+      ],
+      "source": "Multiple Tech RSS Feeds",
+      "duration_ms": 61
+    },
+    "agent_b": {
+      "prompt_tokens": 4350,
+      "output_tokens": 2940,
+      "total_tokens": 7290,
+      "attempts": 1,
+      "violations": [
+        "Formatting Violation: Unclosed markdown code block detected (odd number of triple-backticks)."
+      ],
+      "duration_ms": 1936,
+      "grounding_sources": []
+    },
+    "agent_c": {
+      "score": 95,
+      "notes": "Excellent detail. Expanded sections contain high-quality technical telemetry.",
+      "passed": true,
+      "duration_ms": 37
+    },
+    "telemetry": {
+      "total_duration_ms": 8000,
+      "total_cost_usd": 0.001208,
+      "agent_a_duration_ms": 61,
+      "agent_b_duration_ms": 1936,
+      "agent_c_duration_ms": 37,
+      "spans": [
+        {
+          "name": "pipeline_run",
+          "context": {
+            "trace_id": "ef1dcac903074fc6a73ffb77004cff0a",
+            "span_id": "40f6db35a42c4e0a"
+          },
+          "parent_span_id": null,
+          "start_time": "2026-06-23T00:43:51.344008Z",
+          "end_time": "2026-06-23T00:43:59.496117Z",
+          "duration_ms": 8000,
+          "attributes": {
+            "niche": "AI & Agentic Frameworks",
+            "model": "gemini-1.5-flash",
+            "status": "success",
+            "error": ""
+          }
+        },
+        {
+          "name": "agent_a_trend_scout",
+          "context": {
+            "trace_id": "ef1dcac903074fc6a73ffb77004cff0a",
+            "span_id": "fa1dcd823c4d4e48"
+          },
+          "parent_span_id": "40f6db35a42c4e0a",
+          "start_time": "2026-06-23T00:43:51.344008Z",
+          "end_time": "2026-06-23T00:43:59.496117Z",
+          "duration_ms": 61,
+          "attributes": {
+            "source": "Multiple Tech RSS Feeds",
+            "headlines_pulled_count": 3
+          }
+        },
+        {
+          "name": "agent_b_writer",
+          "context": {
+            "trace_id": "ef1dcac903074fc6a73ffb77004cff0a",
+            "span_id": "979b032ff93344f5"
+          },
+          "parent_span_id": "40f6db35a42c4e0a",
+          "start_time": "2026-06-23T00:43:59.496117Z",
+          "end_time": "2026-06-23T00:43:59.496117Z",
+          "duration_ms": 1936,
+          "attributes": {
+            "attempts": 1,
+            "violations_count": 1,
+            "prompt_tokens": 4350,
+            "output_tokens": 2940
+          }
+        },
+        {
+          "name": "agent_c_evaluator",
+          "context": {
+            "trace_id": "ef1dcac903074fc6a73ffb77004cff0a",
+            "span_id": "09373cf133cf405e"
+          },
+          "parent_span_id": "40f6db35a42c4e0a",
+          "start_time": "2026-06-23T00:43:59.496117Z",
+          "end_time": "2026-06-23T00:43:59.496117Z",
+          "duration_ms": 37,
+          "attributes": {
+            "score": 95,
+            "passed": true
+          }
+        }
+      ],
+      "failures": {
+        "violations_count": 1,
+        "attempts_count": 1,
+        "api_errors_count": 0
+      }
+    }
+  },
+  {
+    "timestamp": "2026-06-22T19:21:32.928Z",
+    "niche": "fall of developerss in IT sectors due to arise of AI",
+    "model": "gemini-2.5-flash",
+    "status": "success",
+    "error": null,
+    "agent_a": {
+      "last_wake": "2026-06-22T19:21:32.928Z",
+      "headlines_pulled": [
+        "Show HN: Model-Context Protocol (MCP) clients built entirely in Rust",
+        "OpenAI launches GPT-5.5 with real-time semantic video streaming and sub-50ms latency",
+        "Google introduces Gemini 2.5 Pro with native 10-million token context windows",
+        "The Anthropic Model Suspension Shockwave",
+        "The Corporate AI Cost 'Reckoning'",
+        "The Rise of 'Agentic AI' in Production",
+        "Yann LeCun vs. xAI",
+        "The Green Computing & AI Data Center Boom",
+        "Physical AI & Humanoid Robotics in Logistics",
+        "Space-Based AI Compute Frontier",
+        "AI-Generated Influencers & Social Commerce",
+        "Is clean token-to-token streaming with low late-delivery possible over HTTP/3?",
+        "Autonomous agents now manage $50k/day ad budgets with zero human overview"
+      ],
+      "source": "Multiple Tech RSS Feeds",
+      "duration_ms": 2505
+    },
+    "agent_b": {
+      "prompt_tokens": 5800,
+      "output_tokens": 3920,
+      "total_tokens": 9720,
+      "attempts": 2,
+      "violations": [],
+      "duration_ms": 21007
+    },
+    "agent_c": {
+      "score": 95,
+      "notes": "Approved by Evaluator Agent",
+      "passed": true,
+      "duration_ms": 30204
+    },
+    "agent_d": {
+      "score": 94,
+      "verified": 5,
+      "total": 5,
+      "passed": true,
+      "duration_ms": 1
+    },
+    "telemetry": {
+      "total_duration_ms": 53716,
+      "total_cost_usd": 0.001611,
+      "agent_a_duration_ms": 2505,
+      "agent_b_duration_ms": 21007,
+      "agent_c_duration_ms": 30204,
+      "agent_d_duration_ms": 1,
+      "spans": [
+        {
+          "name": "pipeline_run",
+          "context": {
+            "traceId": "6c3db90f9ffe2dbe0f4cfec3caf53dda",
+            "spanId": "b9b8f47d61a33f35"
+          },
+          "parent_span_id": null,
+          "start_time": "2026-06-22T19:20:39.211Z",
+          "end_time": "2026-06-22T19:21:32.928Z",
+          "duration_ms": 53716,
+          "attributes": {
+            "niche": "fall of developerss in IT sectors due to arise of AI",
+            "model": "gemini-2.5-flash",
+            "status": "success"
+          }
+        },
+        {
+          "name": "agent_a_trend_scout",
+          "context": {
+            "traceId": "6c3db90f9ffe2dbe0f4cfec3caf53dda",
+            "spanId": "246b7e2cf5a59506"
+          },
+          "parent_span_id": "b9b8f47d61a33f35",
+          "start_time": "2026-06-22T19:20:39.211Z",
+          "end_time": "2026-06-22T19:20:41.716Z",
+          "duration_ms": 2505,
+          "attributes": {
+            "source": "Multiple Tech RSS Feeds",
+            "headlines_pulled_count": 13
+          }
+        },
+        {
+          "name": "rag_fetcher",
+          "context": {
+            "traceId": "6c3db90f9ffe2dbe0f4cfec3caf53dda",
+            "spanId": "aeea21ec4fd054f6"
+          },
+          "parent_span_id": "b9b8f47d61a33f35",
+          "start_time": "2026-06-22T19:20:41.716Z",
+          "end_time": "2026-06-22T19:20:41.716Z",
+          "duration_ms": 0,
+          "attributes": {
+            "chunks_count": 5,
+            "sources_count": 0
+          }
+        },
+        {
+          "name": "agent_b_writer",
+          "context": {
+            "traceId": "6c3db90f9ffe2dbe0f4cfec3caf53dda",
+            "spanId": "e9718860f5ae0c44"
+          },
+          "parent_span_id": "b9b8f47d61a33f35",
+          "start_time": "2026-06-22T19:20:41.716Z",
+          "end_time": "2026-06-22T19:21:02.723Z",
+          "duration_ms": 21007,
+          "attributes": {
+            "attempts": 2,
+            "violations_count": 2,
+            "prompt_tokens": 5800,
+            "output_tokens": 3920
+          }
+        },
+        {
+          "name": "agent_c_evaluator",
+          "context": {
+            "traceId": "6c3db90f9ffe2dbe0f4cfec3caf53dda",
+            "spanId": "2f8e23aa3760639d"
+          },
+          "parent_span_id": "b9b8f47d61a33f35",
+          "start_time": "2026-06-22T19:21:02.723Z",
+          "end_time": "2026-06-22T19:21:32.927Z",
+          "duration_ms": 30204,
+          "attributes": {
+            "score": 95,
+            "passed": true
+          }
+        },
+        {
+          "name": "agent_d_fact_checker",
+          "context": {
+            "traceId": "6c3db90f9ffe2dbe0f4cfec3caf53dda",
+            "spanId": "16c1603f9f43fab5"
+          },
+          "parent_span_id": "b9b8f47d61a33f35",
+          "start_time": "2026-06-22T19:21:32.927Z",
+          "end_time": "2026-06-22T19:21:32.928Z",
+          "duration_ms": 1,
+          "attributes": {
+            "score": 94,
+            "passed": true,
+            "verified_claims": 5,
+            "total_claims": 5
+          }
+        }
+      ],
+      "failures": {
+        "violations_count": 2,
+        "attempts_count": 2,
+        "api_errors_count": 0
+      }
+    }
+  },
+  {
+    "timestamp": "2026-06-22T19:22:06.518Z",
+    "niche": "fall of developerss in IT sectors due to arise of AI",
+    "model": "gemini-2.5-flash",
+    "status": "success",
+    "error": null,
+    "agent_a": {
+      "last_wake": "2026-06-22T19:22:06.518Z",
+      "headlines_pulled": [
+        "Show HN: Model-Context Protocol (MCP) clients built entirely in Rust",
+        "OpenAI launches GPT-5.5 with real-time semantic video streaming and sub-50ms latency",
+        "Google introduces Gemini 2.5 Pro with native 10-million token context windows",
+        "The Anthropic Model Suspension Shockwave",
+        "The Corporate AI Cost 'Reckoning'",
+        "The Rise of 'Agentic AI' in Production",
+        "Yann LeCun vs. xAI",
+        "The Green Computing & AI Data Center Boom",
+        "Physical AI & Humanoid Robotics in Logistics",
+        "Space-Based AI Compute Frontier",
+        "AI-Generated Influencers & Social Commerce",
+        "Is clean token-to-token streaming with low late-delivery possible over HTTP/3?",
+        "Autonomous agents now manage $50k/day ad budgets with zero human overview"
+      ],
+      "source": "Multiple Tech RSS Feeds",
+      "duration_ms": 1975
+    },
+    "agent_b": {
+      "prompt_tokens": 5800,
+      "output_tokens": 3920,
+      "total_tokens": 9720,
+      "attempts": 2,
+      "violations": [],
+      "duration_ms": 2493
+    },
+    "agent_c": {
+      "score": 95,
+      "notes": "Approved by Evaluator Agent",
+      "passed": true,
+      "duration_ms": 45
+    },
+    "agent_d": {
+      "score": 94,
+      "verified": 5,
+      "total": 5,
+      "passed": true,
+      "duration_ms": 1
+    },
+    "telemetry": {
+      "total_duration_ms": 4513,
+      "total_cost_usd": 0.001611,
+      "agent_a_duration_ms": 1975,
+      "agent_b_duration_ms": 2493,
+      "agent_c_duration_ms": 45,
+      "agent_d_duration_ms": 1,
+      "spans": [
+        {
+          "name": "pipeline_run",
+          "context": {
+            "traceId": "5058926441c2ed8852c9e1df4d476555",
+            "spanId": "6f96d3fd66e9577f"
+          },
+          "parent_span_id": null,
+          "start_time": "2026-06-22T19:22:02.004Z",
+          "end_time": "2026-06-22T19:22:06.517Z",
+          "duration_ms": 4513,
+          "attributes": {
+            "niche": "fall of developerss in IT sectors due to arise of AI",
+            "model": "gemini-2.5-flash",
+            "status": "success"
+          }
+        },
+        {
+          "name": "agent_a_trend_scout",
+          "context": {
+            "traceId": "5058926441c2ed8852c9e1df4d476555",
+            "spanId": "625f0f0a94af78b6"
+          },
+          "parent_span_id": "6f96d3fd66e9577f",
+          "start_time": "2026-06-22T19:22:02.004Z",
+          "end_time": "2026-06-22T19:22:03.979Z",
+          "duration_ms": 1975,
+          "attributes": {
+            "source": "Multiple Tech RSS Feeds",
+            "headlines_pulled_count": 13
+          }
+        },
+        {
+          "name": "rag_fetcher",
+          "context": {
+            "traceId": "5058926441c2ed8852c9e1df4d476555",
+            "spanId": "dac93248e4788ac1"
+          },
+          "parent_span_id": "6f96d3fd66e9577f",
+          "start_time": "2026-06-22T19:22:03.979Z",
+          "end_time": "2026-06-22T19:22:03.979Z",
+          "duration_ms": 0,
+          "attributes": {
+            "chunks_count": 5,
+            "sources_count": 0
+          }
+        },
+        {
+          "name": "agent_b_writer",
+          "context": {
+            "traceId": "5058926441c2ed8852c9e1df4d476555",
+            "spanId": "0919764dc7374eac"
+          },
+          "parent_span_id": "6f96d3fd66e9577f",
+          "start_time": "2026-06-22T19:22:03.979Z",
+          "end_time": "2026-06-22T19:22:06.472Z",
+          "duration_ms": 2493,
+          "attributes": {
+            "attempts": 2,
+            "violations_count": 2,
+            "prompt_tokens": 5800,
+            "output_tokens": 3920
+          }
+        },
+        {
+          "name": "agent_c_evaluator",
+          "context": {
+            "traceId": "5058926441c2ed8852c9e1df4d476555",
+            "spanId": "1a9c97103b98bf1e"
+          },
+          "parent_span_id": "6f96d3fd66e9577f",
+          "start_time": "2026-06-22T19:22:06.472Z",
+          "end_time": "2026-06-22T19:22:06.517Z",
+          "duration_ms": 45,
+          "attributes": {
+            "score": 95,
+            "passed": true
+          }
+        },
+        {
+          "name": "agent_d_fact_checker",
+          "context": {
+            "traceId": "5058926441c2ed8852c9e1df4d476555",
+            "spanId": "2f5941cb30cfb4a8"
+          },
+          "parent_span_id": "6f96d3fd66e9577f",
+          "start_time": "2026-06-22T19:22:06.517Z",
+          "end_time": "2026-06-22T19:22:06.517Z",
+          "duration_ms": 0,
+          "attributes": {
+            "score": 94,
+            "passed": true,
+            "verified_claims": 5,
+            "total_claims": 5
+          }
+        }
+      ],
+      "failures": {
+        "violations_count": 2,
+        "attempts_count": 2,
+        "api_errors_count": 0
+      }
+    }
+  },
+  {
+    "timestamp": "2026-06-22T19:22:59.442Z",
+    "niche": "fall of developerss in IT sectors due to arise of AI",
+    "model": "gemini-2.5-flash",
+    "status": "success",
+    "error": null,
+    "agent_a": {
+      "last_wake": "2026-06-22T19:22:59.442Z",
+      "headlines_pulled": [
+        "Show HN: Model-Context Protocol (MCP) clients built entirely in Rust",
+        "OpenAI launches GPT-5.5 with real-time semantic video streaming and sub-50ms latency",
+        "Google introduces Gemini 2.5 Pro with native 10-million token context windows",
+        "The Anthropic Model Suspension Shockwave",
+        "The Corporate AI Cost 'Reckoning'",
+        "The Rise of 'Agentic AI' in Production",
+        "Yann LeCun vs. xAI",
+        "The Green Computing & AI Data Center Boom",
+        "Physical AI & Humanoid Robotics in Logistics",
+        "Space-Based AI Compute Frontier",
+        "AI-Generated Influencers & Social Commerce",
+        "Is clean token-to-token streaming with low late-delivery possible over HTTP/3?",
+        "Autonomous agents now manage $50k/day ad budgets with zero human overview"
+      ],
+      "source": "Multiple Tech RSS Feeds",
+      "duration_ms": 9081
+    },
+    "agent_b": {
+      "prompt_tokens": 5800,
+      "output_tokens": 3920,
+      "total_tokens": 9720,
+      "attempts": 2,
+      "violations": [],
+      "duration_ms": 2473
+    },
+    "agent_c": {
+      "score": 95,
+      "notes": "Approved by Evaluator Agent",
+      "passed": true,
+      "duration_ms": 42
+    },
+    "agent_d": {
+      "score": 94,
+      "verified": 5,
+      "total": 5,
+      "passed": true,
+      "duration_ms": 1
+    },
+    "telemetry": {
+      "total_duration_ms": 11596,
+      "total_cost_usd": 0.001611,
+      "agent_a_duration_ms": 9081,
+      "agent_b_duration_ms": 2473,
+      "agent_c_duration_ms": 42,
+      "agent_d_duration_ms": 1,
+      "spans": [
+        {
+          "name": "pipeline_run",
+          "context": {
+            "traceId": "35a4b245a119df82c508e66260dd0df6",
+            "spanId": "a382a6d43ffed67a"
+          },
+          "parent_span_id": null,
+          "start_time": "2026-06-22T19:22:47.845Z",
+          "end_time": "2026-06-22T19:22:59.442Z",
+          "duration_ms": 11596,
+          "attributes": {
+            "niche": "fall of developerss in IT sectors due to arise of AI",
+            "model": "gemini-2.5-flash",
+            "status": "success"
+          }
+        },
+        {
+          "name": "agent_a_trend_scout",
+          "context": {
+            "traceId": "35a4b245a119df82c508e66260dd0df6",
+            "spanId": "c842f2f36fd1e924"
+          },
+          "parent_span_id": "a382a6d43ffed67a",
+          "start_time": "2026-06-22T19:22:47.845Z",
+          "end_time": "2026-06-22T19:22:56.926Z",
+          "duration_ms": 9081,
+          "attributes": {
+            "source": "Multiple Tech RSS Feeds",
+            "headlines_pulled_count": 13
+          }
+        },
+        {
+          "name": "rag_fetcher",
+          "context": {
+            "traceId": "35a4b245a119df82c508e66260dd0df6",
+            "spanId": "5f829ea00ee75cd5"
+          },
+          "parent_span_id": "a382a6d43ffed67a",
+          "start_time": "2026-06-22T19:22:56.926Z",
+          "end_time": "2026-06-22T19:22:56.926Z",
+          "duration_ms": 0,
+          "attributes": {
+            "chunks_count": 5,
+            "sources_count": 0
+          }
+        },
+        {
+          "name": "agent_b_writer",
+          "context": {
+            "traceId": "35a4b245a119df82c508e66260dd0df6",
+            "spanId": "c8a9e90c2da91a0e"
+          },
+          "parent_span_id": "a382a6d43ffed67a",
+          "start_time": "2026-06-22T19:22:56.926Z",
+          "end_time": "2026-06-22T19:22:59.399Z",
+          "duration_ms": 2473,
+          "attributes": {
+            "attempts": 2,
+            "violations_count": 2,
+            "prompt_tokens": 5800,
+            "output_tokens": 3920
+          }
+        },
+        {
+          "name": "agent_c_evaluator",
+          "context": {
+            "traceId": "35a4b245a119df82c508e66260dd0df6",
+            "spanId": "e9c74c427077746e"
+          },
+          "parent_span_id": "a382a6d43ffed67a",
+          "start_time": "2026-06-22T19:22:59.399Z",
+          "end_time": "2026-06-22T19:22:59.441Z",
+          "duration_ms": 42,
+          "attributes": {
+            "score": 95,
+            "passed": true
+          }
+        },
+        {
+          "name": "agent_d_fact_checker",
+          "context": {
+            "traceId": "35a4b245a119df82c508e66260dd0df6",
+            "spanId": "e3f2e39bc131439b"
+          },
+          "parent_span_id": "a382a6d43ffed67a",
+          "start_time": "2026-06-22T19:22:59.441Z",
+          "end_time": "2026-06-22T19:22:59.442Z",
+          "duration_ms": 1,
+          "attributes": {
+            "score": 94,
+            "passed": true,
+            "verified_claims": 5,
+            "total_claims": 5
+          }
+        }
+      ],
+      "failures": {
+        "violations_count": 2,
+        "attempts_count": 2,
+        "api_errors_count": 0
+      }
+    }
   }
 ]
