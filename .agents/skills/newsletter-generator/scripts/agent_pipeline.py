@@ -82,25 +82,196 @@ if hasattr(sys.stderr, "reconfigure"):
 # Streamlit server process. Instead we do a deferred check inside run_pipeline().
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
-genai = None  # Lazily imported when a live run is requested
+genai = None  # Mocked legacy namespace
+genai_client = None  # New SDK Client
+
+class MockProtos:
+    class Part:
+        def __init__(self, function_response=None):
+            self.function_response = function_response
+    class FunctionResponse:
+        def __init__(self, name, response):
+            self.name = name
+            self.response = response
+
+class MockGenai:
+    protos = MockProtos
 
 def _init_genai():
-    """Import and configure the Gemini SDK on first use. Raises on failure."""
-    global genai, GEMINI_API_KEY
+    """Import and configure the new google-genai SDK on first use. Raises on failure."""
+    global genai, genai_client, GEMINI_API_KEY
     GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
     if not GEMINI_API_KEY:
         raise EnvironmentError(
             "GEMINI_API_KEY is not set. Add it to Streamlit Secrets or your environment, "
             "or run in simulate mode."
         )
-    try:
-        import google.generativeai as _genai
-        _genai.configure(api_key=GEMINI_API_KEY)
-        genai = _genai
-    except ImportError:
-        raise ImportError(
-            "google-generativeai is not installed. Run: pip install google-generativeai"
+    if genai_client is None:
+        try:
+            from google import genai as _new_genai
+            genai_client = _new_genai.Client(api_key=GEMINI_API_KEY)
+            genai = MockGenai
+        except ImportError:
+            raise ImportError(
+                "google-genai is not installed. Run: pip install google-genai"
+            )
+
+class GeminiPartWrapper:
+    def __init__(self, native_part):
+        self._part = native_part
+        self.function_call = None
+        if hasattr(native_part, "function_call") and native_part.function_call:
+            self.function_call = native_part.function_call
+
+class GeminiUsageMetadataWrapper:
+    def __init__(self, native_usage):
+        self._usage = native_usage
+        self.prompt_token_count = getattr(native_usage, "prompt_token_count", 0)
+        self.candidates_token_count = getattr(native_usage, "response_token_count", 0) or getattr(native_usage, "candidates_token_count", 0)
+        self.total_token_count = getattr(native_usage, "total_token_count", 0)
+
+class GeminiCandidateWrapper:
+    def __init__(self, native_candidate):
+        self._candidate = native_candidate
+        self.grounding_metadata = getattr(native_candidate, "grounding_metadata", None)
+        self.content = getattr(native_candidate, "content", None)
+
+class GeminiResponseWrapper:
+    def __init__(self, native_response):
+        self._response = native_response
+        self.text = native_response.text
+        
+        self.parts = []
+        if hasattr(native_response, "candidates") and native_response.candidates:
+            candidate = native_response.candidates[0]
+            if hasattr(candidate, "content") and candidate.content and hasattr(candidate.content, "parts"):
+                for part in (candidate.content.parts or []):
+                    self.parts.append(GeminiPartWrapper(part))
+                    
+        self.candidates = [GeminiCandidateWrapper(c) for c in (native_response.candidates or [])]
+        if getattr(native_response, "usage_metadata", None):
+            self.usage_metadata = GeminiUsageMetadataWrapper(native_response.usage_metadata)
+        else:
+            self.usage_metadata = None
+            
+        # Extract grounding metadata if present
+        self.grounding_sources = []
+        if hasattr(native_response, "candidates") and native_response.candidates:
+            candidate = native_response.candidates[0]
+            if hasattr(candidate, "grounding_metadata") and candidate.grounding_metadata:
+                meta = candidate.grounding_metadata
+                if hasattr(meta, "grounding_chunks") and meta.grounding_chunks:
+                    for chunk in meta.grounding_chunks:
+                        if hasattr(chunk, "web") and chunk.web and getattr(chunk.web, "uri", None):
+                            source = {
+                                "title": getattr(chunk.web, "title", "Untitled Source"),
+                                "url": chunk.web.uri
+                            }
+                            self.grounding_sources.append(source)
+        if self.grounding_sources:
+            print("\n  🌐  [Google Search Grounding] Pulling live reference links:")
+            for src in self.grounding_sources:
+                print(f"      🔗 {src['title']}: {src['url']}")
+
+class GeminiChatWrapper:
+    def __init__(self, model_name, system_instruction=None, tools=None, enable_automatic_function_calling=False):
+        _init_genai()
+        from google.genai import types
+        
+        mapped_tools = []
+        if tools:
+            for t in tools:
+                if isinstance(t, str) and t == "google_search":
+                    mapped_tools.append(types.Tool(google_search=types.GoogleSearch()))
+                elif isinstance(t, dict):
+                    mapped_tools.append(types.Tool(function_declarations=[t]))
+                elif hasattr(t, "function_declarations"):
+                    for fd in t.function_declarations:
+                        mapped_tools.append(types.Tool(function_declarations=[fd]))
+                else:
+                    mapped_tools.append(t)
+                    
+        config = types.GenerateContentConfig(
+            system_instruction=system_instruction,
+            tools=mapped_tools if mapped_tools else None,
+            temperature=0.2,
         )
+        self.chat = genai_client.chats.create(model=model_name, config=config)
+        self.last_response = None
+        
+    def send_message(self, message):
+        from google.genai import types
+        
+        mapped_message = message
+        if isinstance(message, list):
+            mapped_message = []
+            for part in message:
+                if hasattr(part, "function_response"):
+                    fr = part.function_response
+                    res_val = fr.response
+                    if isinstance(res_val, str):
+                        try:
+                            res_val = json.loads(res_val)
+                        except:
+                            res_val = {"result": res_val}
+                    elif hasattr(res_val, "get") or isinstance(res_val, dict):
+                        pass
+                    else:
+                        res_val = {"result": str(res_val)}
+                        
+                    mapped_message.append(
+                        types.Part(
+                            function_response=types.FunctionResponse(
+                                name=fr.name,
+                                response=res_val
+                            )
+                        )
+                    )
+                else:
+                    mapped_message.append(part)
+                    
+        response = self.chat.send_message(mapped_message)
+        wrapped_response = GeminiResponseWrapper(response)
+        self.last_response = wrapped_response
+        return wrapped_response
+
+class GeminiGenAIWrapper:
+    def __init__(self, model_name, system_instruction=None, tools=None):
+        self.model_name = model_name
+        self.system_instruction = system_instruction
+        self.tools = tools
+        
+    def generate_content(self, prompt, generation_config=None):
+        _init_genai()
+        from google.genai import types
+        
+        mapped_tools = []
+        if self.tools:
+            for t in self.tools:
+                if isinstance(t, str) and t == "google_search":
+                    mapped_tools.append(types.Tool(google_search=types.GoogleSearch()))
+                elif isinstance(t, dict):
+                    mapped_tools.append(types.Tool(function_declarations=[t]))
+                elif hasattr(t, "function_declarations"):
+                    for fd in t.function_declarations:
+                        mapped_tools.append(types.Tool(function_declarations=[fd]))
+                else:
+                    mapped_tools.append(t)
+                    
+        config = types.GenerateContentConfig(
+            system_instruction=self.system_instruction,
+            tools=mapped_tools if mapped_tools else None,
+            temperature=0.2,
+        )
+        response = genai_client.models.generate_content(
+            model=self.model_name,
+            contents=prompt,
+            config=config
+        )
+        return GeminiResponseWrapper(response)
+        
+    def start_chat(self, enable_automatic_function_calling=False):
+        return GeminiChatWrapper(self.model_name, self.system_instruction, self.tools, enable_automatic_function_calling)
 
 def get_provider_from_model(model: str) -> str:
     m = model.lower()
@@ -347,7 +518,7 @@ class LLMChatRouter:
     def generate_content(self, prompt, generation_config=None):
         if self.provider == "gemini":
             _init_genai()
-            model = genai.GenerativeModel(model_name=self.model_name, system_instruction=self.system_instruction, tools=self.tools)
+            model = GeminiGenAIWrapper(model_name=self.model_name, system_instruction=self.system_instruction, tools=self.tools)
             return model.generate_content(prompt, generation_config=generation_config)
             
         messages = [{"role": "user", "content": prompt}]
@@ -367,9 +538,7 @@ class LLMRouter:
         provider = get_provider_from_model(model_name)
         if provider == "gemini":
             _init_genai()
-            if system_instruction:
-                return genai.GenerativeModel(model_name=model_name, system_instruction=system_instruction, tools=tools)
-            return genai.GenerativeModel(model_name=model_name, tools=tools)
+            return GeminiGenAIWrapper(model_name=model_name, system_instruction=system_instruction, tools=tools)
         else:
             return LLMChatRouter(model_name, system_instruction=system_instruction, tools=tools)
 
@@ -872,7 +1041,8 @@ execution_telemetry = {
         "total_tokens": 0,
         "attempts": 0,
         "violations": [],
-        "duration_ms": 0
+        "duration_ms": 0,
+        "grounding_sources": []
     },
     "agent_c": {
         "score": 0,
@@ -1050,7 +1220,8 @@ def save_telemetry(niche: str, model_name: str, status: str, error_message: str 
             "total_tokens": total_prompt + total_output,
             "attempts": execution_telemetry["agent_b"]["attempts"],
             "violations": execution_telemetry["agent_b"]["violations"],
-            "duration_ms": execution_telemetry["agent_b"]["duration_ms"]
+            "duration_ms": execution_telemetry["agent_b"]["duration_ms"],
+            "grounding_sources": execution_telemetry["agent_b"].get("grounding_sources", [])
         },
         "agent_c": {
             "score": execution_telemetry["agent_c"]["score"],
@@ -2280,9 +2451,13 @@ As we move deeper into this development cycle, separation of concerns is being e
         return draft
 
     # Configure the model with system instruction and the check_past_issues tool
+    tools = [MEMORY_TOOL_DECLARATION]
+    if not simulate:
+        tools.append("google_search")
+
     model = LLMRouter.get_model(
         model_name=model_name,
-        tools=[MEMORY_TOOL_DECLARATION],
+        tools=tools,
         system_instruction=(
             "You are an elite engineering newsletter author and principal technical architect. "
             "Write with authority, precision, technical depth, and engaging prose. "
@@ -2464,6 +2639,10 @@ Please rewrite the entire newsletter draft from scratch, addressing and fixing e
         execution_telemetry["agent_b"]["prompt_tokens"] += getattr(response.usage_metadata, "prompt_token_count", 0)
         execution_telemetry["agent_b"]["output_tokens"] += getattr(response.usage_metadata, "candidates_token_count", 0)
         execution_telemetry["agent_b"]["total_tokens"] += getattr(response.usage_metadata, "total_token_count", 0)
+        
+    # Extract and store grounding sources in telemetry
+    if hasattr(response, "grounding_sources") and response.grounding_sources:
+        execution_telemetry["agent_b"]["grounding_sources"] = response.grounding_sources
         
     return draft
 
