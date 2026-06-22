@@ -573,6 +573,7 @@ npm run lint     # TypeScript type check
 | **Day 6** | Evidence-Based RAG & Fact Checker | Crawls URLs, vectorizes with `text-embedding-004`, cosine similarity retrieval, post-draft claims audit (Agent D), 5-span telemetry timeline |
 | **Day 7** | Resilience & June 2026 Telemetry | Fallback to `gemini-embedding-2`; 10 automated technical edge-case stress tests (`test_edge_cases.py`); integrated 10 fast-moving June 2026 tech news topics |
 | **Day 8 (Upgrade)** | SDK Migration & Grounding | Migrated pipeline to new `google-genai` SDK; implemented Google Search grounding for Agent B (Writer) to fetch and cite real-time links; saved verified sources in `run_history.json` |
+| **Day 9 (Upgrade)** | Outbox & Manual Dispatch | Built a React outbox panel with live credential syncing; generated mock payloads for WordPress/Webhooks and added `🚀 Publish Live` and `🚀 Trigger Webhook` buttons for manual execution. |
 
 ---
 
@@ -580,6 +581,9 @@ npm run lint     # TypeScript type check
 
 | Feature | Implementation Detail |
 |---|---|
+| **Publisher Outbox & Config** | Dedicated panel to manage WordPress REST API parameters, Webhook targets, and simulation mode settings with instant local persistence. |
+| **Payload Inspection** | Live structured JSON payload display for WordPress REST API drafts and Webhook dispatches before executing the publication. |
+| **Manual Dispatch Triggers** | Interactive dispatch buttons to manually upload draft newsletters or invoke webhooks after reviewing simulated payloads. |
 | **8 live RSS sources** | HN, TechCrunch, Google, OpenAI, Zoho, Meta, Netflix, AWS — Agent A picks the best one per niche |
 | **Custom topic mode** | User provides any subject; Agent A deconstructs into 3–5 technical sub-topics without RSS |
 | **Gemini Function Calling** | 2-turn agentic loop; Gemini autonomously decides which tool to call |

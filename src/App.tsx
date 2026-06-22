@@ -31,7 +31,8 @@ import {
   Sun,
   Moon,
   Monitor,
-  Activity
+  Activity,
+  Send
 } from "lucide-react";
 import { pythonStreamlitCode } from "./python_template";
 
@@ -154,7 +155,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<"dashboard" | "code">("dashboard");
 
   // Streamlit Dashboard Merged States
-  const [activeSubTab, setActiveSubTab] = useState<"workspace" | "cooperation" | "logs" | "archive" | "analytics" | "observability">("workspace");
+  const [activeSubTab, setActiveSubTab] = useState<"workspace" | "cooperation" | "logs" | "archive" | "analytics" | "observability" | "publisher_outbox">("workspace");
   const [selectedObsRunId, setSelectedObsRunId] = useState<number | null>(null);
   const [serverHistory, setServerHistory] = useState<any[]>([]);
   const [interactions, setInteractions] = useState<any[]>([]);
@@ -162,6 +163,76 @@ export default function App() {
   const [serverDrafts, setServerDrafts] = useState<string[]>([]);
   const [selectedDraftName, setSelectedDraftName] = useState<string>("");
   const [selectedDraftContent, setSelectedDraftContent] = useState<string>("");
+
+  const [pubConfig, setPubConfig] = useState({
+    dry_run: true,
+    wordpress: { enabled: false, url: "", username: "", password_env_var: "WP_APPLICATION_PASSWORD" },
+    webhook: { enabled: false, url: "" }
+  });
+  const [outboxPayloads, setOutboxPayloads] = useState<any>({ wordpress: null, webhook: null });
+
+  const fetchPublishingConfig = async () => {
+    try {
+      const res = await fetch("/api/publishing-config");
+      if (res.ok) {
+        const data = await res.json();
+        setPubConfig(data);
+      }
+    } catch (e) {
+      console.error("Error fetching publishing config:", e);
+    }
+  };
+
+  const savePublishingConfig = async (newConfig: typeof pubConfig) => {
+    try {
+      const res = await fetch("/api/publishing-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newConfig)
+      });
+      if (res.ok) {
+        setPubConfig(newConfig);
+      }
+    } catch (e) {
+      console.error("Error saving publishing config:", e);
+    }
+  };
+
+  const fetchOutboxPayloads = async () => {
+    try {
+      const res = await fetch("/api/publisher-outbox");
+      if (res.ok) {
+        const data = await res.json();
+        setOutboxPayloads(data);
+      }
+    } catch (e) {
+      console.error("Error fetching outbox payloads:", e);
+    }
+  };
+
+  const [isDispatching, setIsDispatching] = useState<Record<"wordpress" | "webhook", boolean>>({ wordpress: false, webhook: false });
+
+  const dispatchOutboxPayload = async (target: "wordpress" | "webhook") => {
+    setIsDispatching(prev => ({ ...prev, [target]: true }));
+    try {
+      const res = await fetch("/api/publish-outbox-payload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(`✅ ${data.message || "Successfully published!"}`);
+      } else {
+        alert(`❌ Error publishing: ${data.error || "Failed to publish."}`);
+      }
+    } catch (e: any) {
+      alert(`❌ Connection error: ${e.message}`);
+    } finally {
+      setIsDispatching(prev => ({ ...prev, [target]: false }));
+    }
+  };
+
   const [previewMode, setPreviewMode] = useState<"preview" | "raw">("preview");
 
   // Output states
@@ -280,6 +351,7 @@ export default function App() {
   useEffect(() => {
     fetchStatus();
     fetchDashboardTelemetry(true);
+    fetchPublishingConfig();
     // Load local history from browser localStorage
     try {
       const stored = localStorage.getItem("autonomous_newsletter_history");
@@ -1109,6 +1181,20 @@ export default function App() {
             >
               <Activity className="h-4 w-4" />
               <span>🔍 Observability Traces</span>
+            </button>
+            <button
+              onClick={() => {
+                setActiveSubTab("publisher_outbox");
+                fetchOutboxPayloads();
+              }}
+              className={`px-4 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer ${
+                activeSubTab === "publisher_outbox"
+                  ? "bg-[#1D63ED] text-white shadow-md shadow-blue-500/10"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+              }`}
+            >
+              <Send className="h-4 w-4" />
+              <span>📡 Publisher Outbox</span>
             </button>
           </div>
         )}
@@ -2152,7 +2238,7 @@ export default function App() {
                 </div>
               )}
             </div>
-          ) : (
+          ) : activeSubTab === "observability" ? (
             <div className="space-y-6 animate-fadeIn">
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 md:p-8 space-y-4 shadow-xs transition-colors duration-200">
                 <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-800 flex-wrap gap-2">
@@ -2501,6 +2587,247 @@ export default function App() {
                     </div>
                   </div>
                 )}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6 animate-fadeIn">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 md:p-8 space-y-6 shadow-xs transition-colors duration-200">
+                <div className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-slate-800 flex-wrap gap-2">
+                  <div>
+                    <h2 className="text-md font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
+                      <Send className="h-5 w-5 text-[#1D63ED] dark:text-blue-400 animate-pulse" />
+                      Publisher Outbox & Configuration
+                    </h2>
+                    <p className="text-xs text-slate-500 dark:text-slate-450 mt-1">
+                      Configure WordPress REST API and Webhooks, and inspect generated publication payloads.
+                    </p>
+                  </div>
+                  <button
+                    onClick={fetchOutboxPayloads}
+                    className="bg-white dark:bg-slate-950 hover:bg-slate-50 dark:hover:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-705 dark:text-slate-300 font-bold text-xs px-3.5 py-1.5 rounded-xl transition-all cursor-pointer"
+                  >
+                    Refresh Outbox Payloads
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                  {/* Left Column: Publisher Configuration */}
+                  <div className="lg:col-span-5 space-y-6 border-r border-slate-100 dark:border-slate-800/60 pr-6">
+                    <div className="space-y-4">
+                      <h3 className="text-xs font-bold text-slate-450 uppercase tracking-wider font-mono">
+                        ⚙️ Publishing Configuration
+                      </h3>
+
+                      {/* Dry Run Toggle */}
+                      <div className="bg-[#F8FAFC]/55 dark:bg-slate-950/40 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-800/80 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+                            Dry Run Simulation Mode
+                          </label>
+                          <input
+                            type="checkbox"
+                            checked={pubConfig.dry_run}
+                            onChange={(e) => savePublishingConfig({ ...pubConfig, dry_run: e.target.checked })}
+                            className="h-4.5 w-4.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                          />
+                        </div>
+                        <p className="text-[10px] text-slate-450 dark:text-slate-500 leading-relaxed">
+                          When enabled, publications are simulated, and mock payloads are saved locally without hitting live servers.
+                        </p>
+                      </div>
+
+                      {/* WordPress Configuration Card */}
+                      <div className="bg-[#F8FAFC]/55 dark:bg-slate-950/40 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-800/80 space-y-3.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base">🌐</span>
+                            <span className="text-xs font-bold text-slate-705 dark:text-slate-300">WordPress Publisher</span>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={pubConfig.wordpress.enabled}
+                            onChange={(e) => savePublishingConfig({
+                              ...pubConfig,
+                              wordpress: { ...pubConfig.wordpress, enabled: e.target.checked }
+                            })}
+                            className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                          />
+                        </div>
+                        
+                        <div className="space-y-3 pt-1">
+                          <div className="space-y-1">
+                            <label className="block text-[10px] font-bold text-slate-455 uppercase font-mono tracking-wider">
+                              REST API URL
+                            </label>
+                            <input
+                              type="text"
+                              value={pubConfig.wordpress.url}
+                              onChange={(e) => setPubConfig({
+                                ...pubConfig,
+                                wordpress: { ...pubConfig.wordpress, url: e.target.value }
+                              })}
+                              placeholder="https://example.com/wp-json/wp/v2"
+                              className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800 dark:text-slate-100"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="block text-[10px] font-bold text-slate-455 uppercase font-mono tracking-wider">
+                              Username
+                            </label>
+                            <input
+                              type="text"
+                              value={pubConfig.wordpress.username}
+                              onChange={(e) => setPubConfig({
+                                ...pubConfig,
+                                wordpress: { ...pubConfig.wordpress, username: e.target.value }
+                              })}
+                              placeholder="admin"
+                              className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800 dark:text-slate-100"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="block text-[10px] font-bold text-slate-455 uppercase font-mono tracking-wider">
+                              Password Env Variable Name
+                            </label>
+                            <input
+                              type="text"
+                              value={pubConfig.wordpress.password_env_var}
+                              onChange={(e) => setPubConfig({
+                                ...pubConfig,
+                                wordpress: { ...pubConfig.wordpress, password_env_var: e.target.value }
+                              })}
+                              placeholder="WP_APPLICATION_PASSWORD"
+                              className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800 dark:text-slate-100"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Webhook Configuration Card */}
+                      <div className="bg-[#F8FAFC]/55 dark:bg-slate-950/40 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-800/80 space-y-3.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base">🔗</span>
+                            <span className="text-xs font-bold text-slate-705 dark:text-slate-300">Webhook Publisher</span>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={pubConfig.webhook.enabled}
+                            onChange={(e) => savePublishingConfig({
+                              ...pubConfig,
+                              webhook: { ...pubConfig.webhook, enabled: e.target.checked }
+                            })}
+                            className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                          />
+                        </div>
+
+                        <div className="space-y-1 pt-1">
+                          <label className="block text-[10px] font-bold text-slate-455 uppercase font-mono tracking-wider">
+                            Webhook target URL
+                          </label>
+                          <input
+                            type="text"
+                            value={pubConfig.webhook.url}
+                            onChange={(e) => setPubConfig({
+                              ...pubConfig,
+                              webhook: { ...pubConfig.webhook, url: e.target.value }
+                            })}
+                            placeholder="https://httpbin.org/post"
+                            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800 dark:text-slate-100"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Save Button */}
+                      <button
+                        onClick={() => savePublishingConfig(pubConfig)}
+                        className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md cursor-pointer"
+                      >
+                        Save Publisher Configuration
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Outbox Payloads */}
+                  <div className="lg:col-span-7 space-y-6">
+                    <h3 className="text-xs font-bold text-slate-450 uppercase tracking-wider font-mono flex items-center justify-between">
+                      <span>📦 Simulated Outbox Payloads</span>
+                      {pubConfig.dry_run && (
+                        <span className="text-[10px] text-amber-500 font-bold bg-amber-500/10 px-2 py-0.5 rounded">
+                          Dry-Run Logs Active
+                        </span>
+                      )}
+                    </h3>
+
+                    {!outboxPayloads.wordpress && !outboxPayloads.webhook ? (
+                      <div className="border border-dashed border-slate-200 dark:border-slate-850 rounded-3xl p-12 text-center text-slate-450 space-y-3">
+                        <Send className="h-10 w-10 mx-auto text-slate-350 dark:text-slate-750 animate-pulse" />
+                        <div className="space-y-1">
+                          <strong className="text-xs uppercase font-mono tracking-wider text-slate-500 dark:text-slate-400">
+                            No Outbox Payloads Found
+                          </strong>
+                          <p className="text-[11px] max-w-sm mx-auto text-slate-400 dark:text-slate-505 leading-relaxed">
+                            No mock payloads found in workspace. Run a newsletter generation campaign with WordPress/Webhook enabled to populate mock payloads here.
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        {outboxPayloads.wordpress && (
+                          <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden bg-slate-50 dark:bg-slate-950">
+                            <div className="bg-slate-100 dark:bg-slate-900 px-4 py-2.5 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center flex-wrap gap-2">
+                              <span className="text-xs font-bold text-slate-750 dark:text-slate-250 flex items-center gap-1.5">
+                                🌐 WordPress REST API Simulated Payload
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => dispatchOutboxPayload("wordpress")}
+                                  disabled={isDispatching.wordpress}
+                                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold px-2.5 py-1 rounded transition-all cursor-pointer disabled:opacity-50"
+                                >
+                                  {isDispatching.wordpress ? "Publishing..." : "🚀 Publish Live"}
+                                </button>
+                                <span className="text-[9px] font-mono text-emerald-500 font-bold">
+                                  mock_wordpress_publish.json
+                                </span>
+                              </div>
+                            </div>
+                            <div className="p-4 overflow-x-auto max-h-[300px] text-[10.5px] font-mono text-slate-655 dark:text-slate-350 bg-white dark:bg-slate-950/40">
+                              <pre>{JSON.stringify(outboxPayloads.wordpress, null, 2)}</pre>
+                            </div>
+                          </div>
+                        )}
+
+                        {outboxPayloads.webhook && (
+                          <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden bg-slate-50 dark:bg-slate-950">
+                            <div className="bg-slate-100 dark:bg-slate-900 px-4 py-2.5 border-b border-slate-200 dark:border-slate-850 flex justify-between items-center flex-wrap gap-2">
+                              <span className="text-xs font-bold text-slate-750 dark:text-slate-250 flex items-center gap-1.5">
+                                🔗 Webhook Simulated Dispatch
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => dispatchOutboxPayload("webhook")}
+                                  disabled={isDispatching.webhook}
+                                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold px-2.5 py-1 rounded transition-all cursor-pointer disabled:opacity-50"
+                                >
+                                  {isDispatching.webhook ? "Triggering..." : "🚀 Trigger Webhook"}
+                                </button>
+                                <span className="text-[9px] font-mono text-emerald-500 font-bold">
+                                  mock_webhook_publish.json
+                                </span>
+                              </div>
+                            </div>
+                            <div className="p-4 overflow-x-auto max-h-[300px] text-[10.5px] font-mono text-slate-655 dark:text-slate-350 bg-white dark:bg-slate-950/40">
+                              <pre>{JSON.stringify(outboxPayloads.webhook, null, 2)}</pre>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           )

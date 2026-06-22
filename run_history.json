@@ -1,137 +1,5 @@
 [
   {
-    "timestamp": "2026-06-20T02:10:51.534241Z",
-    "niche": "AI & Agentic Frameworks",
-    "model": "gemini-1.5-flash",
-    "status": "success",
-    "error": null,
-    "agent_a": {
-      "last_wake": "2026-06-20T02:10:51.520844Z",
-      "headlines_pulled": [
-        "Show HN: Model-Context Protocol (MCP) clients built entirely in Rust",
-        "OpenAI launches GPT-5.5 with real-time semantic video streaming and sub-50ms latency",
-        "Google introduces Gemini 2.5 Pro with native 10-million token context windows",
-        "Meta Research details LLaMA 4: 100T parameter model optimized for agentic tool use and complex reasoning",
-        "Is clean token-to-token streaming with low late-delivery possible over HTTP/3?",
-        "Autonomous agents now manage $50k/day ad budgets with zero human overview"
-      ],
-      "source": "Multiple Tech RSS Feeds"
-    },
-    "agent_b": {
-      "prompt_tokens": 2900,
-      "output_tokens": 1960,
-      "total_tokens": 4860,
-      "attempts": 2,
-      "violations": [
-        "Formatting Violation: Unclosed markdown code block detected (odd number of triple-backticks)."
-      ]
-    },
-    "agent_c": {
-      "score": 95,
-      "notes": "Good technical depth and layout structure.",
-      "passed": true
-    }
-  },
-  {
-    "timestamp": "2026-06-20T02:10:54.490453Z",
-    "niche": "AI & Agentic Frameworks",
-    "model": "gemini-1.5-flash",
-    "status": "success",
-    "error": null,
-    "agent_a": {
-      "last_wake": "2026-06-20T02:10:54.484397Z",
-      "headlines_pulled": [
-        "Show HN: Model-Context Protocol (MCP) clients built entirely in Rust",
-        "OpenAI launches GPT-5.5 with real-time semantic video streaming and sub-50ms latency",
-        "Google introduces Gemini 2.5 Pro with native 10-million token context windows",
-        "Meta Research details LLaMA 4: 100T parameter model optimized for agentic tool use and complex reasoning",
-        "Is clean token-to-token streaming with low late-delivery possible over HTTP/3?",
-        "Autonomous agents now manage $50k/day ad budgets with zero human overview"
-      ],
-      "source": "Multiple Tech RSS Feeds"
-    },
-    "agent_b": {
-      "prompt_tokens": 2900,
-      "output_tokens": 1960,
-      "total_tokens": 4860,
-      "attempts": 2,
-      "violations": [
-        "Formatting Violation: Unclosed markdown code block detected (odd number of triple-backticks)."
-      ]
-    },
-    "agent_c": {
-      "score": 95,
-      "notes": "Good technical depth and layout structure.",
-      "passed": true
-    }
-  },
-  {
-    "timestamp": "2026-06-20T02:10:55.939218Z",
-    "niche": "AI & Agentic Frameworks",
-    "model": "gemini-1.5-flash",
-    "status": "success",
-    "error": null,
-    "agent_a": {
-      "last_wake": "2026-06-20T02:10:55.924082Z",
-      "headlines_pulled": [
-        "Show HN: Model-Context Protocol (MCP) clients built entirely in Rust",
-        "OpenAI launches GPT-5.5 with real-time semantic video streaming and sub-50ms latency",
-        "Google introduces Gemini 2.5 Pro with native 10-million token context windows",
-        "Meta Research details LLaMA 4: 100T parameter model optimized for agentic tool use and complex reasoning",
-        "Is clean token-to-token streaming with low late-delivery possible over HTTP/3?",
-        "Autonomous agents now manage $50k/day ad budgets with zero human overview"
-      ],
-      "source": "Multiple Tech RSS Feeds"
-    },
-    "agent_b": {
-      "prompt_tokens": 2900,
-      "output_tokens": 1960,
-      "total_tokens": 4860,
-      "attempts": 2,
-      "violations": [
-        "Formatting Violation: Unclosed markdown code block detected (odd number of triple-backticks)."
-      ]
-    },
-    "agent_c": {
-      "score": 95,
-      "notes": "Good technical depth and layout structure.",
-      "passed": true
-    }
-  },
-  {
-    "timestamp": "2026-06-20T02:10:56.991209Z",
-    "niche": "AI & Agentic Frameworks",
-    "model": "gemini-1.5-flash",
-    "status": "success",
-    "error": null,
-    "agent_a": {
-      "last_wake": "2026-06-20T02:10:56.984606Z",
-      "headlines_pulled": [
-        "Show HN: Model-Context Protocol (MCP) clients built entirely in Rust",
-        "OpenAI launches GPT-5.5 with real-time semantic video streaming and sub-50ms latency",
-        "Google introduces Gemini 2.5 Pro with native 10-million token context windows",
-        "Meta Research details LLaMA 4: 100T parameter model optimized for agentic tool use and complex reasoning",
-        "Is clean token-to-token streaming with low late-delivery possible over HTTP/3?",
-        "Autonomous agents now manage $50k/day ad budgets with zero human overview"
-      ],
-      "source": "Multiple Tech RSS Feeds"
-    },
-    "agent_b": {
-      "prompt_tokens": 2900,
-      "output_tokens": 1960,
-      "total_tokens": 4860,
-      "attempts": 2,
-      "violations": [
-        "Formatting Violation: Unclosed markdown code block detected (odd number of triple-backticks)."
-      ]
-    },
-    "agent_c": {
-      "score": 95,
-      "notes": "Good technical depth and layout structure.",
-      "passed": true
-    }
-  },
-  {
     "timestamp": "2026-06-20T15:49:59.656190Z",
     "niche": "AI & Agentic Frameworks",
     "model": "gemini-1.5-flash",
@@ -5316,7 +5184,7 @@
     },
     "telemetry": {
       "total_duration_ms": 3928,
-      "total_cost_usd": 0.0,
+      "total_cost_usd": 0,
       "agent_a_duration_ms": 30,
       "agent_b_duration_ms": 0,
       "agent_c_duration_ms": 0,
@@ -5613,6 +5481,638 @@
       "failures": {
         "violations_count": 1,
         "attempts_count": 1,
+        "api_errors_count": 0
+      }
+    }
+  },
+  {
+    "timestamp": "2026-06-22T20:24:32.244Z",
+    "niche": "AI & Agentic Frameworks",
+    "model": "gemini-2.5-flash",
+    "status": "success",
+    "error": null,
+    "agent_a": {
+      "last_wake": "2026-06-22T20:24:32.244Z",
+      "headlines_pulled": [
+        "Show HN: Model-Context Protocol (MCP) clients built entirely in Rust",
+        "OpenAI launches GPT-5.5 with real-time semantic video streaming and sub-50ms latency",
+        "Google introduces Gemini 2.5 Pro with native 10-million token context windows",
+        "The Anthropic Model Suspension Shockwave",
+        "The Corporate AI Cost 'Reckoning'",
+        "The Rise of 'Agentic AI' in Production",
+        "Yann LeCun vs. xAI",
+        "The Green Computing & AI Data Center Boom",
+        "Physical AI & Humanoid Robotics in Logistics",
+        "Space-Based AI Compute Frontier",
+        "AI-Generated Influencers & Social Commerce",
+        "Is clean token-to-token streaming with low late-delivery possible over HTTP/3?",
+        "Autonomous agents now manage $50k/day ad budgets with zero human overview"
+      ],
+      "source": "Multiple Tech RSS Feeds",
+      "duration_ms": 4253
+    },
+    "agent_b": {
+      "prompt_tokens": 5800,
+      "output_tokens": 3920,
+      "total_tokens": 9720,
+      "attempts": 2,
+      "violations": [],
+      "duration_ms": 72522
+    },
+    "agent_c": {
+      "score": 95,
+      "notes": "Approved by Evaluator Agent",
+      "passed": true,
+      "duration_ms": 90
+    },
+    "agent_d": {
+      "score": 94,
+      "verified": 5,
+      "total": 5,
+      "passed": true,
+      "duration_ms": 2
+    },
+    "telemetry": {
+      "total_duration_ms": 76865,
+      "total_cost_usd": 0.001611,
+      "agent_a_duration_ms": 4253,
+      "agent_b_duration_ms": 72522,
+      "agent_c_duration_ms": 90,
+      "agent_d_duration_ms": 2,
+      "spans": [
+        {
+          "name": "pipeline_run",
+          "context": {
+            "traceId": "3fb7842c7d1bd6a8b875f30c6bdb47a4",
+            "spanId": "c681729d104baeb7"
+          },
+          "parent_span_id": null,
+          "start_time": "2026-06-22T20:23:15.377Z",
+          "end_time": "2026-06-22T20:24:32.243Z",
+          "duration_ms": 76865,
+          "attributes": {
+            "niche": "AI & Agentic Frameworks",
+            "model": "gemini-2.5-flash",
+            "status": "success"
+          }
+        },
+        {
+          "name": "agent_a_trend_scout",
+          "context": {
+            "traceId": "3fb7842c7d1bd6a8b875f30c6bdb47a4",
+            "spanId": "14726c8a84e4fca5"
+          },
+          "parent_span_id": "c681729d104baeb7",
+          "start_time": "2026-06-22T20:23:15.377Z",
+          "end_time": "2026-06-22T20:23:19.630Z",
+          "duration_ms": 4253,
+          "attributes": {
+            "source": "Multiple Tech RSS Feeds",
+            "headlines_pulled_count": 13
+          }
+        },
+        {
+          "name": "rag_fetcher",
+          "context": {
+            "traceId": "3fb7842c7d1bd6a8b875f30c6bdb47a4",
+            "spanId": "aa141f9bc018b15a"
+          },
+          "parent_span_id": "c681729d104baeb7",
+          "start_time": "2026-06-22T20:23:19.630Z",
+          "end_time": "2026-06-22T20:23:19.630Z",
+          "duration_ms": 0,
+          "attributes": {
+            "chunks_count": 5,
+            "sources_count": 0
+          }
+        },
+        {
+          "name": "agent_b_writer",
+          "context": {
+            "traceId": "3fb7842c7d1bd6a8b875f30c6bdb47a4",
+            "spanId": "e5b98baa8a40f4c0"
+          },
+          "parent_span_id": "c681729d104baeb7",
+          "start_time": "2026-06-22T20:23:19.630Z",
+          "end_time": "2026-06-22T20:24:32.152Z",
+          "duration_ms": 72522,
+          "attributes": {
+            "attempts": 2,
+            "violations_count": 2,
+            "prompt_tokens": 5800,
+            "output_tokens": 3920
+          }
+        },
+        {
+          "name": "agent_c_evaluator",
+          "context": {
+            "traceId": "3fb7842c7d1bd6a8b875f30c6bdb47a4",
+            "spanId": "8fc20d6a1b9deb9d"
+          },
+          "parent_span_id": "c681729d104baeb7",
+          "start_time": "2026-06-22T20:24:32.152Z",
+          "end_time": "2026-06-22T20:24:32.242Z",
+          "duration_ms": 90,
+          "attributes": {
+            "score": 95,
+            "passed": true
+          }
+        },
+        {
+          "name": "agent_d_fact_checker",
+          "context": {
+            "traceId": "3fb7842c7d1bd6a8b875f30c6bdb47a4",
+            "spanId": "c556c78377605e68"
+          },
+          "parent_span_id": "c681729d104baeb7",
+          "start_time": "2026-06-22T20:24:32.242Z",
+          "end_time": "2026-06-22T20:24:32.244Z",
+          "duration_ms": 2,
+          "attributes": {
+            "score": 94,
+            "passed": true,
+            "verified_claims": 5,
+            "total_claims": 5
+          }
+        }
+      ],
+      "failures": {
+        "violations_count": 2,
+        "attempts_count": 2,
+        "api_errors_count": 0
+      }
+    }
+  },
+  {
+    "timestamp": "2026-06-22T20:24:57.205Z",
+    "niche": "AI & Agentic Frameworks",
+    "model": "gemini-2.5-flash",
+    "status": "success",
+    "error": null,
+    "agent_a": {
+      "last_wake": "2026-06-22T20:24:57.205Z",
+      "headlines_pulled": [
+        "Show HN: Model-Context Protocol (MCP) clients built entirely in Rust",
+        "OpenAI launches GPT-5.5 with real-time semantic video streaming and sub-50ms latency",
+        "Google introduces Gemini 2.5 Pro with native 10-million token context windows",
+        "The Anthropic Model Suspension Shockwave",
+        "The Corporate AI Cost 'Reckoning'",
+        "The Rise of 'Agentic AI' in Production",
+        "Yann LeCun vs. xAI",
+        "The Green Computing & AI Data Center Boom",
+        "Physical AI & Humanoid Robotics in Logistics",
+        "Space-Based AI Compute Frontier",
+        "AI-Generated Influencers & Social Commerce",
+        "Is clean token-to-token streaming with low late-delivery possible over HTTP/3?",
+        "Autonomous agents now manage $50k/day ad budgets with zero human overview"
+      ],
+      "source": "Multiple Tech RSS Feeds",
+      "duration_ms": 15513
+    },
+    "agent_b": {
+      "prompt_tokens": 5800,
+      "output_tokens": 3920,
+      "total_tokens": 9720,
+      "attempts": 2,
+      "violations": [],
+      "duration_ms": 4411
+    },
+    "agent_c": {
+      "score": 95,
+      "notes": "Approved by Evaluator Agent",
+      "passed": true,
+      "duration_ms": 82
+    },
+    "agent_d": {
+      "score": 94,
+      "verified": 5,
+      "total": 5,
+      "passed": true,
+      "duration_ms": 1
+    },
+    "telemetry": {
+      "total_duration_ms": 20006,
+      "total_cost_usd": 0.001611,
+      "agent_a_duration_ms": 15513,
+      "agent_b_duration_ms": 4411,
+      "agent_c_duration_ms": 82,
+      "agent_d_duration_ms": 1,
+      "spans": [
+        {
+          "name": "pipeline_run",
+          "context": {
+            "traceId": "091ef61ef3566208c2daa623ad931d6a",
+            "spanId": "56a600a8ecceb39c"
+          },
+          "parent_span_id": null,
+          "start_time": "2026-06-22T20:24:37.198Z",
+          "end_time": "2026-06-22T20:24:57.204Z",
+          "duration_ms": 20006,
+          "attributes": {
+            "niche": "AI & Agentic Frameworks",
+            "model": "gemini-2.5-flash",
+            "status": "success"
+          }
+        },
+        {
+          "name": "agent_a_trend_scout",
+          "context": {
+            "traceId": "091ef61ef3566208c2daa623ad931d6a",
+            "spanId": "fcc6c384b7073b54"
+          },
+          "parent_span_id": "56a600a8ecceb39c",
+          "start_time": "2026-06-22T20:24:37.198Z",
+          "end_time": "2026-06-22T20:24:52.711Z",
+          "duration_ms": 15513,
+          "attributes": {
+            "source": "Multiple Tech RSS Feeds",
+            "headlines_pulled_count": 13
+          }
+        },
+        {
+          "name": "rag_fetcher",
+          "context": {
+            "traceId": "091ef61ef3566208c2daa623ad931d6a",
+            "spanId": "cc2a5b14abb9f26b"
+          },
+          "parent_span_id": "56a600a8ecceb39c",
+          "start_time": "2026-06-22T20:24:52.711Z",
+          "end_time": "2026-06-22T20:24:52.711Z",
+          "duration_ms": 0,
+          "attributes": {
+            "chunks_count": 5,
+            "sources_count": 0
+          }
+        },
+        {
+          "name": "agent_b_writer",
+          "context": {
+            "traceId": "091ef61ef3566208c2daa623ad931d6a",
+            "spanId": "d384c93b0f525ca1"
+          },
+          "parent_span_id": "56a600a8ecceb39c",
+          "start_time": "2026-06-22T20:24:52.711Z",
+          "end_time": "2026-06-22T20:24:57.122Z",
+          "duration_ms": 4411,
+          "attributes": {
+            "attempts": 2,
+            "violations_count": 2,
+            "prompt_tokens": 5800,
+            "output_tokens": 3920
+          }
+        },
+        {
+          "name": "agent_c_evaluator",
+          "context": {
+            "traceId": "091ef61ef3566208c2daa623ad931d6a",
+            "spanId": "153abdd2994a793b"
+          },
+          "parent_span_id": "56a600a8ecceb39c",
+          "start_time": "2026-06-22T20:24:57.122Z",
+          "end_time": "2026-06-22T20:24:57.204Z",
+          "duration_ms": 82,
+          "attributes": {
+            "score": 95,
+            "passed": true
+          }
+        },
+        {
+          "name": "agent_d_fact_checker",
+          "context": {
+            "traceId": "091ef61ef3566208c2daa623ad931d6a",
+            "spanId": "9f4e170286235a54"
+          },
+          "parent_span_id": "56a600a8ecceb39c",
+          "start_time": "2026-06-22T20:24:57.204Z",
+          "end_time": "2026-06-22T20:24:57.205Z",
+          "duration_ms": 1,
+          "attributes": {
+            "score": 94,
+            "passed": true,
+            "verified_claims": 5,
+            "total_claims": 5
+          }
+        }
+      ],
+      "failures": {
+        "violations_count": 2,
+        "attempts_count": 2,
+        "api_errors_count": 0
+      }
+    }
+  },
+  {
+    "timestamp": "2026-06-22T20:29:22.201Z",
+    "niche": "AI & Agentic Frameworks",
+    "model": "gemini-2.5-flash",
+    "status": "success",
+    "error": null,
+    "agent_a": {
+      "last_wake": "2026-06-22T20:29:22.201Z",
+      "headlines_pulled": [
+        "Show HN: Model-Context Protocol (MCP) clients built entirely in Rust",
+        "OpenAI launches GPT-5.5 with real-time semantic video streaming and sub-50ms latency",
+        "Google introduces Gemini 2.5 Pro with native 10-million token context windows",
+        "The Anthropic Model Suspension Shockwave",
+        "The Corporate AI Cost 'Reckoning'",
+        "The Rise of 'Agentic AI' in Production",
+        "Yann LeCun vs. xAI",
+        "The Green Computing & AI Data Center Boom",
+        "Physical AI & Humanoid Robotics in Logistics",
+        "Space-Based AI Compute Frontier",
+        "AI-Generated Influencers & Social Commerce",
+        "Is clean token-to-token streaming with low late-delivery possible over HTTP/3?",
+        "Autonomous agents now manage $50k/day ad budgets with zero human overview"
+      ],
+      "source": "Multiple Tech RSS Feeds",
+      "duration_ms": 5173
+    },
+    "agent_b": {
+      "prompt_tokens": 5800,
+      "output_tokens": 3920,
+      "total_tokens": 9720,
+      "attempts": 2,
+      "violations": [],
+      "duration_ms": 5357
+    },
+    "agent_c": {
+      "score": 95,
+      "notes": "Approved by Evaluator Agent",
+      "passed": true,
+      "duration_ms": 77
+    },
+    "agent_d": {
+      "score": 94,
+      "verified": 5,
+      "total": 5,
+      "passed": true,
+      "duration_ms": 0
+    },
+    "telemetry": {
+      "total_duration_ms": 10607,
+      "total_cost_usd": 0.001611,
+      "agent_a_duration_ms": 5173,
+      "agent_b_duration_ms": 5357,
+      "agent_c_duration_ms": 77,
+      "agent_d_duration_ms": 0,
+      "spans": [
+        {
+          "name": "pipeline_run",
+          "context": {
+            "traceId": "c69ddfc60596d4537201d2c9741b46a7",
+            "spanId": "e0b89c611df2c51e"
+          },
+          "parent_span_id": null,
+          "start_time": "2026-06-22T20:29:11.594Z",
+          "end_time": "2026-06-22T20:29:22.201Z",
+          "duration_ms": 10607,
+          "attributes": {
+            "niche": "AI & Agentic Frameworks",
+            "model": "gemini-2.5-flash",
+            "status": "success"
+          }
+        },
+        {
+          "name": "agent_a_trend_scout",
+          "context": {
+            "traceId": "c69ddfc60596d4537201d2c9741b46a7",
+            "spanId": "5fb41a50ce7e8fb9"
+          },
+          "parent_span_id": "e0b89c611df2c51e",
+          "start_time": "2026-06-22T20:29:11.594Z",
+          "end_time": "2026-06-22T20:29:16.767Z",
+          "duration_ms": 5173,
+          "attributes": {
+            "source": "Multiple Tech RSS Feeds",
+            "headlines_pulled_count": 13
+          }
+        },
+        {
+          "name": "rag_fetcher",
+          "context": {
+            "traceId": "c69ddfc60596d4537201d2c9741b46a7",
+            "spanId": "6984bac3a99d4b82"
+          },
+          "parent_span_id": "e0b89c611df2c51e",
+          "start_time": "2026-06-22T20:29:16.767Z",
+          "end_time": "2026-06-22T20:29:16.767Z",
+          "duration_ms": 0,
+          "attributes": {
+            "chunks_count": 5,
+            "sources_count": 0
+          }
+        },
+        {
+          "name": "agent_b_writer",
+          "context": {
+            "traceId": "c69ddfc60596d4537201d2c9741b46a7",
+            "spanId": "409b28328692bd15"
+          },
+          "parent_span_id": "e0b89c611df2c51e",
+          "start_time": "2026-06-22T20:29:16.767Z",
+          "end_time": "2026-06-22T20:29:22.124Z",
+          "duration_ms": 5357,
+          "attributes": {
+            "attempts": 2,
+            "violations_count": 2,
+            "prompt_tokens": 5800,
+            "output_tokens": 3920
+          }
+        },
+        {
+          "name": "agent_c_evaluator",
+          "context": {
+            "traceId": "c69ddfc60596d4537201d2c9741b46a7",
+            "spanId": "8d15ac730f466075"
+          },
+          "parent_span_id": "e0b89c611df2c51e",
+          "start_time": "2026-06-22T20:29:22.124Z",
+          "end_time": "2026-06-22T20:29:22.201Z",
+          "duration_ms": 77,
+          "attributes": {
+            "score": 95,
+            "passed": true
+          }
+        },
+        {
+          "name": "agent_d_fact_checker",
+          "context": {
+            "traceId": "c69ddfc60596d4537201d2c9741b46a7",
+            "spanId": "da2234692f6691fb"
+          },
+          "parent_span_id": "e0b89c611df2c51e",
+          "start_time": "2026-06-22T20:29:22.201Z",
+          "end_time": "2026-06-22T20:29:22.201Z",
+          "duration_ms": 0,
+          "attributes": {
+            "score": 94,
+            "passed": true,
+            "verified_claims": 5,
+            "total_claims": 5
+          }
+        }
+      ],
+      "failures": {
+        "violations_count": 2,
+        "attempts_count": 2,
+        "api_errors_count": 0
+      }
+    }
+  },
+  {
+    "timestamp": "2026-06-22T20:31:15.628Z",
+    "niche": "AI & Agentic Frameworks",
+    "model": "gemini-2.5-flash",
+    "status": "success",
+    "error": null,
+    "agent_a": {
+      "last_wake": "2026-06-22T20:31:15.628Z",
+      "headlines_pulled": [
+        "Show HN: Model-Context Protocol (MCP) clients built entirely in Rust",
+        "OpenAI launches GPT-5.5 with real-time semantic video streaming and sub-50ms latency",
+        "Google introduces Gemini 2.5 Pro with native 10-million token context windows",
+        "The Anthropic Model Suspension Shockwave",
+        "The Corporate AI Cost 'Reckoning'",
+        "The Rise of 'Agentic AI' in Production",
+        "Yann LeCun vs. xAI",
+        "The Green Computing & AI Data Center Boom",
+        "Physical AI & Humanoid Robotics in Logistics",
+        "Space-Based AI Compute Frontier",
+        "AI-Generated Influencers & Social Commerce",
+        "Is clean token-to-token streaming with low late-delivery possible over HTTP/3?",
+        "Autonomous agents now manage $50k/day ad budgets with zero human overview"
+      ],
+      "source": "Multiple Tech RSS Feeds",
+      "duration_ms": 17834
+    },
+    "agent_b": {
+      "prompt_tokens": 5800,
+      "output_tokens": 3920,
+      "total_tokens": 9720,
+      "attempts": 2,
+      "violations": [],
+      "duration_ms": 9689
+    },
+    "agent_c": {
+      "score": 95,
+      "notes": "Approved by Evaluator Agent",
+      "passed": true,
+      "duration_ms": 88
+    },
+    "agent_d": {
+      "score": 94,
+      "verified": 5,
+      "total": 5,
+      "passed": true,
+      "duration_ms": 4
+    },
+    "telemetry": {
+      "total_duration_ms": 27611,
+      "total_cost_usd": 0.001611,
+      "agent_a_duration_ms": 17834,
+      "agent_b_duration_ms": 9689,
+      "agent_c_duration_ms": 88,
+      "agent_d_duration_ms": 3,
+      "spans": [
+        {
+          "name": "pipeline_run",
+          "context": {
+            "traceId": "42e03d580f488684ce3b4c163008b94d",
+            "spanId": "d689b4283abec7db"
+          },
+          "parent_span_id": null,
+          "start_time": "2026-06-22T20:30:48.014Z",
+          "end_time": "2026-06-22T20:31:15.626Z",
+          "duration_ms": 27611,
+          "attributes": {
+            "niche": "AI & Agentic Frameworks",
+            "model": "gemini-2.5-flash",
+            "status": "success"
+          }
+        },
+        {
+          "name": "agent_a_trend_scout",
+          "context": {
+            "traceId": "42e03d580f488684ce3b4c163008b94d",
+            "spanId": "d1b842a1117f6356"
+          },
+          "parent_span_id": "d689b4283abec7db",
+          "start_time": "2026-06-22T20:30:48.014Z",
+          "end_time": "2026-06-22T20:31:05.848Z",
+          "duration_ms": 17834,
+          "attributes": {
+            "source": "Multiple Tech RSS Feeds",
+            "headlines_pulled_count": 13
+          }
+        },
+        {
+          "name": "rag_fetcher",
+          "context": {
+            "traceId": "42e03d580f488684ce3b4c163008b94d",
+            "spanId": "e3999bfb4ed06b3e"
+          },
+          "parent_span_id": "d689b4283abec7db",
+          "start_time": "2026-06-22T20:31:05.848Z",
+          "end_time": "2026-06-22T20:31:05.848Z",
+          "duration_ms": 0,
+          "attributes": {
+            "chunks_count": 5,
+            "sources_count": 0
+          }
+        },
+        {
+          "name": "agent_b_writer",
+          "context": {
+            "traceId": "42e03d580f488684ce3b4c163008b94d",
+            "spanId": "bbe02d96b48d741a"
+          },
+          "parent_span_id": "d689b4283abec7db",
+          "start_time": "2026-06-22T20:31:05.848Z",
+          "end_time": "2026-06-22T20:31:15.537Z",
+          "duration_ms": 9689,
+          "attributes": {
+            "attempts": 2,
+            "violations_count": 2,
+            "prompt_tokens": 5800,
+            "output_tokens": 3920
+          }
+        },
+        {
+          "name": "agent_c_evaluator",
+          "context": {
+            "traceId": "42e03d580f488684ce3b4c163008b94d",
+            "spanId": "8d629928265775ed"
+          },
+          "parent_span_id": "d689b4283abec7db",
+          "start_time": "2026-06-22T20:31:15.537Z",
+          "end_time": "2026-06-22T20:31:15.625Z",
+          "duration_ms": 88,
+          "attributes": {
+            "score": 95,
+            "passed": true
+          }
+        },
+        {
+          "name": "agent_d_fact_checker",
+          "context": {
+            "traceId": "42e03d580f488684ce3b4c163008b94d",
+            "spanId": "0e6f91cd448fc3be"
+          },
+          "parent_span_id": "d689b4283abec7db",
+          "start_time": "2026-06-22T20:31:15.625Z",
+          "end_time": "2026-06-22T20:31:15.628Z",
+          "duration_ms": 3,
+          "attributes": {
+            "score": 94,
+            "passed": true,
+            "verified_claims": 5,
+            "total_claims": 5
+          }
+        }
+      ],
+      "failures": {
+        "violations_count": 2,
+        "attempts_count": 2,
         "api_errors_count": 0
       }
     }
