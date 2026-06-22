@@ -623,6 +623,15 @@ npm run lint     # TypeScript type check
 - 🏆 **Tamil Nadu State-Level Selection (Niralthiruvizha 3.0 / Villupuram Cohort)** — Wadhwani Foundation Learning & Entrepreneurship program
 - AI-powered multilingual legal assistance platform using RAG, FastAPI, React, FAISS, HuggingFace multilingual embeddings, and Google Gemini AI
 
+#### 👤 Co-Author (for Capstone Project)
+### Mohammed Rehaan S
+*B.Tech Artificial Intelligence and Data Science Student (2024-2028)*
+
+- 🌐 **LinkedIn:** [Mohammed Rehaan S](https://www.linkedin.com/in/mohammed-rehaan-s)
+- 💻 **GitHub:** [@rehaan2493](https://github.com/rehaan2493)
+
+**Expertise:** Game development (unity) · AIML (python, TensorFlow) · Data analyst (python, tableau) · SQL
+
 ---
 
 ### 🔒 Day 4 Companion Repositories
