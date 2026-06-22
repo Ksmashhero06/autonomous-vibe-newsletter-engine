@@ -14,6 +14,10 @@ sys.path.append(os.getcwd())
 
 import agent_pipeline
 
+# Clear API key to force complete offline simulation mode for fast tests
+os.environ["GEMINI_API_KEY"] = ""
+agent_pipeline.GEMINI_API_KEY = ""
+
 # Define the 10 scenarios
 scenarios = [
     {
