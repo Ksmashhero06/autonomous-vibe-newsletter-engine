@@ -614,16 +614,12 @@ npm run lint     # TypeScript type check
 - 💻 **GitHub:** [@Ksmashhero06](https://github.com/Ksmashhero06/)
 - 📸 **Instagram:** [@kkssathiyamoorthi06](https://www.instagram.com/kkssathiyamoorthi06/)
 
-**Key expertise:** Web Development (HTML/CSS/JS/Flask) · AI & ML (Python/TensorFlow/YOLO) · Blockchain · Team Leadership
+**Key expertise:** Web Development (HTML/CSS/JS/Flask/WordPress) · AI & ML (Python/TensorFlow/YOLO) · Blockchain · Team Leadership
 
 ---
 
-### 🇮🇳 Featured Project: India's Voice of Justice
-- **Repository:** [Ksmashhero06/India-s-Voice-of-Justice](https://github.com/Ksmashhero06/India-s-Voice-of-Justice)
-- 🏆 **Tamil Nadu State-Level Selection (Niralthiruvizha 3.0 / Villupuram Cohort)** — Wadhwani Foundation Learning & Entrepreneurship program
-- AI-powered multilingual legal assistance platform using RAG, FastAPI, React, FAISS, HuggingFace multilingual embeddings, and Google Gemini AI
+## 👥 Co-Author (for Capstone Project)
 
-#### 👤 Co-Author (for Capstone Project)
 ### Mohammed Rehaan S
 *B.Tech Artificial Intelligence and Data Science Student (2024-2028)*
 
@@ -631,6 +627,15 @@ npm run lint     # TypeScript type check
 - 💻 **GitHub:** [@rehaan2493](https://github.com/rehaan2493)
 
 **Key expertise:** Game development (unity) · AIML (python, TensorFlow) · Data analyst (python, tableau) · SQL
+
+---
+
+## 🇮🇳 Featured Project (Author's Personal Project)
+
+### India's Voice of Justice
+- **Repository:** [Ksmashhero06/India-s-Voice-of-Justice](https://github.com/Ksmashhero06/India-s-Voice-of-Justice)
+- 🏆 **Tamil Nadu State-Level Selection (Niralthiruvizha 3.0 / Villupuram Cohort)** — Wadhwani Foundation Learning & Entrepreneurship program
+- AI-powered multilingual legal assistance platform using RAG, FastAPI, React, FAISS, HuggingFace multilingual embeddings, and Google Gemini AI
 
 ---
 
