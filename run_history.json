@@ -1,38 +1,5 @@
 [
   {
-    "timestamp": "2026-06-20T02:07:50.462223Z",
-    "niche": "AI & Agentic Frameworks",
-    "model": "gemini-1.5-flash",
-    "status": "success",
-    "error": null,
-    "agent_a": {
-      "last_wake": "2026-06-20T02:07:50.451864Z",
-      "headlines_pulled": [
-        "Show HN: Model-Context Protocol (MCP) clients built entirely in Rust",
-        "OpenAI launches GPT-5.5 with real-time semantic video streaming and sub-50ms latency",
-        "Google introduces Gemini 2.5 Pro with native 10-million token context windows",
-        "Meta Research details LLaMA 4: 100T parameter model optimized for agentic tool use and complex reasoning",
-        "Is clean token-to-token streaming with low late-delivery possible over HTTP/3?",
-        "Autonomous agents now manage $50k/day ad budgets with zero human overview"
-      ],
-      "source": "Multiple Tech RSS Feeds"
-    },
-    "agent_b": {
-      "prompt_tokens": 2900,
-      "output_tokens": 1960,
-      "total_tokens": 4860,
-      "attempts": 2,
-      "violations": [
-        "Formatting Violation: Unclosed markdown code block detected (odd number of triple-backticks)."
-      ]
-    },
-    "agent_c": {
-      "score": 95,
-      "notes": "Good technical depth and layout structure.",
-      "passed": true
-    }
-  },
-  {
     "timestamp": "2026-06-20T02:10:51.534241Z",
     "niche": "AI & Agentic Frameworks",
     "model": "gemini-1.5-flash",
@@ -5525,6 +5492,118 @@
           "start_time": "2026-06-23T01:06:12.085395Z",
           "end_time": "2026-06-23T01:06:12.085395Z",
           "duration_ms": 54,
+          "attributes": {
+            "score": 95,
+            "passed": true
+          }
+        }
+      ],
+      "failures": {
+        "violations_count": 1,
+        "attempts_count": 1,
+        "api_errors_count": 0
+      }
+    }
+  },
+  {
+    "timestamp": "2026-06-23T01:12:52.882056Z",
+    "niche": "AI & Agentic Frameworks",
+    "model": "gemini-1.5-flash",
+    "status": "success",
+    "error": null,
+    "agent_a": {
+      "last_wake": "2026-06-23T01:12:46.889852Z",
+      "headlines_pulled": [
+        "Deep Dive: Architecture of fall of developers in IT sectors due to the rise of AI",
+        "Performance Tuning & Optimization for fall of developers in IT sectors due to the rise of AI",
+        "Common Pitfalls and Anti-patterns in fall of developers in IT sectors due to the rise of AI Implementations"
+      ],
+      "source": "Multiple Tech RSS Feeds",
+      "duration_ms": 48
+    },
+    "agent_b": {
+      "prompt_tokens": 4350,
+      "output_tokens": 2940,
+      "total_tokens": 7290,
+      "attempts": 1,
+      "violations": [
+        "Formatting Violation: Unclosed markdown code block detected (odd number of triple-backticks)."
+      ],
+      "duration_ms": 1869,
+      "grounding_sources": []
+    },
+    "agent_c": {
+      "score": 95,
+      "notes": "Excellent detail. Expanded sections contain high-quality technical telemetry.",
+      "passed": true,
+      "duration_ms": 55
+    },
+    "telemetry": {
+      "total_duration_ms": 5000,
+      "total_cost_usd": 0.001208,
+      "agent_a_duration_ms": 48,
+      "agent_b_duration_ms": 1869,
+      "agent_c_duration_ms": 55,
+      "spans": [
+        {
+          "name": "pipeline_run",
+          "context": {
+            "trace_id": "b869f0216c11427bb05295748f2f7066",
+            "span_id": "4e83cc40e492477c"
+          },
+          "parent_span_id": null,
+          "start_time": "2026-06-23T01:12:46.889852Z",
+          "end_time": "2026-06-23T01:12:52.882031Z",
+          "duration_ms": 5000,
+          "attributes": {
+            "niche": "AI & Agentic Frameworks",
+            "model": "gemini-1.5-flash",
+            "status": "success",
+            "error": ""
+          }
+        },
+        {
+          "name": "agent_a_trend_scout",
+          "context": {
+            "trace_id": "b869f0216c11427bb05295748f2f7066",
+            "span_id": "24f9e15c957b453f"
+          },
+          "parent_span_id": "4e83cc40e492477c",
+          "start_time": "2026-06-23T01:12:46.889852Z",
+          "end_time": "2026-06-23T01:12:52.882031Z",
+          "duration_ms": 48,
+          "attributes": {
+            "source": "Multiple Tech RSS Feeds",
+            "headlines_pulled_count": 3
+          }
+        },
+        {
+          "name": "agent_b_writer",
+          "context": {
+            "trace_id": "b869f0216c11427bb05295748f2f7066",
+            "span_id": "7161a9d8533946dd"
+          },
+          "parent_span_id": "4e83cc40e492477c",
+          "start_time": "2026-06-23T01:12:52.882031Z",
+          "end_time": "2026-06-23T01:12:52.882031Z",
+          "duration_ms": 1869,
+          "attributes": {
+            "attempts": 1,
+            "violations_count": 1,
+            "prompt_tokens": 4350,
+            "output_tokens": 2940
+          }
+        },
+        {
+          "name": "agent_c_evaluator",
+          "context": {
+            "trace_id": "b869f0216c11427bb05295748f2f7066",
+            "span_id": "458e715475954844"
+          },
+          "parent_span_id": "4e83cc40e492477c",
+          "start_time": "2026-06-23T01:12:52.882031Z",
+          "end_time": "2026-06-23T01:12:52.882031Z",
+          "duration_ms": 55,
           "attributes": {
             "score": 95,
             "passed": true
