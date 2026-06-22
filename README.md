@@ -598,10 +598,27 @@ npm run lint     # TypeScript type check
 | **Frontend** | React 19, TypeScript, Tailwind CSS v4, Vite 6, Lucide Icons |
 | **Backend** | Node.js, Express 4, TypeScript (`tsx` for dev, `esbuild` for prod) |
 | **AI SDK (Node)** | `@google/genai` v2 (Gemini SDK) |
-| **AI SDK (Python)** | `google-generativeai` |
+| **AI SDK (Python)** | `google-genai` (Migrated from legacy `google-generativeai`) |
 | **Python Dashboard** | Streamlit |
 | **Data storage** | Local JSON files + Markdown files (no database) |
 | **RSS parsing** | Regex-based XML parser (no external library — zero deps for Python) |
+
+---
+
+## 🚀 SDK Migration & Google Search Grounding Upgrade
+
+We migrated the Python agent pipeline from the legacy `google-generativeai` SDK to the new `google-genai` SDK and integrated **Google Search Grounding**:
+
+*   **SDK Migration & Backward-Compatible Wrappers**:
+    *   Refactored `_init_genai()` in `agent_pipeline.py` to import the new `google.genai` SDK and initialize a central client (`google.genai.Client`).
+    *   Implemented wrappers (`GeminiGenAIWrapper`, `GeminiChatWrapper`, `GeminiResponseWrapper`, `GeminiPartWrapper`, `GeminiUsageMetadataWrapper`) to translate existing agent orchestration and tool-calling loops without breaking legacy signatures or REST mock environments.
+*   **Google Search Grounding Integration**:
+    *   Conditionally injected the `"google_search"` tool to Agent B (Writer) during live runs.
+    *   Designed `GeminiGenAIWrapper` to convert the string `"google_search"` into the native `types.Tool(google_search=types.GoogleSearch())` object configuration.
+*   **Telemetry & Observation Logging**:
+    *   Configured `GeminiResponseWrapper` to extract the `grounding_metadata` chunks from Gemini's response.
+    *   Extracted live citation details (`title`, `url`) and stored them under `"grounding_sources"` inside the execution telemetry for Agent B.
+    *   Updated `save_telemetry` and `run_history.json` structures to log these citation sources permanently in run history records.
 
 ---
 
