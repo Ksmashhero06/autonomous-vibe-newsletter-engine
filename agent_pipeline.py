@@ -606,30 +606,41 @@ def clean_html_to_text(html: str, expand_horizon: bool = False) -> str:
 
 def fetch_full_article(url: str, timeout: int = 12, expand_horizon: bool = False) -> dict:
     """
-    Fetch and extract the full plain-text body of a web article.
+    Fetch and extract the full plain-text body of a web article using httpx and BeautifulSoup.
 
     Returns:
         {"url": url, "text": cleaned_body, "word_count": int, "error": None | str}
     """
+    import httpx
+    from bs4 import BeautifulSoup
     try:
-        req = urllib.request.Request(
-            url,
-            headers={
-                "User-Agent": "Mozilla/5.0 (compatible; NewsletterBot/6.0; RAG-Fetcher)",
-                "Accept": "text/html,application/xhtml+xml",
-            },
-        )
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            # Read more data (2.4 MB vs 1.2 MB) if search horizon is expanded
-            raw_cap = 2_400_000 if expand_horizon else 1_200_000
-            raw = resp.read(raw_cap)
-            encoding = resp.headers.get_content_charset() or "utf-8"
-            html = raw.decode(encoding, errors="replace")
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"
+        }
+        response = httpx.get(url, timeout=float(timeout), headers=headers, follow_redirects=True)
+        if response.status_code != 200:
+            return {"url": url, "text": "", "word_count": 0, "error": f"HTTP Error {response.status_code}"}
+            
+        soup = BeautifulSoup(response.text, "html.parser")
+        # Strip scripts, styles, and headers/footers to preserve token space
+        for element in soup(["script", "style", "nav", "header", "footer", "aside", "noscript"]):
+            element.decompose()
+            
+        raw_text = soup.get_text()
+        
+        # Clean lines
+        cleaned_lines = []
+        min_len = 25 if expand_horizon else 40
+        for line in raw_text.splitlines():
+            cleaned_line = re.sub(r"[ \t]+", " ", line).strip()
+            if len(cleaned_line) >= min_len:
+                cleaned_lines.append(cleaned_line)
+                
+        text = "\n\n".join(cleaned_lines)
+        return {"url": url, "text": text, "word_count": len(text.split()), "error": None}
     except Exception as exc:
         return {"url": url, "text": "", "word_count": 0, "error": str(exc)}
-
-    text = clean_html_to_text(html, expand_horizon=expand_horizon)
-    return {"url": url, "text": text, "word_count": len(text.split()), "error": None}
 
 
 def chunk_text(text: str, chunk_size: int = 800, overlap: int = 120) -> list[str]:
@@ -2364,35 +2375,45 @@ def run_agent_b(
             if is_ai_impact:
                 if idx == 0:
                     simulated_sections += f"""
-## 1. 🔍 Analysis: {t['title']}
+## 1. 🔍 Deep Dive: Architecture of GitHub Launchpad's 'Local Workspace' Chromium Agent Engine
 
-### The Core Shift in Engineering Productivity
-The integration of generative AI and agentic software workflows is radically redefining the traditional role of software engineers in IT sectors. Instead of manual syntax writing, engineers are transitioning into "system orchestrators" or "editorial controllers." This paradigm shift leads to:
-- **10x Velocity Gains**: Automated scaffolding, code migration, and unit test generation.
-- **Architectural Scaling**: A single developer can manage larger codebases using multi-agent coordinate networks.
+### The Core Paradigm
+The newly previewed GitHub Launchpad workspace architecture shifts agent code execution away from remote cloud sandboxes directly into the browser client via localized Chromium Extension manifests. By leveraging background service workers, local file system access permissions, and native messaging, the engine executes code evaluation tasks with zero remote round-trip network lag.
 
-### Use Case: Automated Trend Tracking
-Instead of a human spending two hours every morning scrolling through Hacker News, Reddit, and engineering blogs to find out what happened in tech, autonomous agents handle research, validation, and summarization automatically.
+```typescript
+// Local workspace sandbox communication pipeline
+class LocalWorkspaceAgent {{
+  private port: chrome.runtime.Port;
+
+  constructor(private workspacePath: string) {{
+    this.port = chrome.runtime.connectNative('com.github.launchpad.local_agent');
+  }}
+
+  public async executeSecureCommand(instruction: string): Promise<string> {{
+    return new Promise((resolve) => {{
+      this.port.postMessage({{ command: "EXECUTE", path: this.workspacePath, rawInput: instruction }});
+      this.port.onMessage.addListener((response) => resolve(response.stdout));
+    }});
+  }}
+}}
+```
 """
                 elif idx == 1:
                     simulated_sections += f"""
-## 2. ⚡ Industry Benchmark: {t['title']}
+## 2. ⚡ Performance Tuning & Optimization for Local extension runtimes
 
-### Corporate Intelligence Analytics
-Organizations are deploying custom RAG-grounded pipelines to ingest competitors' product update feeds, press releases, and GitHub commits. This enables automated compilation of weekly "Competitor Intelligence Reports."
+Optimizing client-side execution boundaries is critical. To avoid UI blocking spikes during heavy directory traversals, the workspace agent delegates native disk operations to an isolated system-level thread pool using a dedicated messaging layer.
 
-| Metric | Traditional Workflow | Multi-Agent Pipeline |
-| :--- | :--- | :--- |
-| Research Time | 12 hours/week | **15 minutes/week** |
-| Fact-Checking Coverage | 45% (Manual Sample) | **95%+ (Automated RAG)** |
-| Cost per Report | $150 (Labor Cost) | **~$0.05 (API Token Cost)** |
+| Layer | Sandbox Isolation Strategy | Communication Channel | Latency Cost |
+| :--- | :--- | :--- | :--- |
+| UI | V8 Extension Context | Chrome Runtime Ports | ~0.5ms |
+| Host | Native OS Thread Pool | Standard I/O (stdio) | <2.0ms |
 """
                 else:
                     simulated_sections += f"""
-## 3. 🔬 Strategic Outlook: {t['title']}
+## 3. ⚠️ Common Pitfalls and Anti-patterns
 
-### Drastic Cost & Time Reduction
-Producing high-quality, technically accurate newsletters and documentation usually requires hours of writing, cross-referencing, and editing. Modern AI agent architectures cut this processing time down to a few minutes on a free tier API—reducing corporate content production costs virtually to zero.
+Avoid requesting broad wildcard permissions (`<all_urls>`) inside the extension manifest. Adhering to strict declarative-net-request rules ensures your local AI workspace maintains enterprise security parameters without risking data leaks.
 """
             else:
                 # Default technical template (speculative scheduler)
@@ -2496,9 +2517,11 @@ As we move deeper into this development cycle, separation of concerns is being e
         model_name=model_name,
         tools=tools,
         system_instruction=(
-            "You are an elite engineering newsletter author and principal technical architect. "
-            "Write with authority, precision, technical depth, and engaging prose. "
-            "Your audience is senior developers and technical decision-makers."
+            "You are an Elite Principal AI Architect writing a technical newsletter.\n"
+            "CRITICAL CONSTRAINT: You must ONLY write code snippets that directly match the core subject matter of the provided RAG context.\n"
+            "- If the topic is about 'Chromium Extensions', do NOT generate Rust transaction pools or blockchain Merkle roots.\n"
+            "- Match the programming language to the ecosystem discussed (e.g., Chromium Extensions = TypeScript/JavaScript; Linux Kernels = C/Rust).\n"
+            "- Never duplicate the topic title inside your markdown subheadings."
         ),
     )
 
@@ -2981,6 +3004,49 @@ def correct_spelling_and_grammar(text: str, api_key: str = None, simulate: bool 
     return cleaned
 
 
+def clean_markdown_headers(text: str) -> str:
+    """
+    Cleans markdown headers to remove repetitive title phrases and structural stuttering.
+    """
+    if not text:
+        return text
+
+    # 1. Deduplicate repetitive phrase injection in headers
+    text = re.sub(r'(Deep Dive:\s*)+', 'Deep Dive: ', text, flags=re.IGNORECASE)
+    text = re.sub(r'(Performance Tuning & Optimization for\s*)+', 'Performance Tuning & Optimization for ', text, flags=re.IGNORECASE)
+    
+    # 2. Prevent bloated titles duplicated by long model phrases
+    lines = []
+    for line in text.splitlines():
+        if line.startswith('#'):
+            match = re.match(r'^(#+\s+(?:\d+\.\s+)?(?:[^\w\s]*\s*)?)(.*)$', line)
+            if match:
+                prefix, content = match.groups()
+                content_clean = content.strip()
+                
+                # Check if the entire content portion is duplicated (e.g. "Title Title")
+                half = len(content_clean) // 2
+                if half > 4:
+                    part1 = content_clean[:half].strip()
+                    part2 = content_clean[half:].strip()
+                    if part1 == part2:
+                        line = f"{prefix.strip()} {part1}"
+                    else:
+                        # Also check if it starts with a key structural marker followed by duplication
+                        for marker in ["Deep Dive:", "Performance Tuning & Optimization for", "Strategic Outlook:", "Analysis:"]:
+                            if content_clean.lower().startswith(marker.lower()):
+                                subcontent = content_clean[len(marker):].strip()
+                                subhalf = len(subcontent) // 2
+                                if subhalf > 4:
+                                    spart1 = subcontent[:subhalf].strip()
+                                    spart2 = subcontent[subhalf:].strip()
+                                    if spart1 == spart2:
+                                        line = f"{prefix.strip()} {marker} {spart1}"
+                                        break
+        lines.append(line)
+    return "\n".join(lines)
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Pipeline Orchestrator
 # ──────────────────────────────────────────────────────────────────────────────
@@ -3139,6 +3205,8 @@ def run_pipeline(niche: str = "AI & Agentic Frameworks", model_name: str = "gemi
                     print("\n❌  Agent B produced no draft. Pipeline aborted.")
                     save_telemetry(niche, model_name, "failed", "Agent B produced no draft")
                     return ""
+
+                draft = clean_markdown_headers(draft)
 
                 # Day 4: Run the automated security & quality checks
                 print(f"🛡️  [Security & Quality] Evaluating draft for Attempt {attempt}...")
