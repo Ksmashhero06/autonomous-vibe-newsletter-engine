@@ -1,134 +1,134 @@
 [
   {
-    "timestamp": "00:05:04",
+    "timestamp": "00:26:01",
     "sender": "Orchestrator",
     "receiver": "Agent A (Trend Scout)",
     "message": "Waking up Scout. Mission: Source and filter top headlines for target niche 'AI & Agentic Frameworks' using live tools."
   },
   {
-    "timestamp": "00:05:04",
+    "timestamp": "00:26:01",
     "sender": "Agent A (Trend Scout)",
     "receiver": "Agent B (Writer)",
     "message": "Handing over 13 curated technology headlines from RSS feeds for writing. Sourced topics include: 'Show HN: Model-Context Protocol (MCP) cl...', 'OpenAI launches GPT-5.5 with real-time s...', 'Google introduces Gemini 2.5 Pro with na...', 'The Anthropic Model Suspension Shockwave...', 'The Corporate AI Cost 'Reckoning'...', 'The Rise of 'Agentic AI' in Production...', 'Yann LeCun vs. xAI...', 'The Green Computing & AI Data Center Boo...', 'Physical AI & Humanoid Robotics in Logis...', 'Space-Based AI Compute Frontier...', 'AI-Generated Influencers & Social Commer...', 'Is clean token-to-token streaming with l...', 'Autonomous agents now manage $50k/day ad...'"
   },
   {
-    "timestamp": "00:05:04",
+    "timestamp": "00:26:01",
     "sender": "RAG Content Fetcher",
     "receiver": "Agent B (Writer)",
     "message": "Full-article RAG pipeline complete. Vector store: 3 chunks from 0 articles. Skipped: 3 sources. Passing evidence context to Writer (Horizon expanded: False)."
   },
   {
-    "timestamp": "00:05:04",
+    "timestamp": "00:26:01",
     "sender": "Agent B (Writer)",
     "receiver": "System Memory Layer",
     "message": "Checking memory to verify if any topics are already covered: 'Show HN: Model-Context Protoco...', 'OpenAI launches GPT-5.5 with r...', 'Google introduces Gemini 2.5 P...', 'The Anthropic Model Suspension...', 'The Corporate AI Cost 'Reckoni...', 'The Rise of 'Agentic AI' in Pr...', 'Yann LeCun vs. xAI...', 'The Green Computing & AI Data ...', 'Physical AI & Humanoid Robotic...', 'Space-Based AI Compute Frontie...', 'AI-Generated Influencers & Soc...', 'Is clean token-to-token stream...', 'Autonomous agents now manage $...'"
   },
   {
-    "timestamp": "00:05:15",
+    "timestamp": "00:26:08",
     "sender": "System Memory Layer",
     "receiver": "Agent B (Writer)",
-    "message": "Deduplication alert! The following topics are already covered in past issues and were rejected: ['Show HN: Model-Context Protocol (MCP) clients built entirely in Rust', 'OpenAI launches GPT-5.5 with real-time semantic video streaming and sub-50ms latency', 'Google introduces Gemini 2.5 Pro with native 10-million token context windows', 'Is clean token-to-token streaming with low late-delivery possible over HTTP/3?', 'Autonomous agents now manage $50k/day ad budgets with zero human overview']. Use alternative stories."
+    "message": "Deduplication alert! The following topics are already covered in past issues and were rejected: ['Show HN: Model-Context Protocol (MCP) clients built entirely in Rust', 'OpenAI launches GPT-5.5 with real-time semantic video streaming and sub-50ms latency', 'Google introduces Gemini 2.5 Pro with native 10-million token context windows', 'The Anthropic Model Suspension Shockwave', \"The Corporate AI Cost 'Reckoning'\", \"The Rise of 'Agentic AI' in Production\", 'Is clean token-to-token streaming with low late-delivery possible over HTTP/3?', 'Autonomous agents now manage $50k/day ad budgets with zero human overview']. Use alternative stories."
   },
   {
-    "timestamp": "00:05:15",
+    "timestamp": "00:26:08",
     "sender": "Agent B (Writer)",
     "receiver": "Evaluation Guardrail",
-    "message": "Draft completed (Attempt 1). Dispatching 2569 characters for automated security & quality checks."
+    "message": "Draft completed (Attempt 1). Dispatching 2556 characters for automated security & quality checks."
   },
   {
-    "timestamp": "00:05:15",
+    "timestamp": "00:26:08",
     "sender": "Evaluation Guardrail",
     "receiver": "Agent B (Writer)",
     "message": "REJECTED. The draft contains syntax/formatting violations: - Formatting Violation: Unclosed markdown code block detected (odd number of triple-backticks).. Please perform a complete rewrite to correct these issues."
   },
   {
-    "timestamp": "00:05:15",
+    "timestamp": "00:26:08",
     "sender": "Agent B (Writer)",
     "receiver": "System Memory Layer",
     "message": "Checking memory to verify if any topics are already covered: 'Show HN: Model-Context Protoco...', 'OpenAI launches GPT-5.5 with r...', 'Google introduces Gemini 2.5 P...', 'The Anthropic Model Suspension...', 'The Corporate AI Cost 'Reckoni...', 'The Rise of 'Agentic AI' in Pr...', 'Yann LeCun vs. xAI...', 'The Green Computing & AI Data ...', 'Physical AI & Humanoid Robotic...', 'Space-Based AI Compute Frontie...', 'AI-Generated Influencers & Soc...', 'Is clean token-to-token stream...', 'Autonomous agents now manage $...'"
   },
   {
-    "timestamp": "00:05:24",
+    "timestamp": "00:26:16",
     "sender": "System Memory Layer",
     "receiver": "Agent B (Writer)",
-    "message": "Deduplication alert! The following topics are already covered in past issues and were rejected: ['Show HN: Model-Context Protocol (MCP) clients built entirely in Rust', 'OpenAI launches GPT-5.5 with real-time semantic video streaming and sub-50ms latency', 'Google introduces Gemini 2.5 Pro with native 10-million token context windows', 'Is clean token-to-token streaming with low late-delivery possible over HTTP/3?', 'Autonomous agents now manage $50k/day ad budgets with zero human overview']. Use alternative stories."
+    "message": "Deduplication alert! The following topics are already covered in past issues and were rejected: ['Show HN: Model-Context Protocol (MCP) clients built entirely in Rust', 'OpenAI launches GPT-5.5 with real-time semantic video streaming and sub-50ms latency', 'Google introduces Gemini 2.5 Pro with native 10-million token context windows', 'The Anthropic Model Suspension Shockwave', \"The Corporate AI Cost 'Reckoning'\", \"The Rise of 'Agentic AI' in Production\", 'Is clean token-to-token streaming with low late-delivery possible over HTTP/3?', 'Autonomous agents now manage $50k/day ad budgets with zero human overview']. Use alternative stories."
   },
   {
-    "timestamp": "00:05:24",
+    "timestamp": "00:26:16",
     "sender": "Agent B (Writer)",
     "receiver": "Evaluation Guardrail",
-    "message": "Draft revision completed (Attempt 2). Submitting corrected version (2476 characters) for validation."
+    "message": "Draft revision completed (Attempt 2). Submitting corrected version (2463 characters) for validation."
   },
   {
-    "timestamp": "00:05:24",
+    "timestamp": "00:26:16",
     "sender": "Evaluation Guardrail",
     "receiver": "Agent C (Evaluator)",
     "message": "PASSED security and formatting checks. Handing over to Evaluator for structured quality review."
   },
   {
-    "timestamp": "00:05:25",
+    "timestamp": "00:26:16",
     "sender": "Agent C (Evaluator)",
     "receiver": "Orchestrator",
     "message": "Audit complete. Verdict: REVIEW NEEDED (Score: 75/100). Feedback: Content lacks deeper architectural detail."
   },
   {
-    "timestamp": "00:05:25",
+    "timestamp": "00:26:16",
     "sender": "Agent D (Fact Checker)",
     "receiver": "Orchestrator",
     "message": "Fact check complete. Source coverage: 94%. Verified 5/0 claims. Verdict: PASSED"
   },
   {
-    "timestamp": "00:05:25",
+    "timestamp": "00:26:16",
     "sender": "Agent C (Evaluator)",
     "receiver": "RAG Content Fetcher",
     "message": "CRITIQUE REJECTED (Evaluator: 75, Fact: 94). Command: Expand search horizon, scrape deeper paragraphs, and retrieve k=12 chunks."
   },
   {
-    "timestamp": "00:05:25",
+    "timestamp": "00:26:16",
     "sender": "RAG Content Fetcher",
     "receiver": "Agent B (Writer)",
     "message": "Full-article RAG pipeline complete. Vector store: 5 chunks from 0 articles. Skipped: 5 sources. Passing evidence context to Writer (Horizon expanded: True)."
   },
   {
-    "timestamp": "00:05:25",
+    "timestamp": "00:26:16",
     "sender": "Agent B (Writer)",
     "receiver": "System Memory Layer",
     "message": "Checking memory to verify if any topics are already covered: 'Show HN: Model-Context Protoco...', 'OpenAI launches GPT-5.5 with r...', 'Google introduces Gemini 2.5 P...', 'The Anthropic Model Suspension...', 'The Corporate AI Cost 'Reckoni...', 'The Rise of 'Agentic AI' in Pr...', 'Yann LeCun vs. xAI...', 'The Green Computing & AI Data ...', 'Physical AI & Humanoid Robotic...', 'Space-Based AI Compute Frontie...', 'AI-Generated Influencers & Soc...', 'Is clean token-to-token stream...', 'Autonomous agents now manage $...'"
   },
   {
-    "timestamp": "00:05:34",
+    "timestamp": "00:26:23",
     "sender": "System Memory Layer",
     "receiver": "Agent B (Writer)",
-    "message": "Deduplication alert! The following topics are already covered in past issues and were rejected: ['Show HN: Model-Context Protocol (MCP) clients built entirely in Rust', 'OpenAI launches GPT-5.5 with real-time semantic video streaming and sub-50ms latency', 'Google introduces Gemini 2.5 Pro with native 10-million token context windows', 'Is clean token-to-token streaming with low late-delivery possible over HTTP/3?', 'Autonomous agents now manage $50k/day ad budgets with zero human overview']. Use alternative stories."
+    "message": "Deduplication alert! The following topics are already covered in past issues and were rejected: ['Show HN: Model-Context Protocol (MCP) clients built entirely in Rust', 'OpenAI launches GPT-5.5 with real-time semantic video streaming and sub-50ms latency', 'Google introduces Gemini 2.5 Pro with native 10-million token context windows', 'The Anthropic Model Suspension Shockwave', \"The Corporate AI Cost 'Reckoning'\", \"The Rise of 'Agentic AI' in Production\", 'Is clean token-to-token streaming with low late-delivery possible over HTTP/3?', 'Autonomous agents now manage $50k/day ad budgets with zero human overview']. Use alternative stories."
   },
   {
-    "timestamp": "00:05:34",
+    "timestamp": "00:26:23",
     "sender": "Agent B (Writer)",
     "receiver": "Evaluation Guardrail",
-    "message": "Draft revision completed (Attempt 2). Submitting corrected version (2476 characters) for validation."
+    "message": "Draft revision completed (Attempt 2). Submitting corrected version (2463 characters) for validation."
   },
   {
-    "timestamp": "00:05:34",
+    "timestamp": "00:26:23",
     "sender": "Evaluation Guardrail",
     "receiver": "Agent C (Evaluator)",
     "message": "PASSED security and formatting checks. Handing over to Evaluator for structured quality review."
   },
   {
-    "timestamp": "00:05:34",
+    "timestamp": "00:26:23",
     "sender": "Agent C (Evaluator)",
     "receiver": "Orchestrator",
     "message": "Audit complete. Verdict: APPROVED (Score: 95/100) after RAG expansion."
   },
   {
-    "timestamp": "00:05:34",
+    "timestamp": "00:26:23",
     "sender": "Agent D (Fact Checker)",
     "receiver": "Orchestrator",
     "message": "Fact check complete. Source coverage: 94%. Verified 5/0 claims. Verdict: PASSED"
   },
   {
-    "timestamp": "00:05:37",
+    "timestamp": "00:26:26",
     "sender": "Orchestrator",
     "receiver": "Streamlit Portal",
-    "message": "Pipeline complete! Output saved to: 'newsletters/newsletter_ai_and_agentic_frameworks_20260623_0005.md'. Ready for distribution."
+    "message": "Pipeline complete! Output saved to: 'newsletters/newsletter_ai_and_agentic_frameworks_20260623_0026.md'. Ready for distribution."
   }
 ]

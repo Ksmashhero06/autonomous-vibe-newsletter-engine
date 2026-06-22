@@ -4673,5 +4673,127 @@
         "api_errors_count": 0
       }
     }
+  },
+  {
+    "timestamp": "2026-06-23T00:26:26.070554Z",
+    "niche": "AI & Agentic Frameworks",
+    "model": "gemini-1.5-flash",
+    "status": "success",
+    "error": null,
+    "agent_a": {
+      "last_wake": "2026-06-23T00:26:01.037090Z",
+      "headlines_pulled": [
+        "Show HN: Model-Context Protocol (MCP) clients built entirely in Rust",
+        "OpenAI launches GPT-5.5 with real-time semantic video streaming and sub-50ms latency",
+        "Google introduces Gemini 2.5 Pro with native 10-million token context windows",
+        "The Anthropic Model Suspension Shockwave",
+        "The Corporate AI Cost 'Reckoning'",
+        "The Rise of 'Agentic AI' in Production",
+        "Yann LeCun vs. xAI",
+        "The Green Computing & AI Data Center Boom",
+        "Physical AI & Humanoid Robotics in Logistics",
+        "Space-Based AI Compute Frontier",
+        "AI-Generated Influencers & Social Commerce",
+        "Is clean token-to-token streaming with low late-delivery possible over HTTP/3?",
+        "Autonomous agents now manage $50k/day ad budgets with zero human overview"
+      ],
+      "source": "Multiple Tech RSS Feeds",
+      "duration_ms": 28
+    },
+    "agent_b": {
+      "prompt_tokens": 4350,
+      "output_tokens": 2940,
+      "total_tokens": 7290,
+      "attempts": 1,
+      "violations": [
+        "Formatting Violation: Unclosed markdown code block detected (odd number of triple-backticks)."
+      ],
+      "duration_ms": 7729,
+      "grounding_sources": []
+    },
+    "agent_c": {
+      "score": 95,
+      "notes": "Excellent detail. Expanded sections contain high-quality technical telemetry.",
+      "passed": true,
+      "duration_ms": 21
+    },
+    "telemetry": {
+      "total_duration_ms": 25000,
+      "total_cost_usd": 0.001208,
+      "agent_a_duration_ms": 28,
+      "agent_b_duration_ms": 7729,
+      "agent_c_duration_ms": 21,
+      "spans": [
+        {
+          "name": "pipeline_run",
+          "context": {
+            "trace_id": "257b7f871e11400a92427b49286c60e1",
+            "span_id": "3775dc1489c24118"
+          },
+          "parent_span_id": null,
+          "start_time": "2026-06-23T00:26:01.037090Z",
+          "end_time": "2026-06-23T00:26:26.070533Z",
+          "duration_ms": 25000,
+          "attributes": {
+            "niche": "AI & Agentic Frameworks",
+            "model": "gemini-1.5-flash",
+            "status": "success",
+            "error": ""
+          }
+        },
+        {
+          "name": "agent_a_trend_scout",
+          "context": {
+            "trace_id": "257b7f871e11400a92427b49286c60e1",
+            "span_id": "56e888e624bc4dd4"
+          },
+          "parent_span_id": "3775dc1489c24118",
+          "start_time": "2026-06-23T00:26:01.037090Z",
+          "end_time": "2026-06-23T00:26:26.070533Z",
+          "duration_ms": 28,
+          "attributes": {
+            "source": "Multiple Tech RSS Feeds",
+            "headlines_pulled_count": 13
+          }
+        },
+        {
+          "name": "agent_b_writer",
+          "context": {
+            "trace_id": "257b7f871e11400a92427b49286c60e1",
+            "span_id": "4665e2f24c02460f"
+          },
+          "parent_span_id": "3775dc1489c24118",
+          "start_time": "2026-06-23T00:26:26.070533Z",
+          "end_time": "2026-06-23T00:26:26.070533Z",
+          "duration_ms": 7729,
+          "attributes": {
+            "attempts": 1,
+            "violations_count": 1,
+            "prompt_tokens": 4350,
+            "output_tokens": 2940
+          }
+        },
+        {
+          "name": "agent_c_evaluator",
+          "context": {
+            "trace_id": "257b7f871e11400a92427b49286c60e1",
+            "span_id": "ed978d96369c4e93"
+          },
+          "parent_span_id": "3775dc1489c24118",
+          "start_time": "2026-06-23T00:26:26.070533Z",
+          "end_time": "2026-06-23T00:26:26.070533Z",
+          "duration_ms": 21,
+          "attributes": {
+            "score": 95,
+            "passed": true
+          }
+        }
+      ],
+      "failures": {
+        "violations_count": 1,
+        "attempts_count": 1,
+        "api_errors_count": 0
+      }
+    }
   }
 ]
