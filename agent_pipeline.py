@@ -625,6 +625,35 @@ def run_rag_content_fetcher(
     for art in top_articles:
         url = art.get("url") or art.get("link", "")
         title = art.get("title", "Untitled")
+        full_content = art.get("full_content", "")
+
+        # Priority 1: Use RSS content:encoded if substantial (avoids HTTP fetch entirely)
+        if full_content and len(full_content.split()) >= 200 and not simulate:
+            word_count = len(full_content.split())
+            print(f"  [RAG] 📰 Using RSS content:encoded for: {title[:60]} ({word_count} words)")
+            chunk_size = 500 if expand_horizon else 800
+            overlap = 200 if expand_horizon else 120
+            chunks = chunk_text(full_content, chunk_size=chunk_size, overlap=overlap)
+            print(f"  [RAG] 📦 Chunked into {len(chunks)} overlapping segments (from RSS content)")
+
+            embeddings = []
+            if api_key:
+                print(f"  [RAG] 🧠 Embedding {len(chunks)} chunks via text-embedding-004...")
+                for i, chunk in enumerate(chunks):
+                    vec = embed_text_gemini(chunk, api_key)
+                    embeddings.append(vec)
+                    if (i + 1) % 10 == 0:
+                        print(f"  [RAG]    → {i + 1}/{len(chunks)} embedded")
+            else:
+                print("  [RAG] ⚠️  No Gemini API key — using keyword-based retrieval fallback.")
+                embeddings = [[] for _ in chunks]
+
+            article_chunks.append({"url": url, "title": title, "chunks": chunks, "embeddings": embeddings})
+            all_chunks.extend(chunks)
+            all_embeddings.extend(embeddings)
+            sources.append(url)
+            print(f"  [RAG] ✅ Indexed {len(chunks)} chunks from RSS content:encoded for: {title[:60]}")
+            continue
 
         if not url:
             print(f"  [RAG] ⚠️  No URL for: {title[:60]} — skipping full fetch.")
@@ -1083,6 +1112,7 @@ def log_agent_interaction(sender: str, receiver: str, message: str):
 # ──────────────────────────────────────────────────────────────────────────────
 
 HN_RSS_URL = "https://news.ycombinator.com/rss"
+CONTENT_ENCODED_NS = "{http://purl.org/rss/1.0/modules/content/}encoded"
 
 
 def fetch_hackernews_headlines(max_items: int = 20) -> dict[str, Any]:
@@ -1134,10 +1164,15 @@ def fetch_hackernews_headlines(max_items: int = 20) -> dict[str, Any]:
         if not title or title.lower() == "hacker news":
             continue
 
+        # Extract full article content from content:encoded (RSS extension)
+        raw_content = (item.findtext(CONTENT_ENCODED_NS) or "").strip()
+        full_content = re.sub(r'<[^>]*>', ' ', raw_content).strip()[:5000] if raw_content else ""
+
         headlines.append({
             "title": title,
             "link": link,
             "description": description[:200] if description else "",
+            "full_content": full_content,
         })
 
         if len(headlines) >= max_items:
@@ -1193,10 +1228,15 @@ def fetch_techcrunch_headlines(max_items: int = 15) -> dict[str, Any]:
         import re
         description = re.sub(r'<[^>]*>', '', description)
 
+        # Extract full article content from content:encoded (RSS extension)
+        raw_content = (item.findtext(CONTENT_ENCODED_NS) or "").strip()
+        full_content = re.sub(r'<[^>]*>', ' ', raw_content).strip()[:5000] if raw_content else ""
+
         headlines.append({
             "title": title,
             "link": link,
             "description": description[:200] if description else "",
+            "full_content": full_content,
         })
 
         if len(headlines) >= max_items:
@@ -1244,10 +1284,15 @@ def fetch_google_blog_headlines(max_items: int = 10) -> dict[str, Any]:
         import re
         description = re.sub(r'<[^>]*>', '', description)
 
+        # Extract full article content from content:encoded (RSS extension)
+        raw_content = (item.findtext(CONTENT_ENCODED_NS) or "").strip()
+        full_content = re.sub(r'<[^>]*>', ' ', raw_content).strip()[:5000] if raw_content else ""
+
         headlines.append({
             "title": title,
             "link": link,
             "description": description[:200] if description else "",
+            "full_content": full_content,
         })
 
         if len(headlines) >= max_items:
@@ -1295,10 +1340,15 @@ def fetch_openai_blog_headlines(max_items: int = 10) -> dict[str, Any]:
         import re
         description = re.sub(r'<[^>]*>', '', description)
 
+        # Extract full article content from content:encoded (RSS extension)
+        raw_content = (item.findtext(CONTENT_ENCODED_NS) or "").strip()
+        full_content = re.sub(r'<[^>]*>', ' ', raw_content).strip()[:5000] if raw_content else ""
+
         headlines.append({
             "title": title,
             "link": link,
             "description": description[:200] if description else "",
+            "full_content": full_content,
         })
 
         if len(headlines) >= max_items:
@@ -1346,10 +1396,15 @@ def fetch_zoho_blog_headlines(max_items: int = 10) -> dict[str, Any]:
         import re
         description = re.sub(r'<[^>]*>', '', description)
 
+        # Extract full article content from content:encoded (RSS extension)
+        raw_content = (item.findtext(CONTENT_ENCODED_NS) or "").strip()
+        full_content = re.sub(r'<[^>]*>', ' ', raw_content).strip()[:5000] if raw_content else ""
+
         headlines.append({
             "title": title,
             "link": link,
             "description": description[:200] if description else "",
+            "full_content": full_content,
         })
 
         if len(headlines) >= max_items:
@@ -1397,10 +1452,15 @@ def fetch_meta_blog_headlines(max_items: int = 10) -> dict[str, Any]:
         import re
         description = re.sub(r'<[^>]*>', '', description)
 
+        # Extract full article content from content:encoded (RSS extension)
+        raw_content = (item.findtext(CONTENT_ENCODED_NS) or "").strip()
+        full_content = re.sub(r'<[^>]*>', ' ', raw_content).strip()[:5000] if raw_content else ""
+
         headlines.append({
             "title": title,
             "link": link,
             "description": description[:200] if description else "",
+            "full_content": full_content,
         })
 
         if len(headlines) >= max_items:
@@ -1448,10 +1508,15 @@ def fetch_netflix_blog_headlines(max_items: int = 10) -> dict[str, Any]:
         import re
         description = re.sub(r'<[^>]*>', '', description)
 
+        # Extract full article content from content:encoded (RSS extension)
+        raw_content = (item.findtext(CONTENT_ENCODED_NS) or "").strip()
+        full_content = re.sub(r'<[^>]*>', ' ', raw_content).strip()[:5000] if raw_content else ""
+
         headlines.append({
             "title": title,
             "link": link,
             "description": description[:200] if description else "",
+            "full_content": full_content,
         })
 
         if len(headlines) >= max_items:
@@ -1499,10 +1564,15 @@ def fetch_aws_blog_headlines(max_items: int = 10) -> dict[str, Any]:
         import re
         description = re.sub(r'<[^>]*>', '', description)
 
+        # Extract full article content from content:encoded (RSS extension)
+        raw_content = (item.findtext(CONTENT_ENCODED_NS) or "").strip()
+        full_content = re.sub(r'<[^>]*>', ' ', raw_content).strip()[:5000] if raw_content else ""
+
         headlines.append({
             "title": title,
             "link": link,
             "description": description[:200] if description else "",
+            "full_content": full_content,
         })
 
         if len(headlines) >= max_items:
@@ -1948,13 +2018,18 @@ Your mission for this pipeline run:
 
 Respond with a JSON array of exactly 5 objects:
 [
-  {{"title": "...", "description": "...", "points": 123}},
+  {{"title": "...", "url": "https://original-article-link", "description": "...", "points": 123}},
   ...
-]"""
+]
+
+CRITICAL: The "url" field MUST be the original article link returned by the RSS tool. Do NOT omit or fabricate URLs."""
 
     chat = model.start_chat(enable_automatic_function_calling=False)
     print(f"  [Agent A] Sending mission prompt...")
     response = chat.send_message(scout_prompt)
+
+    # Accumulate raw RSS headlines for post-selection URL + full_content recovery
+    raw_headlines_map: dict[str, dict] = {}
 
     # ── Agentic loop: Handle tool calls until Agent A gives a final answer ──
     max_iterations = 5
@@ -1976,6 +2051,12 @@ Respond with a JSON array of exactly 5 objects:
         for fc in tool_calls:
             print(f"  [Agent A] 🔧 Autonomously calling tool: {fc.name}({dict(fc.args)})")
             tool_result = dispatch_tool(fc.name, dict(fc.args))
+
+            # Store raw headline data for post-selection enrichment
+            for h in tool_result.get("headlines", []):
+                h_title = h.get("title", "").strip()
+                if h_title:
+                    raw_headlines_map[h_title] = h
 
             tool_response_parts.append(
                 genai.protos.Part(
@@ -2000,10 +2081,26 @@ Respond with a JSON array of exactly 5 objects:
     if start >= 0 and end > start:
         try:
             topics = json.loads(raw_text[start:end])
-            print(f"\n  [Agent A] ✅ Successfully compiled {len(topics)} top stories from live HN feed.")
+
+            # Enrich selected topics with original RSS data (URL + full_content recovery)
+            enriched_count = 0
+            for t in topics:
+                title = t.get("title", "").strip()
+                if title in raw_headlines_map:
+                    raw = raw_headlines_map[title]
+                    if not t.get("url"):
+                        t["url"] = raw.get("link", "")
+                    if not t.get("full_content"):
+                        t["full_content"] = raw.get("full_content", "")
+                    enriched_count += 1
+
+            print(f"\n  [Agent A] ✅ Successfully compiled {len(topics)} top stories from live RSS feeds.")
+            print(f"  [Agent A] 🔗 Enriched {enriched_count}/{len(topics)} topics with original URLs + full content.")
             for i, t in enumerate(topics, 1):
                 print(f"    #{i}: {t.get('title', 'N/A')[:72]}{'...' if len(t.get('title',''))>72 else ''}")
-                print(f"         Score: {t.get('points', '?')} pts")
+                has_url = '🔗' if t.get('url') else '⚠️ no URL'
+                has_content = f"📄 {len(t.get('full_content','').split())}w" if t.get('full_content') else '📭 no content'
+                print(f"         Score: {t.get('points', '?')} pts | {has_url} | {has_content}")
             execution_telemetry["agent_a"]["last_wake"] = datetime.now().isoformat() + "Z"
             execution_telemetry["agent_a"]["headlines_pulled"] = [t.get("title", "") for t in topics]
             
@@ -2011,7 +2108,8 @@ Respond with a JSON array of exactly 5 objects:
             log_agent_interaction(
                 "Agent A (Trend Scout)",
                 "Agent B (Writer)",
-                f"Handing over {len(topics)} live technology headlines sourced from HN/Tech blogs. Selected titles: "
+                f"Handing over {len(topics)} live technology headlines sourced from RSS feeds. "
+                f"Enriched {enriched_count} with original URLs + full article content. Selected titles: "
                 + ", ".join(f"'{t.get('title')[:40]}...'" for t in topics)
             )
             return topics
