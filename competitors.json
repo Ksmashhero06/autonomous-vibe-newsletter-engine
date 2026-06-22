@@ -1,0 +1,14 @@
+[
+  {
+    "name": "LocalWorkspace Agent Project",
+    "url": "https://github.com/Ksmashhero06/autonomous-vibe-newsletter-engine",
+    "feed_url": "https://github.com/Ksmashhero06/autonomous-vibe-newsletter-engine/commits/main.atom",
+    "description": "Primary repository tracking project changes and releases."
+  },
+  {
+    "name": "Gemini Developer Blog",
+    "url": "https://developers.googleblog.com",
+    "feed_url": "https://developers.googleblog.com/feeds/posts/default",
+    "description": "Google developer tools and models updates."
+  }
+]

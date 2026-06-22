@@ -15,3 +15,5 @@ Day-4/*
 __pycache__/
 newsletter_*.md
 background_worker_status.json
+publishing_config.json
+

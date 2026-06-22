@@ -1859,6 +1859,170 @@ def check_past_issues(titles: list[str]) -> dict[str, list[str]]:
     return {"covered_titles": covered_titles}
 
 
+def fetch_custom_competitor_headlines(max_items: int = 15) -> dict[str, Any]:
+    """
+    Agent A's tool. Fetches the latest headlines from custom competitor sites configured in competitors.json.
+    """
+    import urllib.request
+    import xml.etree.ElementTree as ET
+    import json
+    import os
+    import re
+    
+    max_items = max(1, min(int(max_items), 30))
+    print(f"  [🔧 Tool] fetch_custom_competitor_headlines(max_items={max_items})")
+    
+    config_path = os.path.join(os.getcwd(), "competitors.json")
+    if not os.path.exists(config_path):
+        print("  [🔧 Tool] ⚠️ competitors.json not found. Returning empty list.")
+        return {"headlines": [], "count": 0, "error": "competitors.json not found"}
+        
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            competitors = json.load(f)
+    except Exception as e:
+        print(f"  [🔧 Tool] ❌ Error reading competitors.json: {e}")
+        return {"headlines": [], "count": 0, "error": str(e)}
+        
+    headlines = []
+    
+    for comp in competitors:
+        name = comp.get("name", "Competitor")
+        feed_url = comp.get("feed_url", "")
+        site_url = comp.get("url", "")
+        
+        if feed_url:
+            print(f"  [🔧 Tool] → Fetching feed for {name}: {feed_url} ...")
+            req = urllib.request.Request(
+                feed_url,
+                headers={"User-Agent": "Mozilla/5.0 (compatible; NewsletterBot/1.0)"},
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=8) as response:
+                    xml_content = response.read()
+                    
+                # Support both RSS (channel/item) and Atom (feed/entry) formats
+                try:
+                    root = ET.fromstring(xml_content)
+                except ET.ParseError:
+                    from bs4 import BeautifulSoup
+                    soup = BeautifulSoup(xml_content, "xml")
+                    entries = soup.find_all("entry")
+                    if entries:
+                        for entry in entries:
+                            title_el = entry.find("title")
+                            title = title_el.text.strip() if title_el else ""
+                            link_el = entry.find("link")
+                            link = link_el.get("href") if link_el else ""
+                            if not link and link_el:
+                                link = link_el.text.strip()
+                            content_el = entry.find("content") or entry.find("summary")
+                            description = content_el.text.strip() if content_el else ""
+                            description = re.sub(r'<[^>]*>', '', description)[:200]
+                            
+                            if title and link:
+                                headlines.append({
+                                    "title": f"[{name}] {title}",
+                                    "link": link,
+                                    "description": description,
+                                    "full_content": ""
+                                })
+                        continue
+                    
+                    items = soup.find_all("item")
+                    for item in items:
+                        title_el = item.find("title")
+                        title = title_el.text.strip() if title_el else ""
+                        link_el = item.find("link")
+                        link = link_el.text.strip() if link_el else ""
+                        desc_el = item.find("description")
+                        description = desc_el.text.strip() if desc_el else ""
+                        description = re.sub(r'<[^>]*>', '', description)[:200]
+                        
+                        if title and link:
+                            headlines.append({
+                                "title": f"[{name}] {title}",
+                                "link": link,
+                                "description": description,
+                                "full_content": ""
+                            })
+                    continue
+                
+                is_atom = root.tag.endswith("feed")
+                
+                if is_atom:
+                    entries = root.findall("{http://www.w3.org/2005/Atom}entry")
+                    for entry in entries:
+                        title = (entry.findtext("{http://www.w3.org/2005/Atom}title") or "").strip()
+                        link_el = entry.find("{http://www.w3.org/2005/Atom}link")
+                        link = ""
+                        if link_el is not None:
+                            link = link_el.attrib.get("href", "").strip()
+                        summary = (entry.findtext("{http://www.w3.org/2005/Atom}summary") or entry.findtext("{http://www.w3.org/2005/Atom}content") or "").strip()
+                        description = re.sub(r'<[^>]*>', '', summary)[:200]
+                        
+                        if title and link:
+                            headlines.append({
+                                "title": f"[{name}] {title}",
+                                "link": link,
+                                "description": description,
+                                "full_content": ""
+                            })
+                else:
+                    channel = root.find("channel")
+                    if channel is not None:
+                        for item in channel.findall("item"):
+                            title = (item.findtext("title") or "").strip()
+                            link = (item.findtext("link") or "").strip()
+                            description = (item.findtext("description") or "").strip()
+                            description = re.sub(r'<[^>]*>', '', description)[:200]
+                            
+                            if title and link:
+                                headlines.append({
+                                    "title": f"[{name}] {title}",
+                                    "link": link,
+                                    "description": description,
+                                    "full_content": ""
+                                })
+            except Exception as e:
+                print(f"  [🔧 Tool] ⚠️ Error parsing feed for competitor {name}: {e}")
+                
+        elif site_url:
+            print(f"  [🔧 Tool] → Scraping site for {name}: {site_url} ...")
+            import httpx
+            from bs4 import BeautifulSoup
+            try:
+                headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+                response = httpx.get(site_url, headers=headers, timeout=8.0, follow_redirects=True)
+                if response.status_code == 200:
+                    soup = BeautifulSoup(response.text, "html.parser")
+                    links_found = []
+                    for tag in soup.find_all("a"):
+                        href = tag.get("href", "")
+                        text = tag.get_text().strip()
+                        if href.startswith("/"):
+                            from urllib.parse import urljoin
+                            href = urljoin(site_url, href)
+                        
+                        if len(text) > 20 and href.startswith("http") and href != site_url:
+                            if href not in [l["link"] for l in links_found]:
+                                links_found.append({"title": text, "link": href})
+                                
+                    for lf in links_found[:5]:
+                        headlines.append({
+                            "title": f"[{name}] {lf['title']}",
+                            "link": lf["link"],
+                            "description": f"Extracted from target competitor: {name}.",
+                            "full_content": ""
+                        })
+            except Exception as e:
+                print(f"  [🔧 Tool] ⚠️ Error scraping site for competitor {name}: {e}")
+                
+    headlines = headlines[:max_items]
+    print(f"  [🔧 Tool] ✅ Retrieved {len(headlines)} headlines from competitor feeds.")
+    return {"headlines": headlines, "count": len(headlines)}
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Tool Registry & Dispatcher
 # ──────────────────────────────────────────────────────────────────────────────
@@ -1872,6 +2036,7 @@ TOOL_REGISTRY: dict[str, callable] = {
     "fetch_meta_blog_headlines": fetch_meta_blog_headlines,
     "fetch_netflix_blog_headlines": fetch_netflix_blog_headlines,
     "fetch_aws_blog_headlines": fetch_aws_blog_headlines,
+    "fetch_custom_competitor_headlines": fetch_custom_competitor_headlines,
     "check_past_issues": check_past_issues,
 }
 
@@ -2077,6 +2242,28 @@ MEMORY_TOOL_DECLARATION = {
     ]
 }
 
+# Gemini function declaration (schema) for Agent A's custom competitors blog tool
+COMPETITORS_TOOL_DECLARATION = {
+    "function_declarations": [
+        {
+            "name": "fetch_custom_competitor_headlines",
+            "description": (
+                "Fetches the latest headlines, research articles, and updates directly "
+                "from custom competitor and tracking targets registered in competitors.json."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "max_items": {
+                        "type": "integer",
+                        "description": "Number of headlines to retrieve (default: 15, max: 30).",
+                    }
+                },
+            },
+        }
+    ]
+}
+
 
 def dispatch_tool(name: str, args: dict) -> Any:
     """Execute a registered tool by name with the given arguments."""
@@ -2186,12 +2373,13 @@ Respond with a JSON array of exactly 3 to 5 objects (do NOT call any tools):
             ZOHO_TOOL_DECLARATION,
             META_TOOL_DECLARATION,
             NETFLIX_TOOL_DECLARATION,
-            AWS_TOOL_DECLARATION
+            AWS_TOOL_DECLARATION,
+            COMPETITORS_TOOL_DECLARATION
         ])
-        scout_prompt = f"""You are Agent A (The Trend Scout), an autonomous AI research agent with access to live technology RSS feed tools.
+        scout_prompt = f"""You are Agent A (The Trend Scout), an autonomous AI research agent with access to live technology RSS feed and competitor scraping tools.
 
 Your mission for this pipeline run:
-1. Call the appropriate tools (fetch_hackernews_headlines, fetch_techcrunch_headlines, fetch_google_blog_headlines, fetch_openai_blog_headlines, fetch_zoho_blog_headlines, fetch_meta_blog_headlines, fetch_netflix_blog_headlines, or fetch_aws_blog_headlines) to retrieve the latest technology news, developer trends, company blog announcements, and product updates.
+1. Call the appropriate tools (fetch_hackernews_headlines, fetch_techcrunch_headlines, fetch_google_blog_headlines, fetch_openai_blog_headlines, fetch_zoho_blog_headlines, fetch_meta_blog_headlines, fetch_netflix_blog_headlines, fetch_aws_blog_headlines, or fetch_custom_competitor_headlines) to retrieve the latest technology news, developer trends, company blog announcements, product updates, or custom competitor articles.
 2. Analyze ALL returned headlines and select exactly 5 that are most technically relevant to the niche: "{niche}"
 3. EXCLUDE: "Who's Hiring" job threads, generic marketing/business news, personal blogs with no technical depth.
 4. INCLUDE: Technical breakthroughs, new open-source tools/frameworks, startup engineering system design post-mortems, system architecture discussions, benchmark studies.
@@ -3047,6 +3235,311 @@ def clean_markdown_headers(text: str) -> str:
     return "\n".join(lines)
 
 
+def markdown_to_html(md: str) -> str:
+    """Converts a standard Markdown string to a clean HTML layout."""
+    if not md:
+        return ""
+    
+    html = md
+    
+    # 1. Strip the YAML metadata header if present
+    if html.startswith("---"):
+        parts = html.split("---\n", 2)
+        if len(parts) >= 3:
+            html = parts[2]
+            
+    # 2. H3 Headers
+    html = re.sub(r'^###\s+(.*)$', r'<h3>\1</h3>', html, flags=re.MULTILINE)
+    # 3. H2 Headers
+    html = re.sub(r'^##\s+(.*)$', r'<h2>\1</h2>', html, flags=re.MULTILINE)
+    # 4. H1 Headers
+    html = re.sub(r'^#\s+(.*)$', r'<h1>\1</h1>', html, flags=re.MULTILINE)
+    
+    # 5. Bold & Italic
+    html = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', html)
+    html = re.sub(r'\*(.*?)\*', r'<em>\1</em>', html)
+    
+    # 6. Tables
+    lines = html.splitlines()
+    in_table = False
+    table_lines = []
+    new_lines = []
+    
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith('|') and stripped.endswith('|'):
+            in_table = True
+            table_lines.append(stripped)
+        else:
+            if in_table:
+                table_html = "<table border='1' cellpadding='5' style='border-collapse: collapse; margin: 15px 0;'>\n"
+                headers = [h.strip() for h in table_lines[0].split('|')[1:-1]]
+                start_row = 1
+                if len(table_lines) > 1 and all(c in '|- :' for c in table_lines[1].replace('|', '').strip()):
+                    start_row = 2
+                
+                table_html += "  <thead>\n    <tr>\n"
+                for h in headers:
+                    table_html += f"      <th>{h}</th>\n"
+                table_html += "    </tr>\n  </thead>\n  <tbody>\n"
+                
+                for row_line in table_lines[start_row:]:
+                    row_data = [d.strip() for d in row_line.split('|')[1:-1]]
+                    table_html += "    <tr>\n"
+                    for d in row_data:
+                        table_html += f"      <td>{d}</td>\n"
+                    table_html += "    </tr>\n"
+                
+                table_html += "  </tbody>\n</table>"
+                new_lines.append(table_html)
+                table_lines = []
+                in_table = False
+            new_lines.append(line)
+            
+    if in_table and table_lines:
+        table_html = "<table border='1' cellpadding='5' style='border-collapse: collapse; margin: 15px 0;'>\n"
+        headers = [h.strip() for h in table_lines[0].split('|')[1:-1]]
+        start_row = 1
+        if len(table_lines) > 1 and all(c in '|- :' for c in table_lines[1].replace('|', '').strip()):
+            start_row = 2
+        table_html += "  <thead>\n    <tr>\n"
+        for h in headers:
+            table_html += f"      <th>{h}</th>\n"
+        table_html += "    </tr>\n  </thead>\n  <tbody>\n"
+        for row_line in table_lines[start_row:]:
+            row_data = [d.strip() for d in row_line.split('|')[1:-1]]
+            table_html += "    <tr>\n"
+            for d in row_data:
+                table_html += f"      <td>{d}</td>\n"
+            table_html += "    </tr>\n"
+        table_html += "  </tbody>\n</table>"
+        new_lines.append(table_html)
+        
+    html = "\n".join(new_lines)
+
+    # 7. Code blocks
+    def replace_code_block(match):
+        lang = match.group(1) or ""
+        code = match.group(2)
+        code_escaped = code.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+        return f"<pre style='background: #0f172a; color: #f8fafc; padding: 15px; border-radius: 8px; overflow-x: auto;'><code class='language-{lang}'>{code_escaped}</code></pre>"
+    html = re.sub(r'```(\w*)\n(.*?)```', replace_code_block, html, flags=re.DOTALL)
+    
+    # 8. Inline code
+    html = re.sub(r'`(.*?)`', r"<code style='background: #e2e8f0; padding: 2px 4px; border-radius: 4px;'>\1</code>", html)
+    
+    # 9. Paragraphs
+    blocks = html.split('\n\n')
+    for i, block in enumerate(blocks):
+        b_strip = block.strip()
+        if not b_strip:
+            continue
+        if b_strip.startswith('<h') or b_strip.startswith('<pre') or b_strip.startswith('<table') or b_strip.startswith('---'):
+            continue
+        para = b_strip.replace('\n', '<br />')
+        blocks[i] = f"<p>{para}</p>"
+        
+    return "\n\n".join(blocks)
+
+
+def publish_to_wordpress(md: str, config: dict, simulate: bool = False) -> dict:
+    """Publishes the newsletter draft to the configured WordPress site via REST API."""
+    import httpx
+    url = config.get("url", "").rstrip("/")
+    if not url.endswith("/wp-json") and url:
+        url = f"{url}/wp-json" if "/wp-json" not in url else url
+    
+    username = config.get("username", "")
+    password_env = config.get("password_env_var", "WP_APPLICATION_PASSWORD")
+    password = os.environ.get(password_env, "")
+    
+    title = "Autonomous Technical Briefing"
+    match = re.search(r'^#\s+(.*)$', md, flags=re.MULTILINE)
+    if match:
+        title = match.group(1)
+        
+    html_content = markdown_to_html(md)
+    
+    payload = {
+        "title": title,
+        "content": html_content,
+        "status": "publish" if not simulate else "draft"
+    }
+    
+    dry_run = config.get("dry_run", True) or simulate or not password or not username or not url
+    
+    if dry_run:
+        mock_file = os.path.join(os.getcwd(), "mock_wordpress_publish.json")
+        try:
+            with open(mock_file, "w", encoding="utf-8") as f:
+                json.dump({"payload": payload, "headers": {"Authorization": f"Basic {username}:[MASKED]"}}, f, indent=2)
+        except Exception:
+            pass
+        return {
+            "success": True,
+            "simulated": True,
+            "post_id": 12345,
+            "url": f"{config.get('url', 'https://example.com')}/?p=12345",
+            "message": "Simulated WordPress export completed successfully. Payload written to mock_wordpress_publish.json."
+        }
+        
+    try:
+        import base64
+        credentials = f"{username}:{password}"
+        token = base64.b64encode(credentials.encode()).decode()
+        headers = {
+            "Authorization": f"Basic {token}",
+            "Content-Type": "application/json"
+        }
+        
+        response = httpx.post(f"{url}/wp/v2/posts", json=payload, headers=headers, timeout=15.0)
+        if response.status_code in [200, 201]:
+            resp_json = response.json()
+            return {
+                "success": True,
+                "simulated": False,
+                "post_id": resp_json.get("id"),
+                "url": resp_json.get("link"),
+                "message": f"WordPress post created successfully (ID: {resp_json.get('id')})."
+            }
+        else:
+            return {
+                "success": False,
+                "simulated": False,
+                "error": f"HTTP {response.status_code}: {response.text}"
+            }
+    except Exception as e:
+        return {
+            "success": False,
+            "simulated": False,
+            "error": str(e)
+        }
+
+
+def trigger_webhook(md: str, config: dict, telemetry_data: dict, simulate: bool = False) -> dict:
+    """Sends the newsletter payload to an external webhook target."""
+    import httpx
+    url = config.get("url", "")
+    dry_run = config.get("dry_run", True) or simulate or not url
+    
+    payload = {
+        "event": "newsletter_published",
+        "timestamp": datetime.now().isoformat(),
+        "niche": telemetry_data.get("niche", ""),
+        "scores": {
+            "evaluator": telemetry_data.get("agent_c", {}).get("score", 0),
+            "fact_checker": telemetry_data.get("fact_checker_score", 0)
+        },
+        "markdown": md,
+        "html": markdown_to_html(md)
+    }
+    
+    if dry_run:
+        mock_file = os.path.join(os.getcwd(), "mock_webhook_publish.json")
+        try:
+            with open(mock_file, "w", encoding="utf-8") as f:
+                json.dump(payload, f, indent=2)
+        except Exception:
+            pass
+        return {
+            "success": True,
+            "simulated": True,
+            "message": "Simulated Webhook trigger completed. Payload written to mock_webhook_publish.json."
+        }
+        
+    try:
+        response = httpx.post(url, json=payload, timeout=10.0)
+        if response.status_code in [200, 201, 202, 204]:
+            return {
+                "success": True,
+                "simulated": False,
+                "message": f"Webhook payload delivered successfully (HTTP {response.status_code})."
+            }
+        else:
+            return {
+                "success": False,
+                "simulated": False,
+                "error": f"HTTP {response.status_code}: {response.text}"
+            }
+    except Exception as e:
+        return {
+            "success": False,
+            "simulated": False,
+            "error": str(e)
+        }
+
+
+def run_agent_c_publisher(md: str, telemetry_data: dict, simulate: bool = False) -> dict:
+    """
+    Agent C (Publisher) orchestrator. Loads publishing_config.json,
+    runs the WordPress & Webhook pipelines, and logs the execution status.
+    """
+    config_path = os.path.join(os.getcwd(), "publishing_config.json")
+    config = {"wordpress": {"enabled": False}, "webhook": {"enabled": False}, "dry_run": True}
+    
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                config = json.load(f)
+        except Exception as e:
+            print(f"  [Publisher] Error reading publishing_config.json: {e}")
+            
+    results = {}
+    is_dry = config.get("dry_run", True) or simulate
+    
+    print("\n" + "─" * 64)
+    print("📢  AGENT C — PUBLISHER: Distribution Fleet Active")
+    print(f"    Dry Run Mode: {is_dry}")
+    print("─" * 64)
+    
+    # WordPress publishing
+    wp_cfg = config.get("wordpress", {})
+    if wp_cfg.get("enabled", False):
+        print(f"  [Publisher] 🌐 Exporting to WordPress: {wp_cfg.get('url')}...")
+        wp_res = publish_to_wordpress(md, wp_cfg, simulate)
+        results["wordpress"] = wp_res
+        if wp_res.get("success"):
+            print(f"  [Publisher] ✅ WordPress Export Successful! URL: {wp_res.get('url')}")
+            log_agent_interaction(
+                "Agent C (Publisher)",
+                "WordPress Server",
+                f"Successfully published content draft. Status: {'Simulated' if wp_res.get('simulated') else 'Live'}. Link: {wp_res.get('url')}"
+            )
+        else:
+            print(f"  [Publisher] ❌ WordPress Export Failed: {wp_res.get('error')}")
+            log_agent_interaction(
+                "Agent C (Publisher)",
+                "Orchestrator",
+                f"WordPress distribution failure: {wp_res.get('error')}"
+            )
+            
+    # Webhook triggering
+    wh_cfg = config.get("webhook", {})
+    if wh_cfg.get("enabled", False):
+        print(f"  [Publisher] 📡 Triggering Webhook: {wh_cfg.get('url')}...")
+        wh_res = trigger_webhook(md, wh_cfg, telemetry_data, simulate)
+        results["webhook"] = wh_res
+        if wh_res.get("success"):
+            print(f"  [Publisher] ✅ Webhook delivery successful!")
+            log_agent_interaction(
+                "Agent C (Publisher)",
+                "Webhook Target",
+                f"Delivered JSON payload to webhook. Status: {'Simulated' if wh_res.get('simulated') else 'Live'}."
+            )
+        else:
+            print(f"  [Publisher] ❌ Webhook delivery failed: {wh_res.get('error')}")
+            log_agent_interaction(
+                "Agent C (Publisher)",
+                "Orchestrator",
+                f"Webhook delivery failure: {wh_res.get('error')}"
+            )
+            
+    if not results:
+        print("  [Publisher] ℹ️ No publishers configured or enabled. Saved to disk only.")
+        
+    return results
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Pipeline Orchestrator
 # ──────────────────────────────────────────────────────────────────────────────
@@ -3360,6 +3853,14 @@ Duration     : {elapsed}s
             "Streamlit Portal",
             f"Pipeline complete! Output saved to: 'newsletters/{filename}'. Ready for distribution."
         )
+
+        # ── Trigger Agent C Publisher ──
+        telemetry_payload = {
+            "niche": niche,
+            "agent_c": {"score": score},
+            "fact_checker_score": fact_check_result.get("score", 0)
+        }
+        pub_results = run_agent_c_publisher(draft, telemetry_payload, simulate)
 
         save_telemetry(niche, model_name, "success")
         return final
