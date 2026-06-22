@@ -25,7 +25,7 @@ Follow this workflow to commit and push the current milestone:
    ```
 
 4. **Commit with Conventional Commit format (Split into 4-5 or more separate commits)**:
-   - **CRITICAL**: Do NOT bundle multiple distinct changes into a single large commit. Always split your changes into 4-5 (or more) separate commits based on logical separation (e.g. backend changes, pipeline scripts, config/rules, documentation updates).
+   - **CRITICAL**: Do NOT bundle multiple distinct changes into a single large commit. Always split your changes into 1-2 (or more) separate commits based on logical separation (e.g. backend changes, pipeline scripts, config/rules, documentation updates).
    - Use the appropriate prefix for each commit:
      - `feat:` — new feature
      - `fix:` — bug fix
