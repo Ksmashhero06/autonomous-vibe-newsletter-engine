@@ -4552,5 +4552,126 @@
         "api_errors_count": 0
       }
     }
+  },
+  {
+    "timestamp": "2026-06-23T00:05:37.997276Z",
+    "niche": "AI & Agentic Frameworks",
+    "model": "gemini-1.5-flash",
+    "status": "success",
+    "error": null,
+    "agent_a": {
+      "last_wake": "2026-06-23T00:05:04.731915Z",
+      "headlines_pulled": [
+        "Show HN: Model-Context Protocol (MCP) clients built entirely in Rust",
+        "OpenAI launches GPT-5.5 with real-time semantic video streaming and sub-50ms latency",
+        "Google introduces Gemini 2.5 Pro with native 10-million token context windows",
+        "The Anthropic Model Suspension Shockwave",
+        "The Corporate AI Cost 'Reckoning'",
+        "The Rise of 'Agentic AI' in Production",
+        "Yann LeCun vs. xAI",
+        "The Green Computing & AI Data Center Boom",
+        "Physical AI & Humanoid Robotics in Logistics",
+        "Space-Based AI Compute Frontier",
+        "AI-Generated Influencers & Social Commerce",
+        "Is clean token-to-token streaming with low late-delivery possible over HTTP/3?",
+        "Autonomous agents now manage $50k/day ad budgets with zero human overview"
+      ],
+      "source": "Multiple Tech RSS Feeds",
+      "duration_ms": 14
+    },
+    "agent_b": {
+      "prompt_tokens": 4350,
+      "output_tokens": 2940,
+      "total_tokens": 7290,
+      "attempts": 1,
+      "violations": [
+        "Formatting Violation: Unclosed markdown code block detected (odd number of triple-backticks)."
+      ],
+      "duration_ms": 9376
+    },
+    "agent_c": {
+      "score": 95,
+      "notes": "Excellent detail. Expanded sections contain high-quality technical telemetry.",
+      "passed": true,
+      "duration_ms": 86
+    },
+    "telemetry": {
+      "total_duration_ms": 33000,
+      "total_cost_usd": 0.001208,
+      "agent_a_duration_ms": 14,
+      "agent_b_duration_ms": 9376,
+      "agent_c_duration_ms": 86,
+      "spans": [
+        {
+          "name": "pipeline_run",
+          "context": {
+            "trace_id": "1b2bc295f8fe44288cef49e191f02e7e",
+            "span_id": "d0548a8a4bb747a9"
+          },
+          "parent_span_id": null,
+          "start_time": "2026-06-23T00:05:04.731915Z",
+          "end_time": "2026-06-23T00:05:37.997242Z",
+          "duration_ms": 33000,
+          "attributes": {
+            "niche": "AI & Agentic Frameworks",
+            "model": "gemini-1.5-flash",
+            "status": "success",
+            "error": ""
+          }
+        },
+        {
+          "name": "agent_a_trend_scout",
+          "context": {
+            "trace_id": "1b2bc295f8fe44288cef49e191f02e7e",
+            "span_id": "82f576da529e4c8e"
+          },
+          "parent_span_id": "d0548a8a4bb747a9",
+          "start_time": "2026-06-23T00:05:04.731915Z",
+          "end_time": "2026-06-23T00:05:37.997242Z",
+          "duration_ms": 14,
+          "attributes": {
+            "source": "Multiple Tech RSS Feeds",
+            "headlines_pulled_count": 13
+          }
+        },
+        {
+          "name": "agent_b_writer",
+          "context": {
+            "trace_id": "1b2bc295f8fe44288cef49e191f02e7e",
+            "span_id": "0b4ada9bbbe147d4"
+          },
+          "parent_span_id": "d0548a8a4bb747a9",
+          "start_time": "2026-06-23T00:05:37.997242Z",
+          "end_time": "2026-06-23T00:05:37.997242Z",
+          "duration_ms": 9376,
+          "attributes": {
+            "attempts": 1,
+            "violations_count": 1,
+            "prompt_tokens": 4350,
+            "output_tokens": 2940
+          }
+        },
+        {
+          "name": "agent_c_evaluator",
+          "context": {
+            "trace_id": "1b2bc295f8fe44288cef49e191f02e7e",
+            "span_id": "de1762026b824637"
+          },
+          "parent_span_id": "d0548a8a4bb747a9",
+          "start_time": "2026-06-23T00:05:37.997242Z",
+          "end_time": "2026-06-23T00:05:37.997242Z",
+          "duration_ms": 86,
+          "attributes": {
+            "score": 95,
+            "passed": true
+          }
+        }
+      ],
+      "failures": {
+        "violations_count": 1,
+        "attempts_count": 1,
+        "api_errors_count": 0
+      }
+    }
   }
 ]
