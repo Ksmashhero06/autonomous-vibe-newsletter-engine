@@ -345,7 +345,7 @@ async function fetchTechCrunchHeadlines(
       headers: { "User-Agent": "Mozilla/5.0 (compatible; NewsletterBot/1.0)" },
     });
     const xml = await res.text();
-    const items: { title: string; link: string; description: string }[] = [];
+    const items: { title: string; link: string; description: string; full_content: string }[] = [];
     const itemRegex = /<item>([\s\S]*?)<\/item>/g;
     let match;
 
@@ -354,6 +354,7 @@ async function fetchTechCrunchHeadlines(
       const titleMatch = /<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i.exec(block);
       const linkMatch = /<link>(https?:\/\/[^\s<]+)<\/link>/.exec(block);
       const descMatch = /<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i.exec(block);
+      const contentMatch = /<content:encoded>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/content:encoded>/i.exec(block);
 
       if (titleMatch?.[1] && linkMatch?.[1]) {
         const title = titleMatch[1]
@@ -364,6 +365,10 @@ async function fetchTechCrunchHeadlines(
           .replace(/&#39;/g, "'")
           .trim();
 
+        const fullContent = contentMatch?.[1]
+          ? contentMatch[1].replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim().substring(0, 5000)
+          : "";
+
         items.push({
           title,
           link: linkMatch[1].trim(),
@@ -372,6 +377,7 @@ async function fetchTechCrunchHeadlines(
             .replace(/&amp;/g, "&")
             .substring(0, 250)
             .trim(),
+          full_content: fullContent,
         });
       }
 
@@ -391,13 +397,13 @@ async function fetchTechCrunchHeadlines(
 // ──────────────────────────────────────────────────────────────────────────────
 async function fetchHackerNewsHeadlines(
   maxItems: number = 20
-): Promise<{ title: string; link: string; description: string }[]> {
+): Promise<{ title: string; link: string; description: string; full_content: string }[]> {
   try {
     const res = await fetch("https://news.ycombinator.com/rss", {
       headers: { "User-Agent": "Mozilla/5.0 (compatible; NewsletterBot/1.0)" },
     });
     const xml = await res.text();
-    const items: { title: string; link: string; description: string }[] = [];
+    const items: { title: string; link: string; description: string; full_content: string }[] = [];
     const itemRegex = /<item>([\s\S]*?)<\/item>/g;
     let match;
 
@@ -406,6 +412,7 @@ async function fetchHackerNewsHeadlines(
       const titleMatch = /<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i.exec(block);
       const linkMatch = /<link>(https?:\/\/[^\s<]+)<\/link>/.exec(block);
       const descMatch = /<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i.exec(block);
+      const contentMatch = /<content:encoded>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/content:encoded>/i.exec(block);
 
       if (titleMatch?.[1] && linkMatch?.[1]) {
         const title = titleMatch[1]
@@ -418,6 +425,10 @@ async function fetchHackerNewsHeadlines(
 
         if (title.toLowerCase() === "hacker news") continue;
 
+        const fullContent = contentMatch?.[1]
+          ? contentMatch[1].replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim().substring(0, 5000)
+          : "";
+
         items.push({
           title,
           link: linkMatch[1].trim(),
@@ -426,6 +437,7 @@ async function fetchHackerNewsHeadlines(
             .replace(/&amp;/g, "&")
             .substring(0, 250)
             .trim(),
+          full_content: fullContent,
         });
       }
 
@@ -448,7 +460,7 @@ async function fetchGoogleBlogHeadlines(
       headers: { "User-Agent": "Mozilla/5.0 (compatible; NewsletterBot/1.0)" },
     });
     const xml = await res.text();
-    const items: { title: string; link: string; description: string }[] = [];
+    const items: { title: string; link: string; description: string; full_content: string }[] = [];
     const itemRegex = /<item>([\s\S]*?)<\/item>/g;
     let match;
 
@@ -457,6 +469,7 @@ async function fetchGoogleBlogHeadlines(
       const titleMatch = /<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i.exec(block);
       const linkMatch = /<link>(https?:\/\/[^\s<]+)<\/link>/.exec(block);
       const descMatch = /<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i.exec(block);
+      const contentMatch = /<content:encoded>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/content:encoded>/i.exec(block);
 
       if (titleMatch?.[1] && linkMatch?.[1]) {
         const title = titleMatch[1]
@@ -467,6 +480,10 @@ async function fetchGoogleBlogHeadlines(
           .replace(/&#39;/g, "'")
           .trim();
 
+        const fullContent = contentMatch?.[1]
+          ? contentMatch[1].replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim().substring(0, 5000)
+          : "";
+
         items.push({
           title,
           link: linkMatch[1].trim(),
@@ -475,6 +492,7 @@ async function fetchGoogleBlogHeadlines(
             .replace(/&amp;/g, "&")
             .substring(0, 250)
             .trim(),
+          full_content: fullContent,
         });
       }
 
@@ -497,7 +515,7 @@ async function fetchOpenAIBlogHeadlines(
       headers: { "User-Agent": "Mozilla/5.0 (compatible; NewsletterBot/1.0)" },
     });
     const xml = await res.text();
-    const items: { title: string; link: string; description: string }[] = [];
+    const items: { title: string; link: string; description: string; full_content: string }[] = [];
     const itemRegex = /<item>([\s\S]*?)<\/item>/g;
     let match;
 
@@ -506,6 +524,7 @@ async function fetchOpenAIBlogHeadlines(
       const titleMatch = /<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i.exec(block);
       const linkMatch = /<link>(https?:\/\/[^\s<]+)<\/link>/.exec(block);
       const descMatch = /<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i.exec(block);
+      const contentMatch = /<content:encoded>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/content:encoded>/i.exec(block);
 
       if (titleMatch?.[1] && linkMatch?.[1]) {
         const title = titleMatch[1]
@@ -516,6 +535,10 @@ async function fetchOpenAIBlogHeadlines(
           .replace(/&#39;/g, "'")
           .trim();
 
+        const fullContent = contentMatch?.[1]
+          ? contentMatch[1].replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim().substring(0, 5000)
+          : "";
+
         items.push({
           title,
           link: linkMatch[1].trim(),
@@ -524,6 +547,7 @@ async function fetchOpenAIBlogHeadlines(
             .replace(/&amp;/g, "&")
             .substring(0, 250)
             .trim(),
+          full_content: fullContent,
         });
       }
 
@@ -546,7 +570,7 @@ async function fetchZohoBlogHeadlines(
       headers: { "User-Agent": "Mozilla/5.0 (compatible; NewsletterBot/1.0)" },
     });
     const xml = await res.text();
-    const items: { title: string; link: string; description: string }[] = [];
+    const items: { title: string; link: string; description: string; full_content: string }[] = [];
     const itemRegex = /<item>([\s\S]*?)<\/item>/g;
     let match;
 
@@ -555,6 +579,7 @@ async function fetchZohoBlogHeadlines(
       const titleMatch = /<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i.exec(block);
       const linkMatch = /<link>(https?:\/\/[^\s<]+)<\/link>/.exec(block);
       const descMatch = /<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i.exec(block);
+      const contentMatch = /<content:encoded>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/content:encoded>/i.exec(block);
 
       if (titleMatch?.[1] && linkMatch?.[1]) {
         const title = titleMatch[1]
@@ -565,6 +590,10 @@ async function fetchZohoBlogHeadlines(
           .replace(/&#39;/g, "'")
           .trim();
 
+        const fullContent = contentMatch?.[1]
+          ? contentMatch[1].replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim().substring(0, 5000)
+          : "";
+
         items.push({
           title,
           link: linkMatch[1].trim(),
@@ -573,6 +602,7 @@ async function fetchZohoBlogHeadlines(
             .replace(/&amp;/g, "&")
             .substring(0, 250)
             .trim(),
+          full_content: fullContent,
         });
       }
 
@@ -595,7 +625,7 @@ async function fetchMetaBlogHeadlines(
       headers: { "User-Agent": "Mozilla/5.0 (compatible; NewsletterBot/1.0)" },
     });
     const xml = await res.text();
-    const items: { title: string; link: string; description: string }[] = [];
+    const items: { title: string; link: string; description: string; full_content: string }[] = [];
     const itemRegex = /<item>([\s\S]*?)<\/item>/g;
     let match;
 
@@ -604,6 +634,7 @@ async function fetchMetaBlogHeadlines(
       const titleMatch = /<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i.exec(block);
       const linkMatch = /<link>(https?:\/\/[^\s<]+)<\/link>/.exec(block);
       const descMatch = /<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i.exec(block);
+      const contentMatch = /<content:encoded>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/content:encoded>/i.exec(block);
 
       if (titleMatch?.[1] && linkMatch?.[1]) {
         const title = titleMatch[1]
@@ -614,6 +645,10 @@ async function fetchMetaBlogHeadlines(
           .replace(/&#39;/g, "'")
           .trim();
 
+        const fullContent = contentMatch?.[1]
+          ? contentMatch[1].replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim().substring(0, 5000)
+          : "";
+
         items.push({
           title,
           link: linkMatch[1].trim(),
@@ -622,6 +657,7 @@ async function fetchMetaBlogHeadlines(
             .replace(/&amp;/g, "&")
             .substring(0, 250)
             .trim(),
+          full_content: fullContent,
         });
       }
 
@@ -644,7 +680,7 @@ async function fetchNetflixBlogHeadlines(
       headers: { "User-Agent": "Mozilla/5.0 (compatible; NewsletterBot/1.0)" },
     });
     const xml = await res.text();
-    const items: { title: string; link: string; description: string }[] = [];
+    const items: { title: string; link: string; description: string; full_content: string }[] = [];
     const itemRegex = /<item>([\s\S]*?)<\/item>/g;
     let match;
 
@@ -653,6 +689,7 @@ async function fetchNetflixBlogHeadlines(
       const titleMatch = /<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i.exec(block);
       const linkMatch = /<link>(https?:\/\/[^\s<]+)<\/link>/.exec(block);
       const descMatch = /<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i.exec(block);
+      const contentMatch = /<content:encoded>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/content:encoded>/i.exec(block);
 
       if (titleMatch?.[1] && linkMatch?.[1]) {
         const title = titleMatch[1]
@@ -663,6 +700,10 @@ async function fetchNetflixBlogHeadlines(
           .replace(/&#39;/g, "'")
           .trim();
 
+        const fullContent = contentMatch?.[1]
+          ? contentMatch[1].replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim().substring(0, 5000)
+          : "";
+
         items.push({
           title,
           link: linkMatch[1].trim(),
@@ -671,6 +712,7 @@ async function fetchNetflixBlogHeadlines(
             .replace(/&amp;/g, "&")
             .substring(0, 250)
             .trim(),
+          full_content: fullContent,
         });
       }
 
@@ -693,7 +735,7 @@ async function fetchAWSBlogHeadlines(
       headers: { "User-Agent": "Mozilla/5.0 (compatible; NewsletterBot/1.0)" },
     });
     const xml = await res.text();
-    const items: { title: string; link: string; description: string }[] = [];
+    const items: { title: string; link: string; description: string; full_content: string }[] = [];
     const itemRegex = /<item>([\s\S]*?)<\/item>/g;
     let match;
 
@@ -702,6 +744,7 @@ async function fetchAWSBlogHeadlines(
       const titleMatch = /<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i.exec(block);
       const linkMatch = /<link>(https?:\/\/[^\s<]+)<\/link>/.exec(block);
       const descMatch = /<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i.exec(block);
+      const contentMatch = /<content:encoded>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/content:encoded>/i.exec(block);
 
       if (titleMatch?.[1] && linkMatch?.[1]) {
         const title = titleMatch[1]
@@ -712,6 +755,10 @@ async function fetchAWSBlogHeadlines(
           .replace(/&#39;/g, "'")
           .trim();
 
+        const fullContent = contentMatch?.[1]
+          ? contentMatch[1].replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim().substring(0, 5000)
+          : "";
+
         items.push({
           title,
           link: linkMatch[1].trim(),
@@ -720,6 +767,7 @@ async function fetchAWSBlogHeadlines(
             .replace(/&amp;/g, "&")
             .substring(0, 250)
             .trim(),
+          full_content: fullContent,
         });
       }
 
@@ -943,7 +991,7 @@ interface RagStore {
 }
 
 async function runRagContentFetcher(
-  articles: { title: string; url?: string; link?: string; description?: string; points?: number }[],
+  articles: { title: string; url?: string; link?: string; description?: string; points?: number; full_content?: string }[],
   niche: string,
   apiKey: string,
   simulate: boolean,
@@ -968,6 +1016,32 @@ async function runRagContentFetcher(
   for (const art of topArticles) {
     const url = art.url ?? art.link ?? "";
     const title = art.title ?? "Untitled";
+    const fullContent = art.full_content ?? "";
+
+    // Priority 1: Use RSS content:encoded if substantial (avoids HTTP fetch entirely)
+    if (fullContent && fullContent.split(/\s+/).length >= 200 && !simulate) {
+      const wordCount = fullContent.split(/\s+/).length;
+      addLog("RAG Fetcher", `📰 Using RSS content:encoded for: "${title.slice(0, 55)}" (${wordCount} words)`);
+      const chunks = chunkText(fullContent, expandHorizon ? 500 : 800, expandHorizon ? 200 : 120);
+      addLog("RAG Fetcher", `📦 Chunked into ${chunks.length} segments (from RSS content)`);
+
+      const embeddings: number[][] = [];
+      if (apiKey) {
+        addLog("RAG Fetcher", `🧠 Embedding ${chunks.length} chunks via text-embedding-004...`);
+        for (const chunk of chunks) {
+          embeddings.push(await embedTextGemini(chunk, apiKey));
+        }
+      } else {
+        chunks.forEach(() => embeddings.push([]));
+        addLog("RAG Fetcher", "⚠️ No Gemini key — using keyword retrieval fallback.");
+      }
+
+      allChunks.push(...chunks);
+      allEmbeddings.push(...embeddings);
+      sources.push(url);
+      addLog("RAG Fetcher", `✅ Indexed ${chunks.length} chunks from RSS content:encoded for: "${title.slice(0, 55)}"`);
+      continue;
+    }
 
     if (!url) {
       addLog("RAG Fetcher", `⚠️ No URL for "${title.slice(0, 50)}" — using description fallback.`);
