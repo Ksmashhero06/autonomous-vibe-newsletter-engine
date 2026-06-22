@@ -608,7 +608,7 @@ npm run lint     # TypeScript type check
 ## 👤 Author
 
 ### Sathiyamoorthi K (Ksmashhero)
-*B.Tech Information Technology Student (2027 Batch) | Aspiring Software Engineer & AI Developer*
+*B.Tech Information Technology Student (2023- 2027) | Aspiring Software Engineer & AI Developer*
 
 - 🌐 **LinkedIn:** [Sathiyamoorthi K](https://www.linkedin.com/in/sathiyamoorthi-k-336a79307/)
 - 💻 **GitHub:** [@Ksmashhero06](https://github.com/Ksmashhero06/)
@@ -630,7 +630,7 @@ npm run lint     # TypeScript type check
 - 🌐 **LinkedIn:** [Mohammed Rehaan S](https://www.linkedin.com/in/mohammed-rehaan-s)
 - 💻 **GitHub:** [@rehaan2493](https://github.com/rehaan2493)
 
-**Expertise:** Game development (unity) · AIML (python, TensorFlow) · Data analyst (python, tableau) · SQL
+**Key expertise:** Game development (unity) · AIML (python, TensorFlow) · Data analyst (python, tableau) · SQL
 
 ---
 
