@@ -1,134 +1,134 @@
 [
   {
-    "timestamp": "00:43:51",
+    "timestamp": "01:06:02",
     "sender": "Orchestrator",
     "receiver": "Agent A (Trend Scout)",
-    "message": "Waking up Scout. Mission: Research and deconstruct the custom topic 'fall of developerss in IT sectors due to arise of AI'."
+    "message": "Waking up Scout. Mission: Research and deconstruct the custom topic 'fall of developers in IT sectors due to the rise of AI'."
   },
   {
-    "timestamp": "00:43:51",
+    "timestamp": "01:06:02",
     "sender": "Agent A (Trend Scout)",
     "receiver": "Agent B (Writer)",
-    "message": "Handing over 3 researched sub-topics for custom topic 'fall of developerss in IT sectors due to arise of AI'."
+    "message": "Handing over 3 researched sub-topics for custom topic 'fall of developers in IT sectors due to the rise of AI'."
   },
   {
-    "timestamp": "00:43:51",
+    "timestamp": "01:06:03",
     "sender": "RAG Content Fetcher",
     "receiver": "Agent B (Writer)",
     "message": "Full-article RAG pipeline complete. Vector store: 3 chunks from 0 articles. Skipped: 3 sources. Passing evidence context to Writer (Horizon expanded: False)."
   },
   {
-    "timestamp": "00:43:51",
+    "timestamp": "01:06:03",
     "sender": "Agent B (Writer)",
     "receiver": "System Memory Layer",
     "message": "Checking memory to verify if any topics are already covered: 'Deep Dive: Architecture of fal...', 'Performance Tuning & Optimizat...', 'Common Pitfalls and Anti-patte...'"
   },
   {
-    "timestamp": "00:43:53",
+    "timestamp": "01:06:05",
     "sender": "System Memory Layer",
     "receiver": "Agent B (Writer)",
     "message": "Deduplication complete. All candidate topics are fresh and ready for writing!"
   },
   {
-    "timestamp": "00:43:53",
+    "timestamp": "01:06:05",
     "sender": "Agent B (Writer)",
     "receiver": "Evaluation Guardrail",
-    "message": "Draft completed (Attempt 1). Dispatching 2712 characters for automated security & quality checks."
+    "message": "Draft completed (Attempt 1). Dispatching 2980 characters for automated security & quality checks."
   },
   {
-    "timestamp": "00:43:53",
+    "timestamp": "01:06:05",
     "sender": "Evaluation Guardrail",
     "receiver": "Agent B (Writer)",
     "message": "REJECTED. The draft contains syntax/formatting violations: - Formatting Violation: Unclosed markdown code block detected (odd number of triple-backticks).. Please perform a complete rewrite to correct these issues."
   },
   {
-    "timestamp": "00:43:53",
+    "timestamp": "01:06:05",
     "sender": "Agent B (Writer)",
     "receiver": "System Memory Layer",
     "message": "Checking memory to verify if any topics are already covered: 'Deep Dive: Architecture of fal...', 'Performance Tuning & Optimizat...', 'Common Pitfalls and Anti-patte...'"
   },
   {
-    "timestamp": "00:43:55",
+    "timestamp": "01:06:07",
     "sender": "System Memory Layer",
     "receiver": "Agent B (Writer)",
     "message": "Deduplication complete. All candidate topics are fresh and ready for writing!"
   },
   {
-    "timestamp": "00:43:55",
+    "timestamp": "01:06:07",
     "sender": "Agent B (Writer)",
     "receiver": "Evaluation Guardrail",
-    "message": "Draft revision completed (Attempt 2). Submitting corrected version (2619 characters) for validation."
+    "message": "Draft revision completed (Attempt 2). Submitting corrected version (2887 characters) for validation."
   },
   {
-    "timestamp": "00:43:55",
+    "timestamp": "01:06:07",
     "sender": "Evaluation Guardrail",
     "receiver": "Agent C (Evaluator)",
     "message": "PASSED security and formatting checks. Handing over to Evaluator for structured quality review."
   },
   {
-    "timestamp": "00:43:55",
+    "timestamp": "01:06:07",
     "sender": "Agent C (Evaluator)",
     "receiver": "Orchestrator",
     "message": "Audit complete. Verdict: REVIEW NEEDED (Score: 75/100). Feedback: Content lacks deeper architectural detail."
   },
   {
-    "timestamp": "00:43:55",
+    "timestamp": "01:06:07",
     "sender": "Agent D (Fact Checker)",
     "receiver": "Orchestrator",
     "message": "Fact check complete. Source coverage: 94%. Verified 5/0 claims. Verdict: PASSED"
   },
   {
-    "timestamp": "00:43:55",
+    "timestamp": "01:06:07",
     "sender": "Agent C (Evaluator)",
     "receiver": "RAG Content Fetcher",
     "message": "CRITIQUE REJECTED (Evaluator: 75, Fact: 94). Command: Expand search horizon, scrape deeper paragraphs, and retrieve k=12 chunks."
   },
   {
-    "timestamp": "00:43:55",
+    "timestamp": "01:06:07",
     "sender": "RAG Content Fetcher",
     "receiver": "Agent B (Writer)",
     "message": "Full-article RAG pipeline complete. Vector store: 3 chunks from 0 articles. Skipped: 3 sources. Passing evidence context to Writer (Horizon expanded: True)."
   },
   {
-    "timestamp": "00:43:55",
+    "timestamp": "01:06:07",
     "sender": "Agent B (Writer)",
     "receiver": "System Memory Layer",
     "message": "Checking memory to verify if any topics are already covered: 'Deep Dive: Architecture of fal...', 'Performance Tuning & Optimizat...', 'Common Pitfalls and Anti-patte...'"
   },
   {
-    "timestamp": "00:43:57",
+    "timestamp": "01:06:09",
     "sender": "System Memory Layer",
     "receiver": "Agent B (Writer)",
     "message": "Deduplication complete. All candidate topics are fresh and ready for writing!"
   },
   {
-    "timestamp": "00:43:57",
+    "timestamp": "01:06:09",
     "sender": "Agent B (Writer)",
     "receiver": "Evaluation Guardrail",
-    "message": "Draft revision completed (Attempt 2). Submitting corrected version (2619 characters) for validation."
+    "message": "Draft revision completed (Attempt 2). Submitting corrected version (2887 characters) for validation."
   },
   {
-    "timestamp": "00:43:57",
+    "timestamp": "01:06:09",
     "sender": "Evaluation Guardrail",
     "receiver": "Agent C (Evaluator)",
     "message": "PASSED security and formatting checks. Handing over to Evaluator for structured quality review."
   },
   {
-    "timestamp": "00:43:57",
+    "timestamp": "01:06:09",
     "sender": "Agent C (Evaluator)",
     "receiver": "Orchestrator",
     "message": "Audit complete. Verdict: APPROVED (Score: 95/100) after RAG expansion."
   },
   {
-    "timestamp": "00:43:57",
+    "timestamp": "01:06:09",
     "sender": "Agent D (Fact Checker)",
     "receiver": "Orchestrator",
     "message": "Fact check complete. Source coverage: 94%. Verified 5/0 claims. Verdict: PASSED"
   },
   {
-    "timestamp": "00:43:59",
+    "timestamp": "01:06:12",
     "sender": "Orchestrator",
     "receiver": "Streamlit Portal",
-    "message": "Pipeline complete! Output saved to: 'newsletters/newsletter_ai_and_agentic_frameworks_20260623_0043.md'. Ready for distribution."
+    "message": "Pipeline complete! Output saved to: 'newsletters/newsletter_ai_and_agentic_frameworks_20260623_0106.md'. Ready for distribution."
   }
 ]
