@@ -146,6 +146,28 @@ section[data-testid="stSidebar"] * {
 # ──────────────────────────────────────────────────────────────────────────────
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 
+def load_publishing_config():
+    path = os.path.join(PROJECT_DIR, "publishing_config.json")
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {
+        "wordpress": {"enabled": False, "url": "https://example.com/wp-json", "username": "admin", "password_env_var": "WP_APPLICATION_PASSWORD"},
+        "webhook": {"enabled": False, "url": "https://httpbin.org/post"},
+        "dry_run": True
+    }
+
+def save_publishing_config(config):
+    path = os.path.join(PROJECT_DIR, "publishing_config.json")
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(config, f, indent=2)
+    except Exception:
+        pass
+
 def load_history():
     path = os.path.join(PROJECT_DIR, "run_history.json")
     if os.path.exists(path):
@@ -222,6 +244,23 @@ with st.sidebar:
             os.environ["GEMINI_API_KEY"] = api_key_input.strip()
     else:
         st.success("✅ GEMINI_API_KEY configured")
+
+    st.markdown("---")
+    st.markdown("**📢 Agent C Publisher**")
+    pub_config = load_publishing_config()
+    
+    dry_run_ui = st.checkbox("🧪 Dry Run (Local Mock)", value=pub_config.get("dry_run", True), key="dry_run_check")
+    wp_enabled = st.checkbox("🌐 WordPress REST API", value=pub_config.get("wordpress", {}).get("enabled", False), key="wp_enabled_check")
+    wh_enabled = st.checkbox("📡 Webhook Post", value=pub_config.get("webhook", {}).get("enabled", False), key="wh_enabled_check")
+    
+    if (dry_run_ui != pub_config.get("dry_run") or 
+        wp_enabled != pub_config.get("wordpress", {}).get("enabled") or 
+        wh_enabled != pub_config.get("webhook", {}).get("enabled")):
+        pub_config["dry_run"] = dry_run_ui
+        pub_config["wordpress"]["enabled"] = wp_enabled
+        pub_config["webhook"]["enabled"] = wh_enabled
+        save_publishing_config(pub_config)
+        st.toast("Publishing configuration updated!", icon="⚙️")
 
     st.markdown("---")
     force_run = st.button("🚀 Force Manual Run", key="force_run_btn")
@@ -347,11 +386,12 @@ st.markdown("")
 # ──────────────────────────────────────────────────────────────────────────────
 # Tabs
 # ──────────────────────────────────────────────────────────────────────────────
-tab_interactions, tab_logs, tab_drafts, tab_charts = st.tabs([
+tab_interactions, tab_logs, tab_drafts, tab_charts, tab_outbox = st.tabs([
     "💬 Live Agent Cooperation",
     "📋 Fleet Transaction Logs",
     "📰 Newsletter Archive",
-    "📈 Metrics & Analytics"
+    "📈 Metrics & Analytics",
+    "📡 Publisher Outbox"
 ])
 
 # ── Tab 0: Live Agent Cooperation ──
@@ -526,3 +566,36 @@ with tab_charts:
 
         except Exception as e:
             st.error(f"Failed to render charts: {e}")
+
+# ── Tab 4: Publisher Outbox ──
+with tab_outbox:
+    st.markdown('<div class="section-header">Agent C Publisher Outbox (Mock Payloads)</div>', unsafe_allow_html=True)
+    
+    c_wp, c_wh = st.columns(2)
+    with c_wp:
+        st.markdown("#### 🌐 WordPress REST API Payload")
+        mock_wp_path = os.path.join(PROJECT_DIR, "mock_wordpress_publish.json")
+        if os.path.exists(mock_wp_path):
+            try:
+                with open(mock_wp_path, "r", encoding="utf-8") as f:
+                    wp_data = json.load(f)
+                st.caption(f"Last updated: {datetime.fromtimestamp(os.path.getmtime(mock_wp_path)).strftime('%Y-%m-%d %H:%M:%S')}")
+                st.json(wp_data)
+            except Exception as e:
+                st.error(f"Error loading WordPress mock: {e}")
+        else:
+            st.info("No WordPress mock payload generated yet. Enable WordPress publishing in sidebar and run the pipeline.")
+            
+    with c_wh:
+        st.markdown("#### 📡 Webhook Trigger JSON Payload")
+        mock_wh_path = os.path.join(PROJECT_DIR, "mock_webhook_publish.json")
+        if os.path.exists(mock_wh_path):
+            try:
+                with open(mock_wh_path, "r", encoding="utf-8") as f:
+                    wh_data = json.load(f)
+                st.caption(f"Last updated: {datetime.fromtimestamp(os.path.getmtime(mock_wh_path)).strftime('%Y-%m-%d %H:%M:%S')}")
+                st.json(wh_data)
+            except Exception as e:
+                st.error(f"Error loading Webhook mock: {e}")
+        else:
+            st.info("No Webhook mock payload generated yet. Enable Webhook triggering in sidebar and run the pipeline.")

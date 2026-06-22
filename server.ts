@@ -782,6 +782,77 @@ async function fetchAWSBlogHeadlines(
   }
 }
 
+// ──────────────────────────────────────────────────────────────────────────────
+// Agent Tool: Competitor RSS Feed Fetcher
+// ──────────────────────────────────────────────────────────────────────────────
+async function fetchCustomCompetitorHeadlines(
+  maxItems: number = 15
+): Promise<{ title: string; link: string; description: string; full_content: string }[]> {
+  try {
+    const competitorsPath = path.join(process.cwd(), "competitors.json");
+    if (!fs.existsSync(competitorsPath)) {
+      console.log("[Competitor Tool] competitors.json does not exist, returning empty list.");
+      return [];
+    }
+    const competitors = JSON.parse(fs.readFileSync(competitorsPath, "utf-8"));
+    const items: { title: string; link: string; description: string; full_content: string }[] = [];
+
+    for (const comp of competitors) {
+      if (!comp.feed_url) continue;
+      console.log(`[Competitor Tool] Fetching competitor feed: ${comp.name} (${comp.feed_url})`);
+      try {
+        const res = await fetch(comp.feed_url, {
+          headers: { "User-Agent": "Mozilla/5.0 (compatible; NewsletterBot/1.0)" },
+        });
+        const xml = await res.text();
+        const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+        let match;
+
+        while ((match = itemRegex.exec(xml)) !== null) {
+          const block = match[1];
+          const titleMatch = /<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i.exec(block);
+          const linkMatch = /<link>(https?:\/\/[^\s<]+)<\/link>/.exec(block);
+          const descMatch = /<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i.exec(block);
+          const contentMatch = /<content:encoded>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/content:encoded>/i.exec(block);
+
+          if (titleMatch?.[1] && linkMatch?.[1]) {
+            const title = titleMatch[1]
+              .replace(/&amp;/g, "&")
+              .replace(/&lt;/g, "<")
+              .replace(/&gt;/g, ">")
+              .replace(/&quot;/g, '"')
+              .replace(/&#39;/g, "'")
+              .trim();
+
+            const fullContent = contentMatch?.[1]
+              ? contentMatch[1].replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim().substring(0, 5000)
+              : "";
+
+            items.push({
+              title: `[${comp.name}] ${title}`,
+              link: linkMatch[1].trim(),
+              description: (descMatch?.[1] || "")
+                .replace(/<[^>]*>/g, "")
+                .replace(/&amp;/g, "&")
+                .substring(0, 250)
+                .trim(),
+              full_content: fullContent,
+            });
+          }
+        }
+      } catch (feedErr) {
+        console.error(`[Competitor Tool] Failed to fetch feed ${comp.feed_url}:`, feedErr);
+      }
+    }
+
+    const shuffled = items.sort(() => 0.5 - Math.random());
+    return shuffled.slice(0, maxItems);
+  } catch (err) {
+    console.error("[Competitor Tool] Competitor feed fetch failed:", err);
+    return [];
+  }
+}
+
 
 
 // API Route: Get Server Configuration & Stats
@@ -790,6 +861,145 @@ app.get("/api/status", (req, res) => {
     hasServerKey: !!(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== "MY_GEMINI_API_KEY"),
     stats,
   });
+});
+
+// API Route: Get Publishing Config
+app.get("/api/publishing-config", (req, res) => {
+  const configPath = path.join(process.cwd(), "publishing_config.json");
+  if (fs.existsSync(configPath)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+      return res.json(data);
+    } catch (err) {
+      return res.status(500).json({ error: "Failed to parse publishing config" });
+    }
+  }
+  // Default fallback
+  res.json({
+    dry_run: true,
+    wordpress: { enabled: false, url: "", username: "", password_env_var: "WP_APPLICATION_PASSWORD" },
+    webhook: { enabled: false, url: "" }
+  });
+});
+
+// API Route: Save Publishing Config
+app.post("/api/publishing-config", (req, res) => {
+  const configPath = path.join(process.cwd(), "publishing_config.json");
+  try {
+    fs.writeFileSync(configPath, JSON.stringify(req.body, null, 2), "utf-8");
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// API Route: Get Publisher Outbox Mock Payloads
+app.get("/api/publisher-outbox", (req, res) => {
+  const wpPath = path.join(process.cwd(), "mock_wordpress_publish.json");
+  const whPath = path.join(process.cwd(), "mock_webhook_publish.json");
+  
+  let wordpress = null;
+  let webhook = null;
+  
+  if (fs.existsSync(wpPath)) {
+    try {
+      wordpress = JSON.parse(fs.readFileSync(wpPath, "utf-8"));
+    } catch (e) {}
+  }
+  if (fs.existsSync(whPath)) {
+    try {
+      webhook = JSON.parse(fs.readFileSync(whPath, "utf-8"));
+    } catch (e) {}
+  }
+  
+  res.json({ wordpress, webhook });
+});
+
+// API Route: Publish Simulated Payload to WordPress or Webhook
+app.post("/api/publish-outbox-payload", async (req, res) => {
+  const { target } = req.body;
+  if (!target || (target !== "wordpress" && target !== "webhook")) {
+    return res.status(400).json({ error: "Invalid target. Must be 'wordpress' or 'webhook'." });
+  }
+
+  const configPath = path.join(process.cwd(), "publishing_config.json");
+  if (!fs.existsSync(configPath)) {
+    return res.status(400).json({ error: "No publishing configuration found. Please configure settings first." });
+  }
+
+  try {
+    const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+
+    if (target === "wordpress") {
+      const wpPath = path.join(process.cwd(), "mock_wordpress_publish.json");
+      if (!fs.existsSync(wpPath)) {
+        return res.status(404).json({ error: "No WordPress simulated payload found. Please run the pipeline first." });
+      }
+
+      const mockData = JSON.parse(fs.readFileSync(wpPath, "utf-8"));
+      const wpUrl = config.wordpress?.url || mockData.target_url;
+      const username = config.wordpress?.username;
+      const pwEnvVar = config.wordpress?.password_env_var || "WP_APPLICATION_PASSWORD";
+      const password = process.env[pwEnvVar];
+
+      if (!wpUrl) {
+        return res.status(400).json({ error: "WordPress REST API URL is not configured." });
+      }
+      if (!username) {
+        return res.status(400).json({ error: "WordPress Username is not configured." });
+      }
+      if (!password) {
+        return res.status(400).json({ error: `WordPress Password Env Variable (${pwEnvVar}) is not set or empty in environment.` });
+      }
+
+      const authHeader = "Basic " + Buffer.from(`${username}:${password}`).toString("base64");
+      const apiRes = await fetch(`${wpUrl}/posts`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": authHeader,
+        },
+        body: JSON.stringify(mockData.payload),
+      });
+
+      if (apiRes.ok) {
+        const data = await apiRes.json();
+        return res.json({ success: true, message: `Successfully published draft post to WordPress! Post ID: ${data.id}`, details: data });
+      } else {
+        const errText = await apiRes.text();
+        return res.status(apiRes.status).json({ error: `WordPress API error (${apiRes.status}): ${errText}` });
+      }
+    } else {
+      // target === "webhook"
+      const whPath = path.join(process.cwd(), "mock_webhook_publish.json");
+      if (!fs.existsSync(whPath)) {
+        return res.status(404).json({ error: "No Webhook simulated payload found. Please run the pipeline first." });
+      }
+
+      const mockData = JSON.parse(fs.readFileSync(whPath, "utf-8"));
+      const webhookUrl = config.webhook?.url || mockData.target_url;
+
+      if (!webhookUrl) {
+        return res.status(400).json({ error: "Webhook target URL is not configured." });
+      }
+
+      const apiRes = await fetch(webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(mockData.payload),
+      });
+
+      if (apiRes.ok) {
+        return res.json({ success: true, message: "Webhook successfully triggered with outbox payload!" });
+      } else {
+        return res.status(apiRes.status).json({ error: `Webhook trigger returned error status code: ${apiRes.status}` });
+      }
+    }
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
 });
 
 function evaluateDraftSecurityAndQuality(draft: string): { passed: boolean; violations: string[] } {
@@ -1311,6 +1521,135 @@ ${draftPreview}
   }
 }
 
+function markdownToHtmlTs(md: string): string {
+  let html = md;
+  // Convert Markdown syntax to simple HTML tags
+  html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+  html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+  html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  html = html.replace(/\n/g, '<br />');
+  return `<div>${html}</div>`;
+}
+
+async function runAgentCPublisherTs(markdownContent: string, addLog: (agent: string, message: string) => void) {
+  try {
+    const configPath = path.join(process.cwd(), "publishing_config.json");
+    if (!fs.existsSync(configPath)) {
+      addLog("Publisher", "No publishing_config.json found, skipping publication step.");
+      return;
+    }
+    const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+    const dryRun = config.dry_run !== false; // default true
+
+    // WordPress Publication
+    if (config.wordpress && config.wordpress.enabled) {
+      const wpUrl = config.wordpress.url;
+      const username = config.wordpress.username;
+      const pwEnvVar = config.wordpress.password_env_var || "WP_APPLICATION_PASSWORD";
+      const password = process.env[pwEnvVar];
+
+      const postTitle = `Autonomous Tech Update - ${new Date().toLocaleDateString()}`;
+      const postHtml = markdownToHtmlTs(markdownContent);
+
+      const payload = {
+        title: postTitle,
+        content: postHtml,
+        status: "draft",
+      };
+
+      if (dryRun) {
+        addLog("Publisher", `[Dry Run] Simulating WordPress publish to ${wpUrl}`);
+        fs.writeFileSync(
+          path.join(process.cwd(), "mock_wordpress_publish.json"),
+          JSON.stringify({
+            target_url: wpUrl,
+            timestamp: new Date().toISOString(),
+            simulated: true,
+            status: "success",
+            post_id: Math.floor(Math.random() * 1000) + 1,
+            payload
+          }, null, 2)
+        );
+        addLog("Publisher", "✅ WordPress mock payload saved to mock_wordpress_publish.json.");
+      } else {
+        if (!password) {
+          addLog("Publisher", `❌ WordPress publishing failed: env var ${pwEnvVar} not set.`);
+        } else {
+          addLog("Publisher", `Publishing to WordPress at ${wpUrl}...`);
+          try {
+            const authHeader = "Basic " + Buffer.from(`${username}:${password}`).toString("base64");
+            const res = await fetch(`${wpUrl}/posts`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": authHeader,
+              },
+              body: JSON.stringify(payload),
+            });
+            if (res.ok) {
+              const data = await res.json();
+              addLog("Publisher", `✅ Successfully published to WordPress! Post ID: ${data.id}`);
+            } else {
+              const errText = await res.text();
+              addLog("Publisher", `❌ WordPress API error: ${res.status} - ${errText}`);
+            }
+          } catch (err: any) {
+            addLog("Publisher", `❌ WordPress communication error: ${err.message}`);
+          }
+        }
+      }
+    }
+
+    // Webhook Publication
+    if (config.webhook && config.webhook.enabled) {
+      const webhookUrl = config.webhook.url;
+      const payload = {
+        event: "newsletter_published",
+        timestamp: new Date().toISOString(),
+        content: markdownContent,
+      };
+
+      if (dryRun) {
+        addLog("Publisher", `[Dry Run] Simulating Webhook dispatch to ${webhookUrl}`);
+        fs.writeFileSync(
+          path.join(process.cwd(), "mock_webhook_publish.json"),
+          JSON.stringify({
+            target_url: webhookUrl,
+            timestamp: new Date().toISOString(),
+            simulated: true,
+            status: "success",
+            payload
+          }, null, 2)
+        );
+        addLog("Publisher", "✅ Webhook mock payload saved to mock_webhook_publish.json.");
+      } else {
+        addLog("Publisher", `Dispatching Webhook to ${webhookUrl}...`);
+        try {
+          const res = await fetch(webhookUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+          });
+          if (res.ok) {
+            addLog("Publisher", "✅ Webhook successfully triggered!");
+          } else {
+            addLog("Publisher", `❌ Webhook error: ${res.status}`);
+          }
+        } catch (err: any) {
+          addLog("Publisher", `❌ Webhook communication error: ${err.message}`);
+        }
+      }
+    }
+  } catch (err: any) {
+    addLog("Publisher", `❌ Publisher general error: ${err.message}`);
+  }
+}
+
 // API Route: Trigger Multi-Agent Workflow
 app.post("/api/generate", async (req, res) => {
   const {
@@ -1330,20 +1669,20 @@ app.post("/api/generate", async (req, res) => {
 
   console.log(`Starting Autonomous multi-agent pipeline for niche: ${targetNiche}${topic ? ` (Topic: ${topic})` : ""}${model ? ` (Model: ${model})` : ""}`);
 
-  // Persist keys if passed
-  if (customGeminiApiKey && customGeminiApiKey.trim() !== "") {
+  // Persist keys if changed
+  if (customGeminiApiKey && customGeminiApiKey.trim() !== "" && customGeminiApiKey.trim() !== process.env.GEMINI_API_KEY && customGeminiApiKey.trim() !== "MY_GEMINI_API_KEY") {
     updateEnvFile("GEMINI_API_KEY", customGeminiApiKey.trim());
   }
-  if (customOpenAIApiKey && customOpenAIApiKey.trim() !== "") {
+  if (customOpenAIApiKey && customOpenAIApiKey.trim() !== "" && customOpenAIApiKey.trim() !== process.env.OPENAI_API_KEY) {
     updateEnvFile("OPENAI_API_KEY", customOpenAIApiKey.trim());
   }
-  if (customAnthropicApiKey && customAnthropicApiKey.trim() !== "") {
+  if (customAnthropicApiKey && customAnthropicApiKey.trim() !== "" && customAnthropicApiKey.trim() !== process.env.ANTHROPIC_API_KEY) {
     updateEnvFile("ANTHROPIC_API_KEY", customAnthropicApiKey.trim());
   }
-  if (customGroqApiKey && customGroqApiKey.trim() !== "") {
+  if (customGroqApiKey && customGroqApiKey.trim() !== "" && customGroqApiKey.trim() !== process.env.GROQ_API_KEY) {
     updateEnvFile("GROQ_API_KEY", customGroqApiKey.trim());
   }
-  if (customOllamaHost && customOllamaHost.trim() !== "") {
+  if (customOllamaHost && customOllamaHost.trim() !== "" && customOllamaHost.trim() !== process.env.OLLAMA_HOST) {
     updateEnvFile("OLLAMA_HOST", customOllamaHost.trim());
   }
 
@@ -1614,17 +1953,37 @@ You MUST respond ONLY with a JSON object in this exact format:
         ],
       };
 
+      const competitorsToolDeclaration = {
+        functionDeclarations: [
+          {
+            name: "fetch_custom_competitor_headlines",
+            description:
+              "Fetches the latest tech headlines and research articles from custom competitor and tracking targets registered in competitors.json. Use this to scout competing products, projects, and announcements.",
+            parameters: {
+              type: Type.OBJECT,
+              properties: {
+                max_items: {
+                  type: Type.INTEGER,
+                  description: "How many raw headlines to retrieve (default 15, max 30).",
+                },
+              },
+              required: [],
+            },
+          },
+        ],
+      };
+
       const scoutMissionPrompt = `You are Agent A (The Trend Scout), an autonomous AI research agent equipped with live technology RSS feed tools.
 
 Your mission:
-1. Call the appropriate tools (fetch_hackernews_headlines, fetch_techcrunch_headlines, fetch_google_blog_headlines, fetch_openai_blog_headlines, fetch_zoho_blog_headlines, fetch_meta_blog_headlines, fetch_netflix_blog_headlines, or fetch_aws_blog_headlines) to retrieve live technology news, developer trends, and product announcements.
+1. Call the appropriate tools (fetch_hackernews_headlines, fetch_techcrunch_headlines, fetch_google_blog_headlines, fetch_openai_blog_headlines, fetch_zoho_blog_headlines, fetch_meta_blog_headlines, fetch_netflix_blog_headlines, fetch_aws_blog_headlines, or fetch_custom_competitor_headlines) to retrieve live technology news, developer trends, and product announcements.
 2. Analyze all returned headlines and select exactly 5 that are most technically relevant to: "${targetNiche}"
 3. EXCLUDE: job postings ("Who's Hiring"), generic marketing/business news, and non-technical opinion pieces.
 4. INCLUDE: Technical breakthroughs, startup engineering system design post-mortems, new open-source tools, system design discussions.
 5. For each story, write a 1-2 sentence technical summary explaining why it matters to developers in "${targetNiche}".
 6. Assign an engagement score (50-600) based on technical depth and niche relevance.`;
 
-      addLog("Trend Scout", "🔧 Registering tools: HackerNews, TechCrunch, Google, OpenAI, Zoho, Meta, Netflix, AWS");
+      addLog("Trend Scout", "🔧 Registering tools: HackerNews, TechCrunch, Google, OpenAI, Zoho, Meta, Netflix, AWS, Competitors");
       addLog("Trend Scout", "Calling tools autonomously to fetch live developer stories...");
 
       try {
@@ -1642,6 +2001,7 @@ Your mission:
               metaToolDeclaration,
               netflixToolDeclaration,
               awsToolDeclaration,
+              competitorsToolDeclaration,
             ],
           },
           keys,
@@ -1680,6 +2040,9 @@ Your mission:
           } else if (fc.name === "fetch_aws_blog_headlines") {
             addLog("Trend Scout", `✅ Tool call approved: "${fc.name}" (max_items=${maxItems}). Connecting to AWS Blog RSS...`);
             rawHeadlines = await fetchAWSBlogHeadlines(maxItems);
+          } else if (fc.name === "fetch_custom_competitor_headlines") {
+            addLog("Trend Scout", `✅ Tool call approved: "${fc.name}" (max_items=${maxItems}). Connecting to custom competitor feeds...`);
+            rawHeadlines = await fetchCustomCompetitorHeadlines(maxItems);
           }
 
           addLog(
@@ -2510,6 +2873,10 @@ ${draftContent}`;
       },
       telemetry
     };
+
+    // ---- 5. AGENT C PUBLISHER ACTIVATION ----
+    addLog("System", "Activating Agent C Publisher stage...");
+    await runAgentCPublisherTs(polishedNewsletter, addLog);
 
     saveTelemetryRecord(record);
 
