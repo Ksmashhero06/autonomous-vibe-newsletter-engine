@@ -561,6 +561,7 @@ npm run lint     # TypeScript type check
 | **Day 5** | Production Fleet & Observability | 8-source RSS registry; background worker; execution telemetry; multi-model support; custom topic mode; unified React dashboard |
 | **Day 6** | Evidence-Based RAG & Fact Checker | Crawls URLs, vectorizes with `text-embedding-004`, cosine similarity retrieval, post-draft claims audit (Agent D), 5-span telemetry timeline |
 | **Day 7** | Resilience & June 2026 Telemetry | Fallback to `gemini-embedding-2`; 10 automated technical edge-case stress tests (`test_edge_cases.py`); integrated 10 fast-moving June 2026 tech news topics |
+| **Day 8 (Upgrade)** | SDK Migration & Grounding | Migrated pipeline to new `google-genai` SDK; implemented Google Search grounding for Agent B (Writer) to fetch and cite real-time links; saved verified sources in `run_history.json` |
 
 ---
 
@@ -602,23 +603,6 @@ npm run lint     # TypeScript type check
 | **Python Dashboard** | Streamlit |
 | **Data storage** | Local JSON files + Markdown files (no database) |
 | **RSS parsing** | Regex-based XML parser (no external library — zero deps for Python) |
-
----
-
-## 🚀 SDK Migration & Google Search Grounding Upgrade
-
-We migrated the Python agent pipeline from the legacy `google-generativeai` SDK to the new `google-genai` SDK and integrated **Google Search Grounding**:
-
-*   **SDK Migration & Backward-Compatible Wrappers**:
-    *   Refactored `_init_genai()` in `agent_pipeline.py` to import the new `google.genai` SDK and initialize a central client (`google.genai.Client`).
-    *   Implemented wrappers (`GeminiGenAIWrapper`, `GeminiChatWrapper`, `GeminiResponseWrapper`, `GeminiPartWrapper`, `GeminiUsageMetadataWrapper`) to translate existing agent orchestration and tool-calling loops without breaking legacy signatures or REST mock environments.
-*   **Google Search Grounding Integration**:
-    *   Conditionally injected the `"google_search"` tool to Agent B (Writer) during live runs.
-    *   Designed `GeminiGenAIWrapper` to convert the string `"google_search"` into the native `types.Tool(google_search=types.GoogleSearch())` object configuration.
-*   **Telemetry & Observation Logging**:
-    *   Configured `GeminiResponseWrapper` to extract the `grounding_metadata` chunks from Gemini's response.
-    *   Extracted live citation details (`title`, `url`) and stored them under `"grounding_sources"` inside the execution telemetry for Agent B.
-    *   Updated `save_telemetry` and `run_history.json` structures to log these citation sources permanently in run history records.
 
 ---
 
