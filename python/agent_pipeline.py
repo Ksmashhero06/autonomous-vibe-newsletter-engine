@@ -42,6 +42,7 @@ import urllib.parse
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from html.parser import HTMLParser
+from typing import Any
 # Calculate project root directory
 script_dir = os.path.dirname(os.path.abspath(__file__))
 if os.path.basename(script_dir) in ["python", "scripts", "tests"]:

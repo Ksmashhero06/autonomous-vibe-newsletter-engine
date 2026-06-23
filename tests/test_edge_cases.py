@@ -9,9 +9,12 @@ from datetime import datetime
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-# Add project root directory to path
+# Add project root and python directory to path
 test_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.abspath(os.path.join(test_dir, ".."))
+python_dir = os.path.join(project_root, "python")
+if python_dir not in sys.path:
+    sys.path.insert(0, python_dir)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
@@ -123,7 +126,7 @@ def run_test_scenario(scenario, run_index=1):
     
     # Read telemetry of this run from run_history.json
     run_telemetry = {}
-    history_path = "run_history.json"
+    history_path = os.path.join(project_root, "run_history.json")
     if os.path.exists(history_path):
         try:
             with open(history_path, "r", encoding="utf-8") as f:
