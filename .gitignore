@@ -19,3 +19,5 @@ publishing_config.json
 # Ignore large walkthrough media files
 screenshots/*.mp4
 screenshots/*.webp
+walkthrough_media/*.mp4
+walkthrough_media/*.webp
