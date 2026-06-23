@@ -101,7 +101,7 @@ Our vectorized memory system resolves this by computing embeddings for all candi
 The cosine similarity of two vectors $A$ and $B$ is calculated as:
 $$\text{Similarity} = \frac{A \cdot B}{\|A\| \|B\|}$$
 
-#### Implementation Code Snippet (Python memory skill in `agent_pipeline.py`)
+#### Implementation Code Snippet (Python memory skill in `python/agent_pipeline.py`)
 ```python
 def cosine_similarity(v1: list[float], v2: list[float]) -> float:
     dot_product = sum(a * b for a, b in zip(v1, v2))
@@ -140,7 +140,7 @@ def check_past_issues(titles: list[str]) -> dict[str, list[str]]:
 ### 3. Automated Technical Resilience & Edge-Case Stress Testing
 To guarantee operational stability, the engine features:
 - **Vector Embedding Fallback Loop**: If the default `text-embedding-004` model returns a `404` or mismatch, the orchestrator dynamically falls back to `gemini-embedding-2` to calculate dense 3072-dimensional embeddings.
-- **10 Edge-Case Stress Tests**: An automated validator (`test_edge_cases.py`) verifying unclosed Markdown blocks, complex math equations ($O(N \log N)$), deep RAG retrieves, kernel evidence constraints, prompt injection blocks, and critique-driven recoveries.
+- **10 Edge-Case Stress Tests**: An automated validator (`tests/test_edge_cases.py`) verifying unclosed Markdown blocks, complex math equations ($O(N \log N)$), deep RAG retrieves, kernel evidence constraints, prompt injection blocks, and critique-driven recoveries.
 
 ---
 
@@ -251,7 +251,7 @@ Each generation run outputs standard trace telemetry to `run_history.json` with 
 - **Day 4 (Guardrails):** Implemented prompt injection defenses and automated rewrite loops.
 - **Day 5 (Dashboard):** Registered 8 live RSS tools and completed the background scheduler.
 - **Day 6 (Fact Checker & RAG):** Embedded scraped article data and fact-checked drafts using Cosine Similarity.
-- **Day 7 (Resilience & Telemetry):** Implemented `gemini-embedding-2` fallback for RAG vectorization and executed 10 technical edge-case stress tests (`test_edge_cases.py`).
+- **Day 7 (Resilience & Telemetry):** Implemented `gemini-embedding-2` fallback for RAG vectorization and executed 10 technical edge-case stress tests (`tests/test_edge_cases.py`).
 - **Post-Day 7 (Optimization):** Swapped simple string checks for a **Vectorized Memory Database** and implemented the **Critique-Driven RAG Loop**.
 
 ---
@@ -270,8 +270,13 @@ Each generation run outputs standard trace telemetry to `run_history.json` with 
 ```
 ├── server.ts              # Express backend & pipeline orchestrator
 ├── src/App.tsx            # React SPA — 5-tab dashboard
-├── agent_pipeline.py      # Python CLI pipeline (all 5 agents)
-├── background_worker.py   # Python scheduler (runs autonomous cycles)
+├── python/                # Core Python agent implementations & worker
+│   ├── agent_pipeline.py      # Python CLI pipeline (all 5 agents)
+│   ├── background_worker.py   # Python scheduler (runs autonomous cycles)
+│   ├── dashboard.py           # Streamlit legacy observability dashboard
+│   └── upload_to_drive.py     # Google Drive auto-archive integration
+├── tests/                 # Edge-case validation and testing suite
+│   └── test_edge_cases.py     # 10 scenario edge-case test runner
 ├── newsletters/           # Auto-archived .md newsletters
 ├── run_history.json       # OTel telemetry log (last 50 runs)
 ├── agent_interactions.json# Agent-to-agent chat messages log
@@ -305,7 +310,7 @@ Walk through the architecture diagram: React → Express → Agent A → RAG Fet
 - Switch to "Metrics & Analytics" — show token & quality charts
 
 **[3:30–4:30] Key Concepts**
-- Code: Gemini Function Calling agentic loop in agent_pipeline.py
+- Code: Gemini Function Calling agentic loop in python/agent_pipeline.py
 - Code: `check_past_issues` vectorized similarity checking
 - Code: Dynamic critique-driven feedback loop to the RAG Fetcher
 - Telemetry: 6-span OpenTelemetry traces
