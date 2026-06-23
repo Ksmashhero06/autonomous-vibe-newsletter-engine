@@ -9,8 +9,11 @@ from datetime import datetime
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-# Add current directory to path
-sys.path.append(os.getcwd())
+# Add project root directory to path
+test_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(test_dir, ".."))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 import agent_pipeline
 
@@ -193,8 +196,9 @@ def main():
         time.sleep(1)
         
     # Compile markdown artifact
-    artifact_path = os.path.join("artifacts", "edge_case_test_results.md")
-    os.makedirs("artifacts", exist_ok=True)
+    artifacts_dir = os.path.join(project_root, "artifacts")
+    artifact_path = os.path.join(artifacts_dir, "edge_case_test_results.md")
+    os.makedirs(artifacts_dir, exist_ok=True)
     
     with open(artifact_path, "w", encoding="utf-8") as f:
         f.write("# 🧪 Edge-Case Stress-Test Results Report\n\n")
