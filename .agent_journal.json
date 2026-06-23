@@ -1,14 +1,19 @@
 {
-  "current_objective": "Update docs/kaggle_writeup_submission.md to reflect subdirectory file moves",
+  "current_objective": "Move screenshots, screen recording, and walkthrough to project folder",
   "steps_completed": [
     {
       "step_number": 1,
-      "action": "Updated docs/kaggle_writeup_submission.md",
-      "finding": "Identified references to agent_pipeline.py, background_worker.py, and test_edge_cases.py, and updated them to point to python/ and tests/ directories. Also updated the Repository Structure graphic."
+      "action": "Copied all screenshots and webp recording to project screenshots/ directory",
+      "finding": "Verified files were copied successfully to d:\\ksmashhero\\g_course\\project\\screenshots\\"
+    },
+    {
+      "step_number": 2,
+      "action": "Created project-level walkthrough.md with relative paths",
+      "finding": "Created walkthrough.md in project root referencing screenshots/ folder."
     }
   ],
   "active_files": [
-    "docs/kaggle_writeup_submission.md"
+    "walkthrough.md"
   ],
-  "next_step": "Stage and commit changes to GitHub"
+  "next_step": "None"
 }
