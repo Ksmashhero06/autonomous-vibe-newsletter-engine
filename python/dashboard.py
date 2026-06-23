@@ -4,6 +4,14 @@ import json
 import glob
 from datetime import datetime
 
+# Add script directory and parent directory to path to resolve imports
+script_dir = os.path.dirname(os.path.abspath(__file__))
+if script_dir not in sys.path:
+    sys.path.insert(0, script_dir)
+parent_dir = os.path.abspath(os.path.join(script_dir, ".."))
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
 # ── Streamlit Cloud: pull GEMINI_API_KEY from Secrets if present ──────────────
 try:
     import streamlit as st
@@ -144,7 +152,9 @@ section[data-testid="stSidebar"] * {
 # ──────────────────────────────────────────────────────────────────────────────
 # Data loaders
 # ──────────────────────────────────────────────────────────────────────────────
-PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
+# Calculate project directory
+script_dir = os.path.dirname(os.path.abspath(__file__))
+PROJECT_DIR = os.path.abspath(os.path.join(script_dir, "..")) if os.path.basename(script_dir) in ["python", "scripts", "tests"] else script_dir
 
 def load_publishing_config():
     path = os.path.join(PROJECT_DIR, "publishing_config.json")

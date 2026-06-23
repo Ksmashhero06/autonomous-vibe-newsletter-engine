@@ -42,7 +42,12 @@ import urllib.parse
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from html.parser import HTMLParser
-from typing import Any
+# Calculate project root directory
+script_dir = os.path.dirname(os.path.abspath(__file__))
+if os.path.basename(script_dir) in ["python", "scripts", "tests"]:
+    PROJECT_ROOT = os.path.abspath(os.path.join(script_dir, ".."))
+else:
+    PROJECT_ROOT = script_dir
 
 def load_env_file():
     try:
@@ -1112,7 +1117,7 @@ def calculate_token_cost(model_name: str, prompt_tokens: int, output_tokens: int
 
 def save_telemetry(niche: str, model_name: str, status: str, error_message: str = None):
     import uuid
-    history_path = os.path.join(os.path.dirname(__file__), "run_history.json")
+    history_path = os.path.join(PROJECT_ROOT, "run_history.json")
     
     history = []
     if os.path.exists(history_path):
@@ -1776,7 +1781,7 @@ def check_past_issues(titles: list[str]) -> dict[str, list[str]]:
         A dict containing 'covered_titles', a list of titles that were already covered.
     """
     print(f"  [🔧 Tool] check_past_issues(titles={titles})")
-    past_issues_path = os.path.join(os.path.dirname(__file__), "past_issues.json")
+    past_issues_path = os.path.join(PROJECT_ROOT, "past_issues.json")
     if not os.path.exists(past_issues_path):
         return {"covered_titles": []}
 
@@ -1872,7 +1877,7 @@ def fetch_custom_competitor_headlines(max_items: int = 15) -> dict[str, Any]:
     max_items = max(1, min(int(max_items), 30))
     print(f"  [🔧 Tool] fetch_custom_competitor_headlines(max_items={max_items})")
     
-    config_path = os.path.join(os.getcwd(), "competitors.json")
+    config_path = os.path.join(PROJECT_ROOT, "competitors.json")
     if not os.path.exists(config_path):
         print("  [🔧 Tool] ⚠️ competitors.json not found. Returning empty list.")
         return {"headlines": [], "count": 0, "error": "competitors.json not found"}
@@ -3094,7 +3099,7 @@ Draft to evaluate:
 
 def update_past_issues(niche: str, topics: list[dict], newsletter_content: str):
     """Parses selected topics from the final draft and appends them to past_issues.json with vectors."""
-    past_issues_path = os.path.join(os.path.dirname(__file__), "past_issues.json")
+    past_issues_path = os.path.join(PROJECT_ROOT, "past_issues.json")
 
     # Load existing
     past_issues = []
@@ -3369,7 +3374,7 @@ def publish_to_wordpress(md: str, config: dict, simulate: bool = False) -> dict:
     dry_run = config.get("dry_run", True) or simulate or not password or not username or not url
     
     if dry_run:
-        mock_file = os.path.join(os.getcwd(), "mock_wordpress_publish.json")
+        mock_file = os.path.join(PROJECT_ROOT, "mock_wordpress_publish.json")
         try:
             with open(mock_file, "w", encoding="utf-8") as f:
                 json.dump({"payload": payload, "headers": {"Authorization": f"Basic {username}:[MASKED]"}}, f, indent=2)
@@ -3435,7 +3440,7 @@ def trigger_webhook(md: str, config: dict, telemetry_data: dict, simulate: bool 
     }
     
     if dry_run:
-        mock_file = os.path.join(os.getcwd(), "mock_webhook_publish.json")
+        mock_file = os.path.join(PROJECT_ROOT, "mock_webhook_publish.json")
         try:
             with open(mock_file, "w", encoding="utf-8") as f:
                 json.dump(payload, f, indent=2)
@@ -3474,7 +3479,7 @@ def run_agent_c_publisher(md: str, telemetry_data: dict, simulate: bool = False)
     Agent C (Publisher) orchestrator. Loads publishing_config.json,
     runs the WordPress & Webhook pipelines, and logs the execution status.
     """
-    config_path = os.path.join(os.getcwd(), "publishing_config.json")
+    config_path = os.path.join(PROJECT_ROOT, "publishing_config.json")
     config = {"wordpress": {"enabled": False}, "webhook": {"enabled": False}, "dry_run": True}
     
     if os.path.exists(config_path):

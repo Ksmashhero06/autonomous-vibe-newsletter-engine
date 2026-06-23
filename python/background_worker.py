@@ -14,10 +14,16 @@ from datetime import datetime, timedelta
 import threading
 
 # Add current dir to path to import agent_pipeline
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+script_dir = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(script_dir, "..")) if os.path.basename(script_dir) in ["python", "scripts", "tests"] else script_dir
+
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+sys.path.append(script_dir)
+
 from agent_pipeline import run_pipeline
 
-STATUS_FILE = "background_worker_status.json"
+STATUS_FILE = os.path.join(PROJECT_ROOT, "background_worker_status.json")
 
 class BackgroundWorker:
     def __init__(self, niche: str, model: str, interval_minutes: float, simulate: bool):
