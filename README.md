@@ -25,7 +25,7 @@ npm run dev        # → React Control Panel at http://localhost:3000
 
 No API key? Run in simulation mode — the pipeline still works end-to-end:
 ```bash
-python agent_pipeline.py --simulate
+python python/agent_pipeline.py --simulate
 ```
 
 ---
@@ -35,9 +35,9 @@ python agent_pipeline.py --simulate
 | Interface | URL | Command | Purpose |
 |---|---|---|---|
 | **React Control Panel** | `http://localhost:3000` | `npm run dev` | Primary UI — generate, monitor, archive |
-| **Python Streamlit Dashboard** | `http://localhost:8501` | `python -m streamlit run dashboard.py` | Legacy observability dashboard |
-| **CLI Pipeline** | Terminal | `python agent_pipeline.py` | Headless / scheduled runs |
-| **Background Worker** | — | `python background_worker.py` | Auto-generate on a timer |
+| **Python Streamlit Dashboard** | `http://localhost:8501` | `python -m streamlit run python/dashboard.py` | Legacy observability dashboard |
+| **CLI Pipeline** | Terminal | `python python/agent_pipeline.py` | Headless / scheduled runs |
+| **Background Worker** | — | `python python/background_worker.py` | Auto-generate on a timer |
 
 ---
 
@@ -96,7 +96,7 @@ If you were to take this exact architecture and deploy it for a business or a pe
 
 ## 🤖 Agent A — Trend Scout (Alpha)
 
-**File:** `agent_pipeline.py` → `run_agent_a()` / `server.ts`
+**File:** `python/agent_pipeline.py` → `run_agent_a()` / `server.ts`
 **Role:** Autonomous live research and topic discovery
 
 ### What it does, step by step
@@ -166,7 +166,7 @@ Each tool: fetches RSS XML → parses `<item>` blocks with regex → cleans HTML
 
 ## ✍️ Agent B — The Writer (Beta)
 
-**File:** `agent_pipeline.py` → `run_agent_b()` / `server.ts`
+**File:** `python/agent_pipeline.py` → `run_agent_b()` / `server.ts`
 **Role:** Memory-aware newsletter authoring with automatic rewrite on failure
 
 ### What it does, step by step
@@ -242,7 +242,7 @@ def check_past_issues(titles):
 
 ## 🔬 Agent C — The Evaluator (Gamma)
 
-**File:** `agent_pipeline.py` → `run_agent_c()` / `server.ts`
+**File:** `python/agent_pipeline.py` → `run_agent_c()` / `server.ts`
 **Role:** Two-stage quality enforcement — programmatic guardrail + LLM-as-judge
 
 ### Stage 1 — Programmatic Security Guardrail
@@ -429,7 +429,7 @@ Contains the full Streamlit dashboard source code as a downloadable `app.py`. In
 | `past_issues.json` | JSON array | `update_past_issues()` (Python) | `check_past_issues` tool (Agent B) | Memory DB — prevents topic repetition |
 | `run_history.json` | JSON array (max 50) | `save_telemetry()` (Python) + `server.ts` | `/api/history` | Full per-run stats for all 3 agents |
 | `agent_interactions.json` | JSON array | `log_agent_interaction()` (Python) + `server.ts` | `/api/interactions` | Agent-to-agent message log (overwritten each run) |
-| `background_worker_status.json` | JSON object | `background_worker.py` | `/api/worker-status` | Scheduler heartbeat: idle/generating/stopped |
+| `background_worker_status.json` | JSON object | `python/background_worker.py` | `/api/worker-status` | Scheduler heartbeat: idle/generating/stopped |
 | `newsletters/` | Folder of `.md` files | `run_pipeline()` + `server.ts` | `/api/drafts/*` | Archived final newsletters |
 | `.env` | Key=value | `updateEnvFile()` in `server.ts` | `dotenv`, `load_env_file()` | `GEMINI_API_KEY` storage |
 
@@ -490,9 +490,9 @@ Contains the full Streamlit dashboard source code as a downloadable `app.py`. In
 ### 1. Vector Embedding Fallback Loop
 To handle key permissions or model availability restrictions where `text-embedding-004` is not supported, the engine implements an automated fallback mechanism:
 - If a `404` or model mismatch is returned, it automatically switches to `gemini-embedding-2` for generating dense 3072-dimensional vector representations.
-- This is fully integrated into both Python (`agent_pipeline.py`) and TypeScript (`server.ts`) codebases to ensure uninterrupted operation.
+- This is fully integrated into both Python (`python/agent_pipeline.py`) and TypeScript (`server.ts`) codebases to ensure uninterrupted operation.
 
-### 2. The 10 Edge-Case Stress Tests (`test_edge_cases.py`)
+### 2. The 10 Edge-Case Stress Tests (`tests/test_edge_cases.py`)
 A comprehensive automated test runner validates the pipeline against 10 critical security, formatting, and semantic challenges:
 1. **Unclosed Markdown Blocks**: Ensures the Stage 1 security guardrail catches and corrects unclosed code blocks before LLM review.
 2. **Mathematical Notations**: Confirms formatting guardrails correctly parse matrix equations like $O(N \log N)$ and double-escaped variables.
@@ -507,17 +507,17 @@ A comprehensive automated test runner validates the pipeline against 10 critical
 
 Run the test suite:
 ```bash
-python test_edge_cases.py
+python tests/test_edge_cases.py
 ```
 
 ---
 
 ## 🔧 CLI Reference
 
-### `agent_pipeline.py`
+### `python/agent_pipeline.py`
 
 ```bash
-python agent_pipeline.py [OPTIONS]
+python python/agent_pipeline.py [OPTIONS]
 
 Options:
   --niche "AI & Agentic Frameworks"   Target niche (default: "AI & Agentic Frameworks")
@@ -526,16 +526,16 @@ Options:
   --topic "Model Context Protocol"    Custom topic — agents deconstruct and write about it
 
 Examples:
-  python agent_pipeline.py --simulate
-  python agent_pipeline.py --niche "Rust Systems & WebAssembly"
-  python agent_pipeline.py --niche "Edge AI" --model gemini-1.5-pro
-  python agent_pipeline.py --topic "Kubernetes autoscaling" --niche "Cloud Native"
+  python python/agent_pipeline.py --simulate
+  python python/agent_pipeline.py --niche "Rust Systems & WebAssembly"
+  python python/agent_pipeline.py --niche "Edge AI" --model gemini-1.5-pro
+  python python/agent_pipeline.py --topic "Kubernetes autoscaling" --niche "Cloud Native"
 ```
 
-### `background_worker.py`
+### `python/background_worker.py`
 
 ```bash
-python background_worker.py [OPTIONS]
+python python/background_worker.py [OPTIONS]
 
 Options:
   --niche "AI & Agentic Frameworks"   Target niche
@@ -544,8 +544,8 @@ Options:
   --simulate                          Offline simulation mode
 
 Examples:
-  python background_worker.py --simulate --interval 5
-  python background_worker.py --niche "Web3 Development" --interval 30
+  python python/background_worker.py --simulate --interval 5
+  python python/background_worker.py --niche "Web3 Development" --interval 30
 ```
 
 Background worker writes `background_worker_status.json` after every cycle. The React dashboard polls this via `/api/worker-status`.
