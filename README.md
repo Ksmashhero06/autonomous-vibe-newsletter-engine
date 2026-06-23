@@ -3,6 +3,10 @@
 > **v6.0.0 — Enterprise-Grade Evidence-Based RAG Platform**
 > Built during the Kaggle intensive course: **"5-Day AI Agents: Intensive Vibe Coding Course With Google"**
 
+## 📺 Walkthrough Video Demo
+Watch the full walkthrough video showcasing the multi-agent editorial production system, live agent cooperation, telemetry timeline logs, metrics analytics, and outbox publisher payload configuration:
+👉 **[Watch Walkthrough Video on YouTube](https://youtu.be/bPorhD3Drgg)**
+
 An autonomous multi-agent editorial production system. It researches live tech news, writes full technical newsletters, enforces quality with guardrails, and stores everything — with zero human involvement after you press the button.
 
 Runs **100% locally** on standard hardware. Uses the **free Google AI Studio Gemini API**. No cloud bills. No subscriptions.
