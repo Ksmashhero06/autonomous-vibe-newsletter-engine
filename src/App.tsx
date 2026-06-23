@@ -111,9 +111,9 @@ export default function App() {
   const [anthropicApiKey, setAnthropicApiKey] = useState("");
   const [groqApiKey, setGroqApiKey] = useState("");
   const [ollamaHost, setOllamaHost] = useState("http://localhost:11434");
-  const [niche, setNiche] = useState("AI & Agentic Frameworks");
-  const [topic, setTopic] = useState("");
-  const [modelName, setModelName] = useState("gemini-2.5-flash");
+  const [niche, setNiche] = useState(() => localStorage.getItem("newsroom_niche") || "AI & Agentic Frameworks");
+  const [topic, setTopic] = useState(() => localStorage.getItem("newsroom_topic") || "");
+  const [modelName, setModelName] = useState(() => localStorage.getItem("newsroom_model_name") || "gemini-2.5-flash");
 
   // Load from localStorage
   useEffect(() => {
@@ -123,6 +123,19 @@ export default function App() {
     setGroqApiKey(localStorage.getItem("newsroom_groq_api_key") || "");
     setOllamaHost(localStorage.getItem("newsroom_ollama_host") || "http://localhost:11434");
   }, []);
+
+  // Sync to localStorage
+  useEffect(() => {
+    localStorage.setItem("newsroom_niche", niche);
+  }, [niche]);
+
+  useEffect(() => {
+    localStorage.setItem("newsroom_topic", topic);
+  }, [topic]);
+
+  useEffect(() => {
+    localStorage.setItem("newsroom_model_name", modelName);
+  }, [modelName]);
 
   const updateApiKey = (val: string) => {
     setApiKey(val);
