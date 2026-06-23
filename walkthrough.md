@@ -5,6 +5,9 @@ This document compiles the high-resolution screenshots and screen recording capt
 ## 🎥 Continuous Walkthrough Demo
 Here is the recorded walkthrough showing the entire user journey: selecting the technical niche, inputting a custom topic, choosing the LLM router model, waking up the multi-agent newsroom, monitoring the streaming agent cooperation logs, inspecting OpenTelemetry fleet transaction spans, checking the archived newsletter output, viewing metrics trends, and validating publisher webhook payload.
 
+- **Video Recording (MP4 format)**: [walkthrough.mp4](screenshots/walkthrough.mp4)
+- **Animated Preview (WebP format)**: [walkthrough.webp](screenshots/walkthrough.webp)
+
 ![Dashboard Walkthrough](screenshots/walkthrough.webp)
 
 ---
