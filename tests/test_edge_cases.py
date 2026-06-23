@@ -30,7 +30,7 @@ scenarios = [
         "id": 1,
         "title": "Deep Dive: Building a React 19 Compiler from Scratch with Nested ``` Typescript Code Blocks",
         "description": "Tests nested backticks escaping, formatting guardrails, and markdown parity.",
-        "niche": "AI & Agentic Frameworks"
+        "niche": "Developer Productivity"
     },
     {
         "id": 2,
@@ -42,7 +42,7 @@ scenarios = [
         "id": 3,
         "title": "Evaluating WebAssembly (WASM) Compilation Speed: A Benchmarking Table of Rust vs Zig in 2026",
         "description": "Tests structured markdown table generation and Agent C code_or_table checklist compliance.",
-        "niche": "AI & Agentic Frameworks"
+        "niche": "Rust Systems & WebAssembly"
     },
     {
         "id": 4,
@@ -54,7 +54,7 @@ scenarios = [
         "id": 5,
         "title": "Demystifying eBPF: Attaching Kernel Probes to Track Microservice Latency at the Socket Layer",
         "description": "Tests low-level kernel evidence tracking and Fact Checker grounding validation.",
-        "niche": "AI & Agentic Frameworks"
+        "niche": "Cloud Architecture"
     },
     {
         "id": 6,
